@@ -1,0 +1,20 @@
+{
+  "name": "personal-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "npm run lint --workspaces",
+    "db:up": "docker compose -p personal-workbench up -d mysql",
+    "db:init": "mysql -h 127.0.0.1 -P 3307 -u workbench -pworkbench_password personal_workbench < db/migration/V1__init_schema.sql",
+    "start": "npm run start -w apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

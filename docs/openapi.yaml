@@ -1,0 +1,1109 @@
+openapi: 3.0.3
+info:
+  title: Personal Workbench API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3000/api
+security:
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service status
+  /auth/register:
+    post:
+      summary: Register a user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registered user and token
+  /auth/login:
+    post:
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged-in user and token
+        "401":
+          description: Invalid username or password
+  /auth/me:
+    get:
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthUser"
+  /dashboard:
+    get:
+      summary: Get dashboard aggregate data
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Dashboard"
+  /stock-reviews:
+    get:
+      summary: Get stock review by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Stock review record
+    post:
+      summary: Upsert stock review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveStockReviewRequest"
+      responses:
+        "200":
+          description: Saved stock review
+  /task-categories:
+    get:
+      summary: List task categories
+      responses:
+        "200":
+          description: Category list
+    post:
+      summary: Create task category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskCategoryRequest"
+      responses:
+        "200":
+          description: Created category
+  /task-categories/{id}:
+    put:
+      summary: Update task category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskCategoryRequest"
+      responses:
+        "200":
+          description: Updated category
+    delete:
+      summary: Hard delete task category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Hard deleted category
+  /schedules:
+    post:
+      summary: Create a timeline time block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleRequest"
+      responses:
+        "200":
+          description: Created time block
+  /schedules/{id}:
+    delete:
+      summary: Hard delete timeline time block
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Hard deleted time block
+  /sleep-records:
+    get:
+      summary: Get sleep record by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Sleep record
+    post:
+      summary: Upsert sleep record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveSleepRecordRequest"
+      responses:
+        "200":
+          description: Saved sleep record
+  /journals:
+    get:
+      summary: Get journal by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Journal record
+    post:
+      summary: Upsert journal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveJournalRequest"
+      responses:
+        "200":
+          description: Saved journal
+  /journals/list:
+    get:
+      summary: List all journal records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Journal list
+  /morning-writings:
+    get:
+      summary: Get morning writing by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Morning writing record
+    post:
+      summary: Upsert morning writing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMorningWritingRequest"
+      responses:
+        "200":
+          description: Saved morning writing
+  /morning-writings/list:
+    get:
+      summary: List all morning writing records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Morning writing list
+  /stock-reviews/list:
+    get:
+      summary: List all stock review records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Stock review list
+  /water-records:
+    get:
+      summary: Get water record by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Water record
+    post:
+      summary: Save water cup count
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveWaterRecordRequest"
+      responses:
+        "200":
+          description: Saved water record
+  /media-watch-records:
+    get:
+      summary: Get media watch record by date
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Media watch record
+    post:
+      summary: Save media watch record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMediaWatchRecordRequest"
+      responses:
+        "200":
+          description: Saved media watch record
+  /media-watch-records/list:
+    get:
+      summary: List media watch records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Media watch record list
+  /tasks:
+    get:
+      summary: List tasks
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: integer
+        - in: query
+          name: categoryId
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Task list
+    post:
+      summary: Create task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "200":
+          description: Created task
+  /tasks/reorder:
+    put:
+      summary: Reorder tasks by current visible order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskIds]
+              properties:
+                taskIds:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        "200":
+          description: Reordered tasks
+  /tasks/{id}:
+    put:
+      summary: Update task title or category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: Updated task
+    delete:
+      summary: Hard delete task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Hard deleted task, timeline blocks, and timer sessions
+  /tasks/{id}/pinned:
+    put:
+      summary: Mark task as important
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pinned]
+              properties:
+                pinned:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated task importance
+  /tasks/{id}/status:
+    put:
+      summary: Update task status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskStatusRequest"
+      responses:
+        "200":
+          description: Updated task
+  /timer-sessions/start:
+    post:
+      summary: Start task timer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartTimerRequest"
+      responses:
+        "200":
+          description: Started timer session
+        "409":
+          description: Another timer is running
+  /timer-sessions/{id}/pause:
+    put:
+      summary: Pause timer session and save elapsed timeline block
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Paused timer session and saved elapsed block
+  /timer-sessions/{id}/finish:
+    put:
+      summary: Finish timer session and save elapsed timeline block
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Finished timer session and saved elapsed block
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          nullable: true
+    AuthUser:
+      type: object
+      required: [id, username, displayName]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        displayName:
+          type: string
+    AuthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [token, user]
+              properties:
+                token:
+                  type: string
+                user:
+                  $ref: "#/components/schemas/AuthUser"
+    RegisterRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[a-zA-Z0-9_]+$"
+        displayName:
+          type: string
+          maxLength: 64
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    Dashboard:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        activeTimer:
+          nullable: true
+          $ref: "#/components/schemas/TimerSession"
+        stockReviewRecord:
+          nullable: true
+          $ref: "#/components/schemas/StockReview"
+        schedules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Schedule"
+        sleepRecord:
+          nullable: true
+          $ref: "#/components/schemas/SleepRecord"
+        journalRecord:
+          nullable: true
+          $ref: "#/components/schemas/Journal"
+        morningWritingRecord:
+          nullable: true
+          $ref: "#/components/schemas/MorningWriting"
+        waterRecord:
+          nullable: true
+          $ref: "#/components/schemas/WaterRecord"
+        mediaWatchRecord:
+          nullable: true
+          $ref: "#/components/schemas/MediaWatchRecord"
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskCategory"
+        weeklySeries:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklySeriesItem"
+        monthlySleepSeries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SleepSeriesItem"
+        weeklyStats:
+          type: object
+          properties:
+            totalMinutes:
+              type: integer
+            completedTasks:
+              type: integer
+            journalDays:
+              type: integer
+            stockReviewDays:
+              type: integer
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: integer
+          enum: [0, 1, 2, 3]
+        priority:
+          type: integer
+        pinned:
+          type: integer
+        sortOrder:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completionNote:
+          type: string
+          nullable: true
+    TaskCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        color:
+          type: string
+        targetMinutes:
+          type: integer
+        totalMinutes:
+          type: integer
+    TimerSession:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        startTime:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        status:
+          type: integer
+          enum: [0, 1, 2, 3]
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        scheduleDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: "09:00:00"
+        endTime:
+          type: string
+          example: "10:00:00"
+        title:
+          type: string
+        completed:
+          type: integer
+        kind:
+          type: integer
+          enum: [0, 1]
+          description: 0 planned, 1 actual
+        source:
+          type: integer
+          enum: [0, 1, 2]
+          description: 0 manual, 1 timer, 2 planned task
+        color:
+          type: string
+    SleepRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        sleepDate:
+          type: string
+          format: date
+        sleepStart:
+          type: string
+          format: date-time
+        wakeTime:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        qualityScore:
+          type: integer
+          nullable: true
+    Journal:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        journalDate:
+          type: string
+          format: date
+        content:
+          type: string
+          nullable: true
+        moodScore:
+          type: integer
+          nullable: true
+    MorningWriting:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        writingDate:
+          type: string
+          format: date
+        content:
+          type: string
+          nullable: true
+        moodScore:
+          type: integer
+          nullable: true
+    WaterRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        waterDate:
+          type: string
+          format: date
+        cups:
+          type: integer
+        targetCups:
+          type: integer
+        lastDrinkAt:
+          type: string
+          format: date-time
+          nullable: true
+        drinkTimes:
+          type: string
+          nullable: true
+    MediaWatchRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        watchDate:
+          type: string
+          format: date
+        title:
+          type: string
+          nullable: true
+        episode:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+    StockReview:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        reviewDate:
+          type: string
+          format: date
+        marketSummary:
+          type: string
+          nullable: true
+        operations:
+          type: string
+          nullable: true
+        holdingsReview:
+          type: string
+          nullable: true
+        goodPoints:
+          type: string
+          nullable: true
+        mistakes:
+          type: string
+          nullable: true
+        tomorrowPlan:
+          type: string
+          nullable: true
+        emotionScore:
+          type: integer
+          nullable: true
+        disciplineScore:
+          type: integer
+          nullable: true
+        tags:
+          type: string
+          nullable: true
+    WeeklySeriesItem:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        sleepMinutes:
+          type: integer
+        sleepQuality:
+          type: integer
+          nullable: true
+        journalFilled:
+          type: boolean
+        reviewFilled:
+          type: boolean
+        emotionScore:
+          type: integer
+          nullable: true
+        disciplineScore:
+          type: integer
+          nullable: true
+    SleepSeriesItem:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        sleepMinutes:
+          type: integer
+        sleepQuality:
+          type: integer
+          nullable: true
+    SaveStockReviewRequest:
+      type: object
+      required: [reviewDate]
+      properties:
+        reviewDate:
+          type: string
+          format: date
+        marketSummary:
+          type: string
+          maxLength: 10000
+        operations:
+          type: string
+          maxLength: 10000
+        holdingsReview:
+          type: string
+          maxLength: 10000
+        goodPoints:
+          type: string
+          maxLength: 10000
+        mistakes:
+          type: string
+          maxLength: 10000
+        tomorrowPlan:
+          type: string
+          maxLength: 10000
+        emotionScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        disciplineScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        tags:
+          type: string
+          maxLength: 255
+    CreateTaskCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        color:
+          type: string
+          maxLength: 32
+        icon:
+          type: string
+          maxLength: 64
+        targetMinutes:
+          type: integer
+          default: 6000
+    UpdateTaskCategoryRequest:
+      type: object
+      required: [name, color, targetMinutes]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        color:
+          type: string
+          maxLength: 32
+        icon:
+          type: string
+          maxLength: 64
+        targetMinutes:
+          type: integer
+    CreateTaskRequest:
+      type: object
+      required: [title, categoryId]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        categoryId:
+          type: integer
+          format: int64
+        priority:
+          type: integer
+          enum: [1, 2, 3]
+        dueDate:
+          type: string
+          format: date
+        estimatedMinutes:
+          type: integer
+        plannedDate:
+          type: string
+          format: date
+        plannedStartTime:
+          type: string
+          example: "09:00"
+        plannedEndTime:
+          type: string
+          example: "10:00"
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+    UpdateTaskStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: integer
+          enum: [0, 1, 2, 3]
+        completionNote:
+          type: string
+          maxLength: 1000
+    StartTimerRequest:
+      type: object
+      required: [taskId]
+      properties:
+        taskId:
+          type: integer
+          format: int64
+    CreateScheduleRequest:
+      type: object
+      required: [scheduleDate, startTime, endTime, kind]
+      properties:
+        scheduleDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: "09:00"
+        endTime:
+          type: string
+          example: "10:00"
+        taskId:
+          type: integer
+          format: int64
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        kind:
+          type: integer
+          enum: [0, 1]
+          description: 0 planned, 1 actual
+        title:
+          type: string
+          maxLength: 200
+          description: Required when taskId is omitted
+        note:
+          type: string
+          maxLength: 500
+    SaveSleepRecordRequest:
+      type: object
+      required: [sleepDate, sleepStart, wakeTime]
+      properties:
+        sleepDate:
+          type: string
+          format: date
+        sleepStart:
+          type: string
+          example: "23:30"
+        wakeTime:
+          type: string
+          example: "07:20"
+        qualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        note:
+          type: string
+          maxLength: 500
+    SaveJournalRequest:
+      type: object
+      required: [journalDate]
+      properties:
+        journalDate:
+          type: string
+          format: date
+        content:
+          type: string
+        moodScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+    SaveMorningWritingRequest:
+      type: object
+      required: [writingDate]
+      properties:
+        writingDate:
+          type: string
+          format: date
+        content:
+          type: string
+          maxLength: 10000
+        moodScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+    SaveWaterRecordRequest:
+      type: object
+      required: [waterDate, cups]
+      properties:
+        waterDate:
+          type: string
+          format: date
+        cups:
+          type: integer
+          minimum: 0
+          maximum: 8
+        targetCups:
+          type: integer
+          minimum: 1
+          maximum: 12
+    SaveMediaWatchRecordRequest:
+      type: object
+      required: [watchDate]
+      properties:
+        watchDate:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 200
+          nullable: true
+        episode:
+          type: string
+          maxLength: 100
+          nullable: true
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
