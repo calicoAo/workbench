@@ -25,9 +25,9 @@ function publicUser(user: { id: number; username: string; displayName: string })
 
 async function seedDefaultCategories(userId: number, now: Date) {
   await db.insert(taskCategories).values([
-    { userId, name: "coding", color: "#5B8DEF", icon: "code", targetMinutes: 6000, sortOrder: 10, enabled: 1, createdAt: now, updatedAt: now },
-    { userId, name: "Life", color: "#FF8FA3", icon: "sparkles", targetMinutes: 6000, sortOrder: 20, enabled: 1, createdAt: now, updatedAt: now },
-    { userId, name: "Stock Review", color: "#EA6FA3", icon: "trending-up", targetMinutes: 6000, sortOrder: 30, enabled: 1, createdAt: now, updatedAt: now }
+    { userId, name: "coding", color: "#5B8DEF", icon: "code", dimensionKey: "career", targetMinutes: 6000, sortOrder: 10, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "Life", color: "#35C99A", icon: "sparkles", dimensionKey: "life", targetMinutes: 6000, sortOrder: 20, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "Stock Review", color: "#F7C96B", icon: "trending-up", dimensionKey: "learning", targetMinutes: 6000, sortOrder: 30, enabled: 1, createdAt: now, updatedAt: now }
   ]);
 }
 

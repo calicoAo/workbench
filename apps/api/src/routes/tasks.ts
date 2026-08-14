@@ -3,18 +3,23 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { schedules, taskCategories, tasks, timerSessions } from "../db/schema.js";
+import { schedules, taskCategories, taskDailyAssignments, tasks, timerSessions } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue } from "../enums.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantTaskDoneReward, grantTaskDoneRewardInClient } from "../rewards.js";
 
 
 const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
   categoryId: z.number().int().positive(),
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(2),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable().optional(),
+  progressPercent: z.number().int().min(0).max(100).optional(),
   estimatedMinutes: z.number().int().positive().optional(),
   plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   plannedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
@@ -26,11 +31,22 @@ const updateStatusSchema = z.object({
   completionNote: z.string().max(1000).optional()
 });
 
+const completeTaskSchema = z.object({
+  scheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  completionNote: z.string().max(1000).optional()
+});
+
 const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
-  categoryId: z.number().int().positive().nullable().optional()
-}).refine((value) => value.title !== undefined || value.categoryId !== undefined, {
-  message: "title or categoryId is required"
+  description: z.string().max(2000).nullable().optional(),
+  categoryId: z.number().int().positive().nullable().optional(),
+  dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable().optional(),
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  progressPercent: z.number().int().min(0).max(100).optional()
+}).refine((value) => value.title !== undefined || value.description !== undefined || value.categoryId !== undefined || value.dueAt !== undefined || value.difficulty !== undefined || value.progressPercent !== undefined, {
+  message: "title, description, categoryId, dueAt, difficulty or progressPercent is required"
 });
 
 const updatePinnedSchema = z.object({
@@ -40,6 +56,10 @@ const updatePinnedSchema = z.object({
 const reorderSchema = z.object({
   taskIds: z.array(z.number().int().positive()).min(1)
 });
+
+function localDateTime(value: string) {
+  return new Date(`${value}:00+08:00`);
+}
 
 export const tasksRoute = new Hono()
   .get("/", async (c) => {
@@ -63,11 +83,15 @@ export const tasksRoute = new Hono()
       userId: getCurrentUserId(c),
       categoryId: body.categoryId,
       title: body.title,
+      description: body.description?.trim() || null,
       priority: body.priority,
+      difficulty: body.difficulty,
       status: TaskStatus.TODO,
       estimatedMinutes: body.estimatedMinutes,
-      dueDate: body.dueDate,
+      dueDate: body.dueAt ? body.dueAt.slice(0, 10) : body.dueDate,
+      dueAt: body.dueAt ? localDateTime(body.dueAt) : null,
       pinned: 0,
+      progressPercent: body.progressPercent ?? 0,
       sortOrder: existingTasks.length + 1,
       createdAt: now,
       updatedAt: now
@@ -124,14 +148,19 @@ export const tasksRoute = new Hono()
     const now = new Date();
     const categoryId = body.categoryId === undefined ? task.categoryId : body.categoryId;
     const title = body.title ?? task.title;
+    const description = body.description === undefined ? task.description : body.description?.trim() || null;
+    const difficulty = body.difficulty ?? task.difficulty;
+    const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? localDateTime(body.dueAt) : null;
+    const dueDate = body.dueAt === undefined ? task.dueDate : body.dueAt ? body.dueAt.slice(0, 10) : null;
+    const progressPercent = body.progressPercent ?? task.progressPercent;
     await Promise.all([
-      db.update(tasks).set({ title, categoryId, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
+      db.update(tasks).set({ title, description, categoryId, dueDate, dueAt, difficulty, progressPercent, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
       db.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)), isNull(schedules.deletedAt))),
       db.update(timerSessions).set({ categoryId, updatedAt: now }).where(and(eq(timerSessions.taskId, id), eq(timerSessions.userId, getCurrentUserId(c)), isNull(timerSessions.deletedAt)))
     ]);
 
     log.info({ userId: getCurrentUserId(c), taskId: id, categoryId, titleChanged: body.title !== undefined }, "[task_updated]");
-    return ok(c, { id, title, categoryId });
+    return ok(c, { id, title, description, categoryId, dueAt, difficulty, progressPercent });
   })
   .delete("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
@@ -141,6 +170,7 @@ export const tasksRoute = new Hono()
     }
 
     await Promise.all([
+      db.delete(taskDailyAssignments).where(and(eq(taskDailyAssignments.taskId, id), eq(taskDailyAssignments.userId, getCurrentUserId(c)))),
       db.delete(schedules).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)))),
       db.delete(timerSessions).where(and(eq(timerSessions.taskId, id), eq(timerSessions.userId, getCurrentUserId(c)))),
       db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c))))
@@ -173,8 +203,64 @@ export const tasksRoute = new Hono()
       })
       .where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
 
+    const reward =
+      body.status === TaskStatus.DONE && task.status !== TaskStatus.DONE
+        ? await grantTaskDoneReward(getCurrentUserId(c), task)
+        : null;
+
     log.info({ userId: getCurrentUserId(c), taskId: id, from: current, to: body.status }, "[task_status_changed]");
-    return ok(c, { id, status: body.status });
+    return ok(c, { id, status: body.status, reward });
+  })
+  .put("/:id/complete", async (c) => {
+    const id = z.coerce.number().int().positive().parse(c.req.param("id"));
+    const body = completeTaskSchema.parse(await c.req.json());
+    if (body.endTime <= body.startTime) {
+      throw new BusinessError(ErrorCode.PARAM_ERROR, "end time must be later than start time", 400);
+    }
+
+    const userId = getCurrentUserId(c);
+    const now = new Date();
+    const result = await db.transaction(async (tx) => {
+      const [task] = await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+      if (!task) throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
+
+      const current = task.status as TaskStatusValue;
+      if (current !== TaskStatus.DONE && !canTransitTaskStatus(current, TaskStatus.DONE)) {
+        throw new BusinessError(ErrorCode.PARAM_ERROR, "invalid task status transition");
+      }
+
+      await tx
+        .update(tasks)
+        .set({
+          status: TaskStatus.DONE,
+          completedAt: current !== TaskStatus.DONE ? now : task.completedAt,
+          completionNote: body.completionNote?.trim() ? body.completionNote.trim() : task.completionNote,
+          updatedAt: now
+        })
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+      const [scheduleResult] = await tx.insert(schedules).values({
+        userId,
+        taskId: task.id,
+        categoryId: task.categoryId,
+        scheduleDate: body.scheduleDate,
+        startTime: `${body.startTime}:00`,
+        endTime: `${body.endTime}:00`,
+        title: task.title,
+        note: body.completionNote?.trim() || undefined,
+        completed: 1,
+        kind: ScheduleKind.ACTUAL,
+        source: ScheduleSource.MANUAL,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      const reward = current !== TaskStatus.DONE ? await grantTaskDoneRewardInClient(tx, userId, task) : null;
+      return { id, status: TaskStatus.DONE, scheduleId: scheduleResult.insertId, reward };
+    });
+
+    log.info({ userId, taskId: id, scheduleId: result.scheduleId }, "[task_completed]");
+    return ok(c, result);
   })
   .put("/:id/pinned", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));

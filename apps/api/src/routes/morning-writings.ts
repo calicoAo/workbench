@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { morningWritings } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -67,7 +68,8 @@ export const morningWritingsRoute = new Hono()
         }
       });
 
+    const reward = values.content ? await grantRecordReward(getCurrentUserId(c), "morning", body.writingDate, "完成晨写") : null;
     log.info({ userId: getCurrentUserId(c), writingDate: body.writingDate }, "[morning_writing_saved]");
-    return ok(c, { writingDate: body.writingDate });
+    return ok(c, { writingDate: body.writingDate, reward });
   });
 

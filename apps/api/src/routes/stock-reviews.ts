@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { stockReviews } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -32,6 +33,18 @@ const saveStockReviewSchema = z.object({
 function normalize(value?: string) {
   const text = value?.trim();
   return text ? text : null;
+}
+
+function hasReviewContent(values: {
+  marketSummary: string | null;
+  operations: string | null;
+  holdingsReview: string | null;
+  goodPoints: string | null;
+  mistakes: string | null;
+  tomorrowPlan: string | null;
+  tags: string | null;
+}) {
+  return [values.marketSummary, values.operations, values.holdingsReview, values.goodPoints, values.mistakes, values.tomorrowPlan, values.tags].some(Boolean);
 }
 
 export const stockReviewsRoute = new Hono()
@@ -93,7 +106,8 @@ export const stockReviewsRoute = new Hono()
         }
       });
 
+    const reward = hasReviewContent(values) ? await grantRecordReward(getCurrentUserId(c), "stockReview", body.reviewDate, "完成股市复盘") : null;
     log.info({ userId: getCurrentUserId(c), reviewDate: body.reviewDate }, "[stock_review_saved]");
-    return ok(c, { reviewDate: body.reviewDate });
+    return ok(c, { reviewDate: body.reviewDate, reward });
   });
 

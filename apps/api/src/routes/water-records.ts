@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { waterRecords } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -76,7 +77,11 @@ export const waterRecordsRoute = new Hono()
         }
       });
 
+    const reward =
+      (current?.cups ?? 0) < body.targetCups && values.cups >= body.targetCups
+        ? await grantRecordReward(getCurrentUserId(c), "waterFull", body.waterDate, "喝水达标")
+        : null;
     log.info({ userId: getCurrentUserId(c), waterDate: body.waterDate, cups: body.cups }, "[water_record_saved]");
-    return ok(c, { waterDate: body.waterDate, cups: body.cups, targetCups: body.targetCups, lastDrinkAt, drinkTimes: values.drinkTimes });
+    return ok(c, { waterDate: body.waterDate, cups: body.cups, targetCups: body.targetCups, lastDrinkAt, drinkTimes: values.drinkTimes, reward });
   });
 

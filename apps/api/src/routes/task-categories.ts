@@ -9,8 +9,11 @@ import { ok } from "../http.js";
 import { log } from "../logger.js";
 
 
+const dimensionKeySchema = z.enum(["career", "creative", "learning", "life", "body", "social", "leisure", "foundation"]);
+
 const createCategorySchema = z.object({
   name: z.string().min(1).max(64),
+  dimensionKey: dimensionKeySchema.default("life"),
   color: z.string().max(32).default("#35C99A"),
   icon: z.string().max(64).optional(),
   targetMinutes: z.number().int().positive().default(6000)
@@ -18,6 +21,7 @@ const createCategorySchema = z.object({
 
 const updateCategorySchema = z.object({
   name: z.string().min(1).max(64),
+  dimensionKey: dimensionKeySchema,
   color: z.string().max(32),
   icon: z.string().max(64).optional(),
   targetMinutes: z.number().int().positive()
@@ -39,6 +43,7 @@ export const taskCategoriesRoute = new Hono()
       name: body.name,
       color: body.color,
       icon: body.icon,
+      dimensionKey: body.dimensionKey,
       targetMinutes: body.targetMinutes,
       sortOrder: 0,
       enabled: 1,
@@ -61,7 +66,7 @@ export const taskCategoriesRoute = new Hono()
 
     await db
       .update(taskCategories)
-      .set({ name: body.name, color: body.color, icon: body.icon, targetMinutes: body.targetMinutes, updatedAt: new Date() })
+      .set({ name: body.name, dimensionKey: body.dimensionKey, color: body.color, icon: body.icon, targetMinutes: body.targetMinutes, updatedAt: new Date() })
       .where(and(eq(taskCategories.id, id), eq(taskCategories.userId, getCurrentUserId(c))));
 
     log.info({ userId: getCurrentUserId(c), categoryId: id }, "[category_updated]");

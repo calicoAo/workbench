@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { mediaWatchRecords } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -86,7 +87,8 @@ export const mediaWatchRecordsRoute = new Hono()
         }
       });
 
+    const reward = await grantRecordReward(getCurrentUserId(c), "media", body.watchDate, "记录影视陪伴");
     log.info({ userId: getCurrentUserId(c), watchDate: body.watchDate, title: values.title }, "[media_watch_record_saved]");
-    return ok(c, { watchDate: body.watchDate, title: values.title, episode: values.episode, note: values.note });
+    return ok(c, { watchDate: body.watchDate, title: values.title, episode: values.episode, note: values.note, reward });
   });
 

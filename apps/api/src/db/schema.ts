@@ -16,6 +16,7 @@ export const taskCategories = mysqlTable("task_categories", {
   name: varchar("name", { length: 64 }).notNull(),
   color: varchar("color", { length: 32 }).notNull(),
   icon: varchar("icon", { length: 64 }),
+  dimensionKey: varchar("dimension_key", { length: 32 }).notNull(),
   targetMinutes: int("target_minutes").notNull(),
   sortOrder: int("sort_order").notNull(),
   enabled: tinyint("enabled").notNull(),
@@ -31,16 +32,29 @@ export const tasks = mysqlTable("tasks", {
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description"),
   priority: tinyint("priority").notNull(),
+  difficulty: tinyint("difficulty").notNull(),
   status: tinyint("status").notNull(),
   estimatedMinutes: int("estimated_minutes"),
   dueDate: date("due_date", { mode: "string" }),
+  dueAt: datetime("due_at"),
   pinned: tinyint("pinned").notNull(),
+  progressPercent: tinyint("progress_percent").notNull(),
   sortOrder: int("sort_order").notNull(),
   completedAt: datetime("completed_at"),
   completionNote: text("completion_note"),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
+});
+
+export const taskDailyAssignments = mysqlTable("task_daily_assignments", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
+  taskDate: date("task_date", { mode: "string" }).notNull(),
+  sortOrder: int("sort_order").notNull(),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull()
 });
 
 export const timerSessions = mysqlTable("timer_sessions", {
@@ -74,6 +88,14 @@ export const schedules = mysqlTable("schedules", {
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
+});
+
+export const scheduleCarryovers = mysqlTable("schedule_carryovers", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  fromScheduleId: bigint("from_schedule_id", { mode: "number", unsigned: true }).notNull(),
+  carryDate: date("carry_date", { mode: "string" }).notNull(),
+  createdAt: datetime("created_at").notNull()
 });
 
 export const sleepRecords = mysqlTable("sleep_records", {
@@ -154,6 +176,96 @@ export const mediaWatchRecords = mysqlTable("media_watch_records", {
   title: varchar("title", { length: 200 }),
   episode: varchar("episode", { length: 100 }),
   note: varchar("note", { length: 500 }),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
+export const userGrowth = mysqlTable("user_growth", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
+  level: int("level").notNull(),
+  xpTotal: int("xp_total").notNull(),
+  coins: int("coins").notNull(),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const rewardEvents = mysqlTable("reward_events", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  eventKey: varchar("event_key", { length: 128 }).notNull(),
+  sourceType: varchar("source_type", { length: 32 }).notNull(),
+  sourceId: varchar("source_id", { length: 64 }).notNull(),
+  eventDate: date("event_date", { mode: "string" }),
+  xpDelta: int("xp_delta").notNull(),
+  coinDelta: int("coin_delta").notNull(),
+  reason: varchar("reason", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull()
+});
+
+export const rewardItems = mysqlTable("reward_items", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  cost: int("cost").notNull(),
+  description: varchar("description", { length: 500 }),
+  enabled: tinyint("enabled").notNull(),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
+export const rewardRedemptions = mysqlTable("reward_redemptions", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  rewardItemId: bigint("reward_item_id", { mode: "number", unsigned: true }),
+  name: varchar("name", { length: 100 }).notNull(),
+  cost: int("cost").notNull(),
+  note: varchar("note", { length: 500 }),
+  createdAt: datetime("created_at").notNull()
+});
+
+export const aiInsights = mysqlTable("ai_insights", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  sourceType: varchar("source_type", { length: 20 }).notNull(),
+  sourceDate: date("source_date", { mode: "string" }).notNull(),
+  sourceContent: text("source_content"),
+  summary: text("summary"),
+  emotionTags: varchar("emotion_tags", { length: 255 }),
+  energyScore: tinyint("energy_score"),
+  stressKeywords: varchar("stress_keywords", { length: 255 }),
+  suggestion: text("suggestion"),
+  fullText: text("full_text"),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
+export const decisionRecords = mysqlTable("decision_records", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  decisionDate: date("decision_date", { mode: "string" }).notNull(),
+  theme: varchar("theme", { length: 200 }).notNull(),
+  benefits: text("benefits").notNull(),
+  drawbacks: text("drawbacks").notNull(),
+  benefitScore: tinyint("benefit_score").notNull(),
+  drawbackScore: tinyint("drawback_score").notNull(),
+  conclusion: varchar("conclusion", { length: 500 }),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
+export const psychologicalBridges = mysqlTable("psychological_bridges", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  bridgeDate: date("bridge_date", { mode: "string" }).notNull(),
+  desiredEffect: text("desired_effect").notNull(),
+  resistance: text("resistance").notNull(),
+  bridgeText: text("bridge_text").notNull(),
+  nextStep: varchar("next_step", { length: 500 }),
+  reassurance: varchar("reassurance", { length: 500 }),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")

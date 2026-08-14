@@ -8,6 +8,7 @@ import { ScheduleKind, ScheduleSource } from "../enums.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantReward } from "../rewards.js";
 
 
 const createScheduleSchema = z.object({
@@ -20,6 +21,12 @@ const createScheduleSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   note: z.string().trim().max(500).optional()
 });
+
+function minutesBetweenTime(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  return Math.max(0, endHour * 60 + endMinute - (startHour * 60 + startMinute));
+}
 
 export const schedulesRoute = new Hono()
   .post("/", async (c) => {
@@ -55,8 +62,23 @@ export const schedulesRoute = new Hono()
       updatedAt: now
     });
 
+    const durationMinutes = minutesBetweenTime(body.startTime, body.endTime);
+    const reward =
+      body.kind === ScheduleKind.ACTUAL && durationMinutes >= 30
+        ? await grantReward({
+            userId: getCurrentUserId(c),
+            eventKey: `schedule_actual:${getCurrentUserId(c)}:${result.insertId}`,
+            sourceType: "schedule",
+            sourceId: String(result.insertId),
+            eventDate: body.scheduleDate,
+            xp: Math.min(10, Math.floor(durationMinutes / 60) * 2),
+            coins: 0,
+            reason: "补充小时记录"
+          })
+        : null;
+
     log.info({ userId: getCurrentUserId(c), scheduleId: result.insertId }, "[schedule_created]");
-    return ok(c, { id: result.insertId });
+    return ok(c, { id: result.insertId, reward });
   })
   .delete("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));

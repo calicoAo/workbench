@@ -79,6 +79,30 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/Dashboard"
+  /task-days:
+    get:
+      summary: Get tasks accepted for a day
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily accepted task ids
+    put:
+      summary: Replace tasks accepted for a day
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDailyTasksRequest"
+      responses:
+        "200":
+          description: Saved daily accepted tasks
   /stock-reviews:
     get:
       summary: Get stock review by date
@@ -345,6 +369,142 @@ paths:
       responses:
         "200":
           description: Media watch record list
+  /rewards:
+    get:
+      summary: Get growth, reward items, recent rewards, and redemptions
+      responses:
+        "200":
+          description: Reward center payload
+  /rewards/items:
+    post:
+      summary: Create a custom reward item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRewardItemRequest"
+      responses:
+        "200":
+          description: Created reward item
+  /rewards/items/{id}:
+    put:
+      summary: Update a custom reward item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Updated reward item
+    delete:
+      summary: Hard delete a custom reward item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Deleted reward item
+  /rewards/items/{id}/redeem:
+    post:
+      summary: Redeem a custom reward item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Redeemed reward item
+  /ai-insights:
+    get:
+      summary: List AI writing insights
+      parameters:
+        - in: query
+          name: sourceType
+          schema:
+            type: string
+            enum: [morning, journal]
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: AI insight list
+  /ai-insights/analyze:
+    post:
+      summary: Analyze morning writing or journal content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeInsightRequest"
+      responses:
+        "200":
+          description: Saved AI insight
+  /decision-tools/decisions:
+    get:
+      summary: List decision records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Decision record list
+    post:
+      summary: Save a decision balance record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveDecisionRecordRequest"
+      responses:
+        "200":
+          description: Saved decision record
+  /decision-tools/bridges:
+    get:
+      summary: List psychological bridge records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Psychological bridge record list
+  /decision-tools/bridges/generate:
+    post:
+      summary: Generate and save a psychological bridge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePsychologicalBridgeRequest"
+      responses:
+        "200":
+          description: Generated and saved psychological bridge
   /tasks:
     get:
       summary: List tasks
@@ -393,7 +553,7 @@ paths:
           description: Reordered tasks
   /tasks/{id}:
     put:
-      summary: Update task title or category
+      summary: Update task title, description, category, due time, difficulty, or progress
       parameters:
         - in: path
           name: id
@@ -464,6 +624,25 @@ paths:
       responses:
         "200":
           description: Updated task
+  /tasks/{id}/complete:
+    put:
+      summary: Complete task and save actual timeline block
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteTaskRequest"
+      responses:
+        "200":
+          description: Completed task, saved timeline block, and granted reward
   /timer-sessions/start:
     post:
       summary: Start task timer
@@ -480,7 +659,7 @@ paths:
           description: Another timer is running
   /timer-sessions/{id}/pause:
     put:
-      summary: Pause timer session and save elapsed timeline block
+      summary: Pause timer session, save elapsed block, and grant partial reward
       parameters:
         - in: path
           name: id
@@ -490,7 +669,7 @@ paths:
             format: int64
       responses:
         "200":
-          description: Paused timer session and saved elapsed block
+          description: Paused timer session, saved elapsed block, and granted partial completion reward
   /timer-sessions/{id}/finish:
     put:
       summary: Finish timer session and save elapsed timeline block
@@ -605,6 +784,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Task"
+        dailyTaskIds:
+          type: array
+          items:
+            type: integer
+            format: int64
         categories:
           type: array
           items:
@@ -636,6 +820,9 @@ components:
           format: int64
         title:
           type: string
+        description:
+          type: string
+          nullable: true
         categoryId:
           type: integer
           format: int64
@@ -645,6 +832,9 @@ components:
           enum: [0, 1, 2, 3]
         priority:
           type: integer
+        difficulty:
+          type: integer
+          enum: [1, 2, 3, 4]
         pinned:
           type: integer
         sortOrder:
@@ -664,6 +854,10 @@ components:
           format: int64
         name:
           type: string
+        dimensionKey:
+          type: string
+          enum: [career, creative, learning, life, body, social, leisure, foundation]
+          description: Ability dimension for grouping skills/topics
         color:
           type: string
         targetMinutes:
@@ -915,6 +1109,10 @@ components:
         name:
           type: string
           maxLength: 64
+        dimensionKey:
+          type: string
+          enum: [career, creative, learning, life, body, social, leisure, foundation]
+          default: life
         color:
           type: string
           maxLength: 32
@@ -926,11 +1124,14 @@ components:
           default: 6000
     UpdateTaskCategoryRequest:
       type: object
-      required: [name, color, targetMinutes]
+      required: [name, dimensionKey, color, targetMinutes]
       properties:
         name:
           type: string
           maxLength: 64
+        dimensionKey:
+          type: string
+          enum: [career, creative, learning, life, body, social, leisure, foundation]
         color:
           type: string
           maxLength: 32
@@ -946,15 +1147,25 @@ components:
         title:
           type: string
           maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
         categoryId:
           type: integer
           format: int64
         priority:
           type: integer
           enum: [1, 2, 3]
+        difficulty:
+          type: integer
+          enum: [1, 2, 3, 4]
         dueDate:
           type: string
           format: date
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
         estimatedMinutes:
           type: integer
         plannedDate:
@@ -973,10 +1184,25 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
         categoryId:
           type: integer
           format: int64
           nullable: true
+        difficulty:
+          type: integer
+          enum: [1, 2, 3, 4]
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
     UpdateTaskStatusRequest:
       type: object
       required: [status]
@@ -984,6 +1210,22 @@ components:
         status:
           type: integer
           enum: [0, 1, 2, 3]
+        completionNote:
+          type: string
+          maxLength: 1000
+    CompleteTaskRequest:
+      type: object
+      required: [scheduleDate, startTime, endTime]
+      properties:
+        scheduleDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: "09:00"
+        endTime:
+          type: string
+          example: "10:00"
         completionNote:
           type: string
           maxLength: 1000
@@ -1107,3 +1349,84 @@ components:
           type: string
           maxLength: 500
           nullable: true
+    CreateRewardItemRequest:
+      type: object
+      required: [name, cost]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        cost:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+    AnalyzeInsightRequest:
+      type: object
+      required: [sourceType, sourceDate, content]
+      properties:
+        sourceType:
+          type: string
+          enum: [morning, journal]
+        sourceDate:
+          type: string
+          format: date
+        content:
+          type: string
+          maxLength: 10000
+    SaveDecisionRecordRequest:
+      type: object
+      required: [decisionDate, theme, benefits, drawbacks, benefitScore, drawbackScore]
+      properties:
+        decisionDate:
+          type: string
+          format: date
+        theme:
+          type: string
+          maxLength: 200
+        benefits:
+          type: string
+          maxLength: 5000
+        drawbacks:
+          type: string
+          maxLength: 5000
+        benefitScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        drawbackScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        conclusion:
+          type: string
+          maxLength: 500
+          nullable: true
+    GeneratePsychologicalBridgeRequest:
+      type: object
+      required: [bridgeDate, desiredEffect, resistance]
+      properties:
+        bridgeDate:
+          type: string
+          format: date
+        desiredEffect:
+          type: string
+          maxLength: 3000
+        resistance:
+          type: string
+          maxLength: 3000
+    UpdateDailyTasksRequest:
+      type: object
+      required: [taskDate, taskIds]
+      properties:
+        taskDate:
+          type: string
+          format: date
+        taskIds:
+          type: array
+          maxItems: 30
+          items:
+            type: integer
+            format: int64

@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { journals } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -49,8 +50,8 @@ export const journalsRoute = new Hono()
     const values = {
       userId: getCurrentUserId(c),
       journalDate: body.journalDate,
-      content: body.content,
-      moodScore: body.moodScore,
+      content: body.content?.trim() || null,
+      moodScore: body.moodScore ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -67,7 +68,8 @@ export const journalsRoute = new Hono()
         }
       });
 
+    const reward = values.content ? await grantRecordReward(getCurrentUserId(c), "journal", body.journalDate, "完成睡前日记") : null;
     log.info({ userId: getCurrentUserId(c), journalDate: body.journalDate }, "[journal_saved]");
-    return ok(c, { journalDate: body.journalDate });
+    return ok(c, { journalDate: body.journalDate, reward });
   });
 

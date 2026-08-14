@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { sleepRecords } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantRecordReward } from "../rewards.js";
 
 
 const querySchema = z.object({
@@ -74,7 +75,8 @@ export const sleepRecordsRoute = new Hono()
         }
       });
 
+    const reward = await grantRecordReward(getCurrentUserId(c), "sleep", body.sleepDate, "记录睡眠");
     log.info({ userId: getCurrentUserId(c), sleepDate: body.sleepDate }, "[sleep_record_saved]");
-    return ok(c, { sleepDate: body.sleepDate, durationMinutes: values.durationMinutes });
+    return ok(c, { sleepDate: body.sleepDate, durationMinutes: values.durationMinutes, reward });
   });
 

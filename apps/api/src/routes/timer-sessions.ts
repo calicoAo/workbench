@@ -5,10 +5,11 @@ import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
 import { schedules, tasks, timerSessions } from "../db/schema.js";
-import { ScheduleKind, ScheduleSource, TimerStatus } from "../enums.js";
+import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue, TimerStatus } from "../enums.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { grantTaskDoneReward, grantTaskPartialReward, grantTimerReward } from "../rewards.js";
 
 
 const startTimerSchema = z.object({
@@ -46,10 +47,10 @@ export const timerSessionsRoute = new Hono()
     const [running] = await db
       .select()
       .from(timerSessions)
-      .where(and(eq(timerSessions.userId, getCurrentUserId(c)), eq(timerSessions.status, TimerStatus.RUNNING), isNull(timerSessions.deletedAt)));
+      .where(and(eq(timerSessions.userId, getCurrentUserId(c)), eq(timerSessions.taskId, body.taskId), eq(timerSessions.status, TimerStatus.RUNNING), isNull(timerSessions.deletedAt)));
 
     if (running) {
-      throw new BusinessError(ErrorCode.CONFLICT, "another timer is running", 409);
+      throw new BusinessError(ErrorCode.CONFLICT, "timer is already running for this task", 409);
     }
 
     const [task] = await db.select().from(tasks).where(and(eq(tasks.id, body.taskId), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
@@ -100,6 +101,7 @@ async function stopTimer(c: Context, status: typeof TimerStatus.PAUSED | typeof 
 
   await db.update(timerSessions).set({ startTime: timerStart, endTime: timerEnd, durationMinutes, status, updatedAt: now }).where(eq(timerSessions.id, id));
   const [task] = await db.select().from(tasks).where(and(eq(tasks.id, session.taskId), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
+  const rewards = [];
   if (task) {
     await db.insert(schedules).values({
       userId: getCurrentUserId(c),
@@ -115,8 +117,27 @@ async function stopTimer(c: Context, status: typeof TimerStatus.PAUSED | typeof 
       createdAt: now,
       updatedAt: now
     });
+    const timerReward =
+      status === TimerStatus.FINISHED
+        ? await grantTimerReward(getCurrentUserId(c), id, scheduleDate, durationMinutes)
+        : await grantTaskPartialReward(getCurrentUserId(c), id, scheduleDate, durationMinutes, task);
+    if (timerReward) rewards.push(timerReward);
+
+    const currentTaskStatus = task.status as TaskStatusValue;
+    if (status === TimerStatus.FINISHED && currentTaskStatus !== TaskStatus.DONE && canTransitTaskStatus(currentTaskStatus, TaskStatus.DONE)) {
+      await db
+        .update(tasks)
+        .set({
+          status: TaskStatus.DONE,
+          completedAt: now,
+          updatedAt: now
+        })
+        .where(and(eq(tasks.id, task.id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
+      const taskReward = await grantTaskDoneReward(getCurrentUserId(c), task);
+      if (taskReward) rewards.push(taskReward);
+    }
   }
   log.info({ userId: getCurrentUserId(c), timerSessionId: id, durationMinutes }, event);
-  return ok(c, { id, status, durationMinutes });
+  return ok(c, { id, status, durationMinutes, rewards });
 }
 

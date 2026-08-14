@@ -6,7 +6,9 @@ import {
   ChevronRight,
   Clapperboard,
   Clock3,
+  Coins,
   Droplets,
+  Gift,
   GripVertical,
   ListFilter,
   Moon,
@@ -16,6 +18,8 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Scale,
+  Sparkles,
   Square,
   Star,
   SunMedium,
@@ -24,13 +28,30 @@ import {
   TrendingUp,
   X
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 
 type ApiResponse<T> = { code: number; message: string; data: T };
 type AuthUser = { id: number; username: string; displayName: string };
 type AuthPayload = { token: string; user: AuthUser };
-type Task = { id: number; title: string; categoryId: number | null; status: number; priority: number; pinned: number; sortOrder: number; completionNote: string | null };
-type Category = { id: number; name: string; color: string; targetMinutes: number; totalMinutes: number };
+type Task = {
+  id: number;
+  title: string;
+  description: string | null;
+  categoryId: number | null;
+  status: number;
+  priority: number;
+  difficulty: number;
+  pinned: number;
+  sortOrder: number;
+  dueAt: string | null;
+  progressPercent: number;
+  createdAt: string;
+  completedAt: string | null;
+  completionNote: string | null;
+};
+type DimensionKey = "career" | "creative" | "learning" | "life" | "body" | "social" | "leisure" | "foundation";
+type Category = { id: number; name: string; dimensionKey: DimensionKey; color: string; targetMinutes: number; totalMinutes: number };
 type TimerSession = { id: number; taskId: number; startTime: string; durationMinutes: number; status: number };
 type JournalRecord = { id: number; journalDate: string; content: string | null; moodScore: number | null };
 type MorningWritingRecord = { id?: number; writingDate: string; content: string | null; moodScore: number | null };
@@ -59,10 +80,57 @@ type Schedule = {
   source: number;
   color: string;
 };
-type TimelineItem = Schedule & { marker?: "water" };
+type TimelineItem = Schedule & { marker?: "water" | "sleep" };
 type SleepRecord = { id: number; sleepStart: string; wakeTime: string; durationMinutes: number; qualityScore: number | null };
 type WaterRecord = { id?: number; waterDate: string; cups: number; targetCups: number; lastDrinkAt?: string | null; drinkTimes?: string | string[] | null };
 type MediaWatchRecord = { id?: number; watchDate: string; title: string | null; episode: string | null; note: string | null };
+type Growth = { level: number; xpTotal: number; coins: number; xpInLevel: number; xpForNextLevel: number };
+type RewardEvent = { id: number; reason: string; xpDelta: number; coinDelta: number; sourceType?: string; sourceId?: string; createdAt: string };
+type RewardGrant = { xp: number; coins: number; reason: string };
+type RewardItem = { id: number; name: string; cost: number; description: string | null };
+type RewardRedemption = { id: number; name: string; cost: number; createdAt: string };
+type RewardsPayload = { growth: Growth; items: RewardItem[]; events: RewardEvent[]; redemptions: RewardRedemption[] };
+type FeedbackPopupState =
+  | { kind: "notice"; title: string; message: string }
+  | { kind: "reward"; title: string; message: string; rewards: RewardGrant[] }
+  | { kind: "confirm"; title: string; message: string; confirmText: string; onConfirm: () => void | Promise<void> };
+type TaskCompleteResult = { id: number; status: number; scheduleId: number; reward: RewardGrant | null };
+type TaskCreateResult = { id: number };
+type TimerStopResult = { id: number; status: number; durationMinutes: number; rewards: RewardGrant[] };
+type AiInsight = {
+  id: number;
+  sourceType: "morning" | "journal";
+  sourceDate: string;
+  summary: string | null;
+  emotionTags: string | null;
+  energyScore: number | null;
+  stressKeywords: string | null;
+  suggestion: string | null;
+  fullText: string | null;
+};
+type DecisionRecord = {
+  id: number;
+  decisionDate: string;
+  theme: string;
+  benefits: string;
+  drawbacks: string;
+  benefitScore: number;
+  drawbackScore: number;
+  conclusion: string | null;
+  createdAt: string;
+};
+type PsychologicalBridgeRecord = {
+  id: number;
+  bridgeDate: string;
+  desiredEffect: string;
+  resistance: string;
+  bridgeText: string;
+  nextStep: string | null;
+  reassurance: string | null;
+  createdAt: string;
+};
+type DecisionSaveResult = DecisionRecord & { reward: RewardGrant | null };
+type BridgeSaveResult = PsychologicalBridgeRecord & { reward: RewardGrant | null };
 type SleepSeriesItem = { date: string; sleepMinutes: number; sleepQuality: number | null };
 type HydrationPlan = { percent: number; statusText: string; rhythmText: string; lastDrinkText: string };
 type WeeklySeriesItem = {
@@ -75,35 +143,97 @@ type WeeklySeriesItem = {
   disciplineScore: number | null;
 };
 
+function hasText(value?: string | null) {
+  return Boolean((value ?? "").trim());
+}
+
+function hasStockReviewContent(review?: StockReviewRecord | null) {
+  if (!review) return false;
+  return [review.marketSummary, review.operations, review.holdingsReview, review.goodPoints, review.mistakes, review.tomorrowPlan, review.tags].some(hasText);
+}
+
 type Dashboard = {
   date: string;
   activeTimer: TimerSession | null;
+  activeTimers?: TimerSession[];
+  dailyTaskIds?: number[];
   stockReviewRecord: StockReviewRecord | null;
   tasks: Task[];
   categories: Category[];
+  categoryTotals?: Category[];
   schedules: Schedule[];
   sleepRecord: SleepRecord | null;
   journalRecord: JournalRecord | null;
   morningWritingRecord: MorningWritingRecord | null;
   waterRecord: WaterRecord | null;
   mediaWatchRecord: MediaWatchRecord | null;
+  growth: Growth;
+  rewardEvents: RewardEvent[];
+  taskRewardEvents?: RewardEvent[];
+  aiInsights: AiInsight[];
   weeklySeries: WeeklySeriesItem[];
   monthlySleepSeries: SleepSeriesItem[];
   weeklyStats: { totalMinutes: number; completedTasks: number; journalDays: number; stockReviewDays: number };
 };
 
-type PageMode = "workspace" | "history";
+type PageMode = "workspace" | "history" | "rewards";
 type ArchiveTab = "morning" | "journal" | "review" | "media";
 type SleepRange = "week" | "month";
 type WritingModalKind = "morning" | "journal" | "review";
-type TaskCategoryFilter = "all" | "none" | string;
+type ToolModalKind = "decision" | "bridge";
+type TaskCategoryFilter = "all" | "none" | DimensionKey;
 type AuthMode = "login" | "register";
+type ArchiveListItem = {
+  id: string | number;
+  date: string;
+  title: string;
+  content: string | null | undefined;
+  score: number | null | undefined;
+  sections: Array<{ label: string; value: string | number | null | undefined }>;
+};
 
 const AUTH_TOKEN_KEY = "personal_workbench_token";
-const HOUR_START = 6;
+const HOUR_START = 0;
 const HOUR_END = 24;
+const COMPRESSED_START_MINUTE = 3 * 60;
+const COMPRESSED_END_MINUTE = 7 * 60;
+const COMPRESSED_VISUAL_MINUTES = 2 * 60;
+const TIMELINE_VISUAL_MINUTES = 24 * 60 - (COMPRESSED_END_MINUTE - COMPRESSED_START_MINUTE) + COMPRESSED_VISUAL_MINUTES;
 const CATEGORY_COLORS = ["#5B8DEF", "#FF8FA3", "#35C99A", "#F6A7C6", "#DDD3FF", "#7EC8E3", "#F7C96B", "#9BD67D"];
-const timelineHours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, index) => HOUR_START + index);
+const CORE_DIMENSIONS = [
+  { key: "career", label: "事业力", hint: "主业、产品、编程", color: "#5B8DEF" },
+  { key: "creative", label: "创造力", hint: "画画、写作、缝纫", color: "#FF8FA3" },
+  { key: "learning", label: "学习力", hint: "读书、语言、投资交易", color: "#B28DFF" },
+  { key: "life", label: "生活力", hint: "做饭、家务、日常经营", color: "#35C99A" },
+  { key: "body", label: "身体力", hint: "运动、恢复、体能", color: "#9BD67D" },
+  { key: "social", label: "社交力", hint: "关系、表达、协作", color: "#F7C96B" }
+] as const;
+const EXTRA_DIMENSIONS = [
+  { key: "leisure", label: "兴趣成长", hint: "游戏、影视以外的熟练度", color: "#7EC8E3" },
+  { key: "foundation", label: "基础状态", hint: "睡眠等基础记录，不计入六维", color: "#9EB7CC" }
+] as const;
+const ALL_DIMENSIONS = [...CORE_DIMENSIONS, ...EXTRA_DIMENSIONS] as const;
+const TASK_DIFFICULTY_OPTIONS = [
+  { value: "1", label: "轻松" },
+  { value: "2", label: "普通" },
+  { value: "3", label: "困难" },
+  { value: "4", label: "硬仗" }
+] as const;
+const TASK_ENCOURAGEMENTS = [
+  "你把想法变成了真实进度，这一步很扎实。",
+  "完成就是最好的证据，今天的你又往前走了一格。",
+  "这件事已经落袋了，可以安心给自己记上一笔。",
+  "你没有只停在计划里，行动已经被记录下来了。",
+  "很好，这种稳定的小完成会慢慢叠成很大的底气。"
+] as const;
+const timelineTicks = [
+  ...Array.from({ length: 4 }, (_, hour) => ({ minute: hour * 60, label: `${String(hour).padStart(2, "0")}:00` })),
+  { minute: 5 * 60, label: "03-07", compressed: true },
+  ...Array.from({ length: HOUR_END - 7 + 1 }, (_, index) => {
+    const hour = 7 + index;
+    return { minute: hour * 60, label: `${String(hour).padStart(2, "0")}:00` };
+  })
+];
 const MORNING_STATE_OPTIONS = [
   { value: "5", label: "稳定有余力，可以主动推进" },
   { value: "4", label: "状态不错，先做最重要的一件事" },
@@ -190,6 +320,25 @@ function localDateInput(value: string) {
   return `${year}-${month}-${day}`;
 }
 
+function dateInputFromOptional(value?: string | null) {
+  return value ? localDateInput(value) : "";
+}
+
+function timeInputFromOptional(value?: string | null) {
+  return value ? timeText(value) : "18:00";
+}
+
+function dueAtPayload(date: string, time: string) {
+  return date ? `${date}T${time || "18:00"}` : null;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+}
+
 function hydrationPlan(water: WaterRecord, sleep: SleepRecord | null, date: string): HydrationPlan {
   const now = new Date();
   const targetCups = Math.max(1, water.targetCups);
@@ -242,7 +391,7 @@ function timeToSeconds(value: string) {
   return hour * 3600 + minute * 60 + second;
 }
 
-function durationMinutes(item: Schedule) {
+function durationMinutes(item: Pick<Schedule, "startTime" | "endTime">) {
   const seconds = Math.max(0, timeToSeconds(item.endTime) - timeToSeconds(item.startTime));
   return seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
 }
@@ -281,11 +430,45 @@ function waterTimelineItems(water: WaterRecord): TimelineItem[] {
     });
 }
 
+function sleepTimelineItem(sleep: SleepRecord): TimelineItem {
+  return {
+    id: -20001 - sleep.id,
+    taskId: null,
+    categoryId: null,
+    startTime: `${timeText(sleep.sleepStart)}:00`,
+    endTime: `${timeText(sleep.wakeTime)}:00`,
+    title: "睡眠",
+    note: sleep.qualityScore ? `质量 ${sleep.qualityScore}/5` : "睡眠记录",
+    kind: 1,
+    source: 0,
+    color: "#7EC8E3",
+    marker: "sleep"
+  };
+}
+
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+const TASK_REWARD_BASE: Record<number, { xp: number; coins: number }> = {
+  1: { xp: 10, coins: 3 },
+  2: { xp: 20, coins: 6 },
+  3: { xp: 40, coins: 12 },
+  4: { xp: 70, coins: 20 }
+};
+
+function estimatePlannedTaskReward(task: Task, plannedSchedule: Schedule | null) {
+  if (!plannedSchedule) return null;
+  const base = TASK_REWARD_BASE[task.difficulty] ?? TASK_REWARD_BASE[2];
+  const hours = Math.max(0.25, durationMinutes(plannedSchedule) / 60);
+  const multiplier = task.pinned ? 1.3 : 1;
+  return {
+    xp: Math.max(1, Math.round(base.xp * hours * multiplier)),
+    coins: Math.max(1, Math.round(base.coins * hours * multiplier))
+  };
 }
 
 function plannedMap(schedules: Schedule[]) {
@@ -317,6 +500,34 @@ function nextCategoryColor(index: number) {
   return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
 }
 
+function dimensionMeta(key?: string | null) {
+  return ALL_DIMENSIONS.find((item) => item.key === key) ?? CORE_DIMENSIONS[3];
+}
+
+function isCoreDimensionKey(value: DimensionKey) {
+  return CORE_DIMENSIONS.some((item) => item.key === value);
+}
+
+function categoriesInDimension(categories: Category[], key: DimensionKey) {
+  return categories.filter((category) => category.dimensionKey === key);
+}
+
+function dimensionTotalMinutes(categories: Category[], key: DimensionKey) {
+  return categoriesInDimension(categories, key).reduce((sum, category) => sum + category.totalMinutes, 0);
+}
+
+function visibleDimensions(categories: Category[]) {
+  return ALL_DIMENSIONS.filter((dimension) => CORE_DIMENSIONS.some((core) => core.key === dimension.key) || categories.some((category) => category.dimensionKey === dimension.key));
+}
+
+function validTaskFilter(filter: TaskCategoryFilter, categories: Category[], tasks: Task[], dailyTaskIds?: number[]) {
+  const dailyTaskIdSet = dailyTaskIds ? new Set(dailyTaskIds) : null;
+  const visibleTasks = tasks.filter((task) => task.status !== 3 && (!dailyTaskIdSet || dailyTaskIdSet.has(task.id)));
+  if (filter === "all") return true;
+  if (filter === "none") return visibleTasks.some((task) => !task.categoryId);
+  return visibleTasks.some((task) => task.categoryId && categories.some((category) => category.id === task.categoryId && category.dimensionKey === filter));
+}
+
 export function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -328,8 +539,12 @@ export function App() {
   const [pageMode, setPageMode] = useState<PageMode>("workspace");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
   const [taskCategoryId, setTaskCategoryId] = useState("");
+  const [taskDifficulty, setTaskDifficulty] = useState("2");
   const [taskCategoryFilter, setTaskCategoryFilter] = useState<TaskCategoryFilter>("all");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskDueTime, setTaskDueTime] = useState("18:00");
   const [taskPlanEnabled, setTaskPlanEnabled] = useState(false);
   const [taskPlanStart, setTaskPlanStart] = useState("09:00");
   const [taskPlanEnd, setTaskPlanEnd] = useState("10:00");
@@ -341,12 +556,19 @@ export function App() {
   const [scheduleEnd, setScheduleEnd] = useState("10:00");
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [finishTimerModalOpen, setFinishTimerModalOpen] = useState(false);
+  const [taskCreateModalOpen, setTaskCreateModalOpen] = useState(false);
+  const [taskSelectionModalOpen, setTaskSelectionModalOpen] = useState(false);
+  const [completedTasksModalOpen, setCompletedTasksModalOpen] = useState(false);
+  const [selectedDailyTaskIds, setSelectedDailyTaskIds] = useState<number[]>([]);
+  const [finishTimerSession, setFinishTimerSession] = useState<TimerSession | null>(null);
   const [finishTimerDate, setFinishTimerDate] = useState(todayString());
   const [finishTimerStart, setFinishTimerStart] = useState("09:00");
   const [finishTimerEnd, setFinishTimerEnd] = useState("10:00");
   const [categoryName, setCategoryName] = useState("");
+  const [categoryDimensionKey, setCategoryDimensionKey] = useState<DimensionKey>("career");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
+  const [editCategoryDimensionKey, setEditCategoryDimensionKey] = useState<DimensionKey>("life");
   const [editCategoryColor, setEditCategoryColor] = useState(CATEGORY_COLORS[0]);
   const [editCategoryTargetHours, setEditCategoryTargetHours] = useState("100");
   const [journalContent, setJournalContent] = useState("");
@@ -373,6 +595,28 @@ export function App() {
   const [mediaNote, setMediaNote] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDescription, setEditTaskDescription] = useState("");
+  const [editTaskDueDate, setEditTaskDueDate] = useState("");
+  const [editTaskDueTime, setEditTaskDueTime] = useState("18:00");
+  const [editTaskDifficulty, setEditTaskDifficulty] = useState("2");
+  const [rewardCenter, setRewardCenter] = useState<RewardsPayload | null>(null);
+  const [rewardName, setRewardName] = useState("");
+  const [rewardCost, setRewardCost] = useState("120");
+  const [rewardDescription, setRewardDescription] = useState("");
+  const [aiInsightLoading, setAiInsightLoading] = useState<"morning" | "journal" | null>(null);
+  const [toolModal, setToolModal] = useState<ToolModalKind | null>(null);
+  const [decisionRecords, setDecisionRecords] = useState<DecisionRecord[]>([]);
+  const [bridgeRecords, setBridgeRecords] = useState<PsychologicalBridgeRecord[]>([]);
+  const [decisionTheme, setDecisionTheme] = useState("");
+  const [decisionBenefits, setDecisionBenefits] = useState("");
+  const [decisionDrawbacks, setDecisionDrawbacks] = useState("");
+  const [decisionBenefitScore, setDecisionBenefitScore] = useState("3");
+  const [decisionDrawbackScore, setDecisionDrawbackScore] = useState("3");
+  const [decisionConclusion, setDecisionConclusion] = useState("");
+  const [bridgeDesiredEffect, setBridgeDesiredEffect] = useState("");
+  const [bridgeResistance, setBridgeResistance] = useState("");
+  const [bridgeResult, setBridgeResult] = useState<PsychologicalBridgeRecord | null>(null);
+  const [bridgeLoading, setBridgeLoading] = useState(false);
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
   const [completionNote, setCompletionNote] = useState("");
   const [sleepModalOpen, setSleepModalOpen] = useState(false);
@@ -382,8 +626,40 @@ export function App() {
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<number | null>(null);
   const [, setTick] = useState(0);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
+  const [feedbackPopup, setFeedbackPopup] = useState<FeedbackPopupState | null>(null);
   const [loading, setLoading] = useState(true);
+
+  function showNotice(message: string, title = "需要看一下") {
+    setError("");
+    setFeedbackPopup({ kind: "notice", title, message });
+  }
+
+  function showConfirm(title: string, message: string, onConfirm: () => void | Promise<void>, confirmText = "确认") {
+    setError("");
+    setFeedbackPopup({ kind: "confirm", title, message, confirmText, onConfirm });
+  }
+
+  function showTaskRewardPopup(task: Pick<Task, "id" | "title"> | null | undefined, rewards: Array<RewardGrant | null | undefined>, mode: "done" | "partial" = "done") {
+    const validRewards = rewards.filter((reward): reward is RewardGrant => Boolean(reward && (reward.xp || reward.coins)));
+    const line = task ? TASK_ENCOURAGEMENTS[task.id % TASK_ENCOURAGEMENTS.length] : TASK_ENCOURAGEMENTS[0];
+    const taskTitle = task?.title ?? "这个任务";
+    setFeedbackPopup({
+      kind: "reward",
+      title: mode === "partial" ? "阶段完成，奖励到账" : "任务完成，奖励到账",
+      message: mode === "partial" ? `${taskTitle} 已记录一段投入。${line}` : `${taskTitle} 已完成。${line}`,
+      rewards: validRewards
+    });
+  }
+
+  function showRecordRewardPopup(label: string, reward: RewardGrant | null | undefined) {
+    setFeedbackPopup({
+      kind: "reward",
+      title: `${label}已保存`,
+      message: "这次整理也计入成长记录。能把模糊的东西写清楚，本身就是一种推进。",
+      rewards: reward ? [reward] : []
+    });
+  }
 
   async function loadDashboard(date = selectedDate) {
     if (!localStorage.getItem(AUTH_TOKEN_KEY)) {
@@ -396,7 +672,7 @@ export function App() {
       const data = await api<Dashboard>(`/api/dashboard?date=${date}`);
       setDashboard(data);
       setTaskCategoryId((current) => (current && data.categories.some((category) => String(category.id) === current) ? current : String(data.categories[0]?.id ?? "")));
-      setTaskCategoryFilter((current) => (current === "all" || current === "none" || data.categories.some((category) => String(category.id) === current) ? current : "all"));
+      setTaskCategoryFilter((current) => (validTaskFilter(current, data.categories, data.tasks, data.dailyTaskIds) ? current : "all"));
       setScheduleTaskId((current) => (current && data.tasks.some((task) => String(task.id) === current) ? current : ""));
       if (data.sleepRecord) {
         setSleepStart(timeText(data.sleepRecord.sleepStart));
@@ -419,7 +695,7 @@ export function App() {
       setMediaEpisode(data.mediaWatchRecord?.episode ?? "");
       setMediaNote(data.mediaWatchRecord?.note ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      showNotice(err instanceof Error ? err.message : "加载失败", "加载没有成功");
     } finally {
       setLoading(false);
     }
@@ -457,12 +733,16 @@ export function App() {
     if (authUser && pageMode === "history") void loadArchiveRecords();
   }, [pageMode, archiveTab, authUser?.id]);
 
+  useEffect(() => {
+    if (authUser && pageMode === "rewards") void loadRewardCenter();
+  }, [pageMode, authUser?.id]);
+
   async function run(action: () => Promise<void>) {
     setError("");
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失败");
+      showNotice(err instanceof Error ? err.message : "操作失败", "操作没有成功");
     }
   }
 
@@ -492,32 +772,121 @@ export function App() {
     setError("");
   }
 
-  async function createTask(event: FormEvent) {
-    event.preventDefault();
-    if (!taskTitle.trim() || !taskCategoryId) return;
+  async function submitTaskCreate(takeToday: boolean) {
+    if (!taskTitle.trim()) {
+      showNotice("先写一个任务标题。");
+      return;
+    }
+    if (!taskCategoryId) {
+      showNotice("新增任务需要选择事件类型。");
+      return;
+    }
     await run(async () => {
-      await api("/api/tasks", {
+      const result = await api<TaskCreateResult>("/api/tasks", {
         method: "POST",
         body: JSON.stringify({
           title: taskTitle.trim(),
+          description: taskDescription.trim() || undefined,
           categoryId: Number(taskCategoryId),
           priority: 2,
+          difficulty: Number(taskDifficulty),
+          dueAt: dueAtPayload(taskDueDate, taskDueTime) ?? undefined,
           plannedDate: taskPlanEnabled ? selectedDate : undefined,
           plannedStartTime: taskPlanEnabled ? taskPlanStart : undefined,
           plannedEndTime: taskPlanEnabled ? taskPlanEnd : undefined
         })
       });
+      if (takeToday) {
+        const currentIds = (dashboard?.dailyTaskIds ?? []).filter((taskId) => {
+          const task = dashboard?.tasks.find((item) => item.id === taskId);
+          return task && task.status !== 2 && task.status !== 3;
+        });
+        await api("/api/task-days", {
+          method: "PUT",
+          body: JSON.stringify({ taskDate: selectedDate, taskIds: [...currentIds, result.id] })
+        });
+      }
       setTaskTitle("");
+      setTaskDescription("");
+      setTaskDifficulty("2");
+      setTaskDueDate("");
+      setTaskDueTime("18:00");
       setTaskPlanEnabled(false);
+      setTaskCreateModalOpen(false);
       await loadDashboard();
     });
+  }
+
+  async function createTask(event: FormEvent) {
+    event.preventDefault();
+    await submitTaskCreate(false);
+  }
+
+  async function createAndTakeTask() {
+    await submitTaskCreate(true);
+  }
+
+  function openDailyTaskSelector() {
+    const poolTaskIds = new Set((dashboard?.tasks ?? []).filter((task) => task.status !== 2 && task.status !== 3).map((task) => task.id));
+    const currentIds = (dashboard?.dailyTaskIds ?? []).filter((taskId) => poolTaskIds.has(taskId));
+    setSelectedDailyTaskIds(currentIds);
+    setTaskSelectionModalOpen(true);
+  }
+
+  async function saveDailyTaskSelection(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedDailyTaskIds.length) {
+      showNotice("至少接取一个任务，今天才有一块可以推进的悬赏。");
+      return;
+    }
+    await run(async () => {
+      await api("/api/task-days", {
+        method: "PUT",
+        body: JSON.stringify({ taskDate: selectedDate, taskIds: selectedDailyTaskIds })
+      });
+      setTaskSelectionModalOpen(false);
+      await loadDashboard();
+    });
+  }
+
+  async function cancelDailyTask(task: Task) {
+    const currentIds = dashboard?.dailyTaskIds ?? [];
+    if (!currentIds.includes(task.id)) return;
+    const remainingTaskIds = currentIds.filter((taskId) => {
+      const item = dashboard?.tasks.find((candidate) => candidate.id === taskId);
+      return taskId !== task.id && item && item.status !== 2 && item.status !== 3;
+    });
+    if (!remainingTaskIds.length) {
+      showNotice("今天至少保留一个已接取任务。可以先接取新的任务，再取消这一个。");
+      return;
+    }
+    showConfirm("取消今日任务", `把「${task.title}」放回任务池吗？任务本身不会被删除。`, async () => {
+      await run(async () => {
+        await api("/api/task-days", {
+          method: "PUT",
+          body: JSON.stringify({
+            taskDate: selectedDate,
+            taskIds: remainingTaskIds
+          })
+        });
+        await loadDashboard();
+      });
+    }, "取消今日");
   }
 
   async function createCategory(event: FormEvent) {
     event.preventDefault();
     if (!categoryName.trim()) return;
     await run(async () => {
-      await api("/api/task-categories", { method: "POST", body: JSON.stringify({ name: categoryName.trim(), color: nextCategoryColor(dashboard?.categories.length ?? 0), targetMinutes: 6000 }) });
+      await api("/api/task-categories", {
+        method: "POST",
+        body: JSON.stringify({
+          name: categoryName.trim(),
+          dimensionKey: categoryDimensionKey,
+          color: nextCategoryColor(dashboard?.categories.length ?? 0),
+          targetMinutes: 6000
+        })
+      });
       setCategoryName("");
       await loadDashboard();
     });
@@ -526,6 +895,7 @@ export function App() {
   function openCategoryEditor(category: Category) {
     setEditingCategory(category);
     setEditCategoryName(category.name);
+    setEditCategoryDimensionKey(category.dimensionKey);
     setEditCategoryColor(category.color);
     setEditCategoryTargetHours(String(Math.max(1, Math.round(category.targetMinutes / 60))));
   }
@@ -538,6 +908,7 @@ export function App() {
         method: "PUT",
         body: JSON.stringify({
           name: editCategoryName.trim(),
+          dimensionKey: editCategoryDimensionKey,
           color: editCategoryColor,
           targetMinutes: Number(editCategoryTargetHours) * 60
         })
@@ -548,18 +919,19 @@ export function App() {
   }
 
   async function deleteCategory(category: Category) {
-    if (!window.confirm(`删除类型「${category.name}」吗？已有任务和时间记录会变为未分类。`)) return;
-    await run(async () => {
-      await api(`/api/task-categories/${category.id}`, { method: "DELETE" });
-      if (String(category.id) === taskCategoryId) setTaskCategoryId("");
-      await loadDashboard();
-    });
+    showConfirm("删除事件类型", `删除「${category.name}」吗？已有任务和时间记录会变为未分类。`, async () => {
+      await run(async () => {
+        await api(`/api/task-categories/${category.id}`, { method: "DELETE" });
+        if (String(category.id) === taskCategoryId) setTaskCategoryId("");
+        await loadDashboard();
+      });
+    }, "删除");
   }
 
   async function createSchedule(event: FormEvent) {
     event.preventDefault();
     if (!scheduleTaskId && !scheduleTitle.trim()) {
-      setError("不关联任务时，需要写一下这段时间做了什么");
+      showNotice("不关联任务时，需要写一下这段时间做了什么");
       return;
     }
     await run(async () => {
@@ -590,12 +962,14 @@ export function App() {
     });
   }
 
-  async function deleteTask(id: number) {
-    if (!window.confirm("删除这个任务吗？关联的时间轴记录也会一起删除。")) return;
-    await run(async () => {
-      await api(`/api/tasks/${id}`, { method: "DELETE" });
-      await loadDashboard();
-    });
+  async function deleteTask(id: number, afterDelete?: () => void) {
+    showConfirm("删除任务", "删除这个任务吗？关联的时间轴记录也会一起删除。", async () => {
+      await run(async () => {
+        await api(`/api/tasks/${id}`, { method: "DELETE" });
+        afterDelete?.();
+        await loadDashboard();
+      });
+    }, "删除");
   }
 
   async function updateTaskCategory(task: Task, categoryId: number | null) {
@@ -606,27 +980,40 @@ export function App() {
     });
   }
 
+  async function updateTaskProgress(task: Task, progressPercent: number) {
+    const next = Math.max(0, Math.min(100, progressPercent));
+    if (task.progressPercent === next) return;
+    await run(async () => {
+      await api(`/api/tasks/${task.id}`, { method: "PUT", body: JSON.stringify({ progressPercent: next }) });
+      await loadDashboard();
+    });
+  }
+
   function openTaskTitleEditor(task: Task) {
     setEditingTask(task);
     setEditTaskTitle(task.title);
+    setEditTaskDescription(task.description ?? "");
+    setEditTaskDueDate(dateInputFromOptional(task.dueAt));
+    setEditTaskDueTime(timeInputFromOptional(task.dueAt));
+    setEditTaskDifficulty(String(task.difficulty ?? 2));
   }
 
   async function saveTaskTitle(event: FormEvent) {
     event.preventDefault();
     if (!editingTask) return;
     const nextTitle = editTaskTitle.trim();
-    if (nextTitle === editingTask.title) {
-      setEditingTask(null);
-      return;
-    }
     if (!nextTitle) {
-      setError("任务标题不能为空");
+      showNotice("任务标题不能为空");
       return;
     }
     await run(async () => {
-      await api(`/api/tasks/${editingTask.id}`, { method: "PUT", body: JSON.stringify({ title: nextTitle }) });
+      await api(`/api/tasks/${editingTask.id}`, { method: "PUT", body: JSON.stringify({ title: nextTitle, description: editTaskDescription.trim() || null, difficulty: Number(editTaskDifficulty), dueAt: dueAtPayload(editTaskDueDate, editTaskDueTime) }) });
       setEditingTask(null);
       setEditTaskTitle("");
+      setEditTaskDescription("");
+      setEditTaskDueDate("");
+      setEditTaskDueTime("18:00");
+      setEditTaskDifficulty("2");
       await loadDashboard();
     });
   }
@@ -719,8 +1106,133 @@ export function App() {
         setMediaArchive(await api<MediaWatchRecord[]>("/api/media-watch-records/list?limit=50"));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "列表加载失败");
+      showNotice(err instanceof Error ? err.message : "列表加载失败", "列表加载失败");
     }
+  }
+
+  async function loadRewardCenter() {
+    try {
+      setRewardCenter(await api<RewardsPayload>("/api/rewards"));
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : "奖励中心加载失败", "奖励中心加载失败");
+    }
+  }
+
+  async function loadToolRecords() {
+    try {
+      const [decisions, bridges] = await Promise.all([
+        api<DecisionRecord[]>("/api/decision-tools/decisions?limit=8"),
+        api<PsychologicalBridgeRecord[]>("/api/decision-tools/bridges?limit=8")
+      ]);
+      setDecisionRecords(decisions);
+      setBridgeRecords(bridges);
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : "小工具记录加载失败", "小工具记录加载失败");
+    }
+  }
+
+  function openToolModal(kind: ToolModalKind) {
+    setToolModal(kind);
+    void loadToolRecords();
+  }
+
+  async function saveDecisionRecord(event: FormEvent) {
+    event.preventDefault();
+    if (!decisionTheme.trim() || !decisionBenefits.trim() || !decisionDrawbacks.trim()) {
+      showNotice("主题、好处和坏处都需要填写。");
+      return;
+    }
+    await run(async () => {
+      const result = await api<DecisionSaveResult>("/api/decision-tools/decisions", {
+        method: "POST",
+        body: JSON.stringify({
+          decisionDate: selectedDate,
+          theme: decisionTheme,
+          benefits: decisionBenefits,
+          drawbacks: decisionDrawbacks,
+          benefitScore: Number(decisionBenefitScore),
+          drawbackScore: Number(decisionDrawbackScore),
+          conclusion: decisionConclusion.trim() || undefined
+        })
+      });
+      setDecisionTheme("");
+      setDecisionBenefits("");
+      setDecisionDrawbacks("");
+      setDecisionBenefitScore("3");
+      setDecisionDrawbackScore("3");
+      setDecisionConclusion("");
+      await Promise.all([loadToolRecords(), loadDashboard()]);
+      showRecordRewardPopup("决策记录", result.reward);
+    });
+  }
+
+  async function generatePsychologicalBridge(event: FormEvent) {
+    event.preventDefault();
+    if (!bridgeDesiredEffect.trim() || !bridgeResistance.trim()) {
+      showNotice("想达成的效果和阻力都需要填写。");
+      return;
+    }
+    setBridgeLoading(true);
+    await run(async () => {
+      const result = await api<BridgeSaveResult>("/api/decision-tools/bridges/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          bridgeDate: selectedDate,
+          desiredEffect: bridgeDesiredEffect,
+          resistance: bridgeResistance
+        })
+      });
+      setBridgeResult(result);
+      await Promise.all([loadToolRecords(), loadDashboard()]);
+      showRecordRewardPopup("心理桥梁", result.reward);
+    });
+    setBridgeLoading(false);
+  }
+
+  async function createRewardItem(event: FormEvent) {
+    event.preventDefault();
+    if (!rewardName.trim()) return;
+    await run(async () => {
+      await api("/api/rewards/items", {
+        method: "POST",
+        body: JSON.stringify({ name: rewardName.trim(), cost: Number(rewardCost), description: rewardDescription.trim() || undefined })
+      });
+      setRewardName("");
+      setRewardCost("120");
+      setRewardDescription("");
+      await loadRewardCenter();
+    });
+  }
+
+  async function deleteRewardItem(item: RewardItem) {
+    await run(async () => {
+      await api(`/api/rewards/items/${item.id}`, { method: "DELETE" });
+      await loadRewardCenter();
+    });
+  }
+
+  async function redeemRewardItem(item: RewardItem) {
+    await run(async () => {
+      await api(`/api/rewards/items/${item.id}/redeem`, { method: "POST" });
+      await Promise.all([loadRewardCenter(), loadDashboard()]);
+    });
+  }
+
+  async function analyzeInsight(sourceType: "morning" | "journal") {
+    const content = sourceType === "morning" ? morningContent : journalContent;
+    if (!content.trim()) {
+      showNotice(sourceType === "morning" ? "先写一点晨写内容，再分析。" : "先写一点日记内容，再分析。");
+      return;
+    }
+    await run(async () => {
+      setAiInsightLoading(sourceType);
+      await api("/api/ai-insights/analyze", {
+        method: "POST",
+        body: JSON.stringify({ sourceType, sourceDate: selectedDate, content })
+      });
+      await loadDashboard();
+    });
+    setAiInsightLoading(null);
   }
 
   async function toggleDone(task: Task) {
@@ -748,31 +1260,24 @@ export function App() {
     event.preventDefault();
     if (!completionTask) return;
     if (finishTimerEnd <= finishTimerStart) {
-      setError("结束时间需要晚于开始时间");
+      showNotice("结束时间需要晚于开始时间");
       return;
     }
     await run(async () => {
-      await api(`/api/tasks/${completionTask.id}/status`, {
+      const task = completionTask;
+      const result = await api<TaskCompleteResult>(`/api/tasks/${task.id}/complete`, {
         method: "PUT",
-        body: JSON.stringify({
-          status: 2,
-          completionNote: completionNote.trim() || undefined
-        })
-      });
-      await api("/api/schedules", {
-        method: "POST",
         body: JSON.stringify({
           scheduleDate: finishTimerDate,
           startTime: finishTimerStart,
           endTime: finishTimerEnd,
-          kind: 1,
-          taskId: completionTask.id,
-          note: completionNote.trim() || undefined
+          completionNote: completionNote.trim() || undefined
         })
       });
       setCompletionTask(null);
       setCompletionNote("");
       await loadDashboard();
+      showTaskRewardPopup(task, [result.reward]);
     });
   }
 
@@ -790,18 +1295,19 @@ export function App() {
     });
   }
 
-  async function stopTimer(action: "pause" | "finish") {
-    const id = dashboard?.activeTimer?.id;
-    if (!id) return;
+  async function stopTimer(id: number, action: "pause" | "finish") {
     await run(async () => {
-      await api(`/api/timer-sessions/${id}/${action}`, { method: "PUT" });
+      const timer = runningTimers.find((item) => item.id === id);
+      const task = tasks.find((item) => item.id === timer?.taskId);
+      const result = await api<TimerStopResult>(`/api/timer-sessions/${id}/${action}`, { method: "PUT" });
       await loadDashboard();
+      showTaskRewardPopup(task, result.rewards ?? [], action === "pause" ? "partial" : "done");
     });
   }
 
-  function openFinishTimerModal() {
-    const activeTimer = dashboard?.activeTimer;
+  function openFinishTimerModal(activeTimer: TimerSession | undefined) {
     if (!activeTimer) return;
+    setFinishTimerSession(activeTimer);
     setFinishTimerDate(localDateInput(activeTimer.startTime));
     setFinishTimerStart(timeText(activeTimer.startTime));
     setFinishTimerEnd(currentTimeInput());
@@ -810,14 +1316,15 @@ export function App() {
 
   async function finishTimer(event: FormEvent) {
     event.preventDefault();
-    const id = dashboard?.activeTimer?.id;
+    const id = finishTimerSession?.id;
     if (!id) return;
     if (finishTimerEnd <= finishTimerStart) {
-      setError("结束时间需要晚于开始时间");
+      showNotice("结束时间需要晚于开始时间");
       return;
     }
     await run(async () => {
-      await api(`/api/timer-sessions/${id}/finish`, {
+      const task = tasks.find((item) => item.id === finishTimerSession?.taskId);
+      const result = await api<TimerStopResult>(`/api/timer-sessions/${id}/finish`, {
         method: "PUT",
         body: JSON.stringify({
           scheduleDate: finishTimerDate,
@@ -825,8 +1332,10 @@ export function App() {
           endTime: finishTimerEnd
         })
       });
+      setFinishTimerSession(null);
       setFinishTimerModalOpen(false);
       await loadDashboard();
+      showTaskRewardPopup(task, result.rewards ?? []);
     });
   }
 
@@ -855,26 +1364,46 @@ export function App() {
 
   const tasks = dashboard?.tasks ?? [];
   const categories = dashboard?.categories ?? [];
+  const categoryTotals = dashboard?.categoryTotals ?? categories;
   const schedules = dashboard?.schedules ?? [];
   const taskPlans = plannedMap(schedules);
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const orderedTasks = useMemo(() => sortTasksForDisplay(tasks, taskPlans), [tasks, taskPlans]);
-  const activeTask = dashboard?.activeTimer ? tasks.find((task) => task.id === dashboard.activeTimer?.taskId) ?? null : null;
+  const activeDailyTaskIds = useMemo(() => new Set(dashboard?.dailyTaskIds ?? []), [dashboard?.dailyTaskIds]);
+  const dailyOrderedTasks = useMemo(() => orderedTasks.filter((task) => activeDailyTaskIds.has(task.id) && task.status !== 3), [activeDailyTaskIds, orderedTasks]);
+  const runningTimers = dashboard?.activeTimers ?? (dashboard?.activeTimer ? [dashboard.activeTimer] : []);
+  const activeTimersByTaskId = useMemo(() => new Map(runningTimers.map((timer) => [timer.taskId, timer])), [runningTimers]);
   const filteredTasks = useMemo(() => {
-    if (taskCategoryFilter === "all") return orderedTasks;
-    if (taskCategoryFilter === "none") return orderedTasks.filter((task) => !task.categoryId);
-    return orderedTasks.filter((task) => String(task.categoryId) === taskCategoryFilter);
-  }, [orderedTasks, taskCategoryFilter]);
-  const categoryTaskCounts = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const task of orderedTasks) {
-      if (task.categoryId) counts.set(task.categoryId, (counts.get(task.categoryId) ?? 0) + 1);
+    if (taskCategoryFilter === "all") return dailyOrderedTasks;
+    if (taskCategoryFilter === "none") return dailyOrderedTasks.filter((task) => !task.categoryId);
+    return dailyOrderedTasks.filter((task) => task.categoryId && categoryById.get(task.categoryId)?.dimensionKey === taskCategoryFilter);
+  }, [dailyOrderedTasks, taskCategoryFilter, categoryById]);
+  const pendingOrderedTasks = useMemo(() => dailyOrderedTasks.filter((task) => task.status !== 2), [dailyOrderedTasks]);
+  const dimensionTaskCounts = useMemo(() => {
+    const counts = new Map<DimensionKey, number>();
+    for (const task of pendingOrderedTasks) {
+      if (!task.categoryId) continue;
+      const key = categoryById.get(task.categoryId)?.dimensionKey;
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
-  }, [orderedTasks]);
+  }, [pendingOrderedTasks, categoryById]);
   const pendingTasks = filteredTasks.filter((task) => task.status !== 2);
-  const completedTasks = filteredTasks.filter((task) => task.status === 2);
-  const uncategorizedTaskCount = orderedTasks.filter((task) => !task.categoryId).length;
+  const uncategorizedTaskCount = pendingOrderedTasks.filter((task) => !task.categoryId).length;
+  const completedTaskList = useMemo(() => orderedTasks.filter((task) => task.status === 2).sort((a, b) => new Date(b.completedAt ?? b.createdAt).getTime() - new Date(a.completedAt ?? a.createdAt).getTime()), [orderedTasks]);
+  const taskRewardsById = useMemo(() => {
+    const map = new Map<number, { xp: number; coins: number; events: RewardEvent[] }>();
+    for (const event of dashboard?.taskRewardEvents ?? []) {
+      const taskId = Number(event.sourceId);
+      if (!Number.isFinite(taskId)) continue;
+      const current = map.get(taskId) ?? { xp: 0, coins: 0, events: [] };
+      current.xp += event.xpDelta;
+      current.coins += event.coinDelta;
+      current.events.push(event);
+      map.set(taskId, current);
+    }
+    return map;
+  }, [dashboard?.taskRewardEvents]);
   const renderTaskRow = (task: Task) => (
     <TaskRow
       key={task.id}
@@ -882,19 +1411,19 @@ export function App() {
       category={task.categoryId ? categoryById.get(task.categoryId) ?? null : null}
       categories={categories}
       plannedSchedule={taskPlans.get(task.id) ?? null}
-      active={dashboard?.activeTimer?.taskId === task.id}
-      activeStartedAt={dashboard?.activeTimer?.taskId === task.id ? dashboard.activeTimer.startTime : undefined}
-      disabled={(Boolean(dashboard?.activeTimer) && dashboard?.activeTimer?.taskId !== task.id) || task.status === 2}
+      activeTimer={activeTimersByTaskId.get(task.id) ?? null}
+      disabled={task.status === 2}
       dragging={draggingTaskId === task.id}
       dragOver={dragOverTaskId === task.id && draggingTaskId !== task.id}
       onDone={() => toggleDone(task)}
       onPinned={() => togglePinned(task)}
       onCategoryChange={(categoryId) => updateTaskCategory(task, categoryId)}
+      onProgressChange={(progressPercent) => updateTaskProgress(task, progressPercent)}
       onTitleEdit={() => openTaskTitleEditor(task)}
       onStart={() => startTimer(task.id)}
-      onPause={() => stopTimer("pause")}
+      onPause={(timerId) => stopTimer(timerId, "pause")}
       onFinish={openFinishTimerModal}
-      onDelete={() => deleteTask(task.id)}
+      onDelete={() => cancelDailyTask(task)}
       onDragStart={() => setDraggingTaskId(task.id)}
       onDragEnter={() => setDragOverTaskId(task.id)}
       onDragEnd={() => {
@@ -905,15 +1434,25 @@ export function App() {
     />
   );
   const stats = dashboard?.weeklyStats;
+  const growth = dashboard?.growth;
+  const recentRewardEvents = dashboard?.rewardEvents ?? [];
   const sleep = dashboard?.sleepRecord;
   const weeklySeries = dashboard?.weeklySeries ?? [];
   const monthlySleepSeries = dashboard?.monthlySleepSeries ?? [];
   const sleepChartSeries = sleepRange === "week" ? weeklySeries : monthlySleepSeries;
   const water = dashboard?.waterRecord ?? { waterDate: selectedDate, cups: 0, targetCups: 8, lastDrinkAt: null, drinkTimes: "[]" };
   const waterPlan = hydrationPlan(water, sleep ?? null, selectedDate);
+  const journalRecord = dashboard?.journalRecord ?? null;
+  const morningInsight = dashboard?.aiInsights?.find((item) => item.sourceType === "morning") ?? null;
+  const journalInsight = dashboard?.aiInsights?.find((item) => item.sourceType === "journal") ?? null;
+  const todayMorningCount = hasText(dashboard?.morningWritingRecord?.content) ? 1 : 0;
+  const todayJournalCount = hasText(journalRecord?.content) ? 1 : 0;
+  const todayReviewCount = hasStockReviewContent(dashboard?.stockReviewRecord) ? 1 : 0;
+  const hasPendingWriting = !todayMorningCount || !todayJournalCount || !todayReviewCount;
   const timelineItems = useMemo(() => {
-    return [...schedules, ...waterTimelineItems(water)].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-  }, [schedules, water]);
+    const sleepItems = sleep ? [sleepTimelineItem(sleep)] : [];
+    return [...schedules, ...sleepItems, ...waterTimelineItems(water)].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  }, [schedules, sleep, water]);
   const reviewRecord = dashboard?.stockReviewRecord ?? null;
   const actualMinutes = schedules.filter((item) => item.kind === 1).reduce((sum, item) => sum + durationMinutes(item), 0);
   const plannedCount = schedules.filter((item) => item.kind === 0).length;
@@ -951,37 +1490,42 @@ export function App() {
 
   if (!authUser) {
     return (
-      <AuthPage
-        mode={authMode}
-        username={authUsername}
-        displayName={authDisplayName}
-        password={authPassword}
-        error={error}
-        onModeChange={setAuthMode}
-        onUsernameChange={setAuthUsername}
-        onDisplayNameChange={setAuthDisplayName}
-        onPasswordChange={setAuthPassword}
-        onSubmit={submitAuth}
-      />
+      <>
+        <AuthPage
+          mode={authMode}
+          username={authUsername}
+          displayName={authDisplayName}
+          password={authPassword}
+          onModeChange={setAuthMode}
+          onUsernameChange={setAuthUsername}
+          onDisplayNameChange={setAuthDisplayName}
+          onPasswordChange={setAuthPassword}
+          onSubmit={submitAuth}
+        />
+        {feedbackPopup && <FeedbackPopup popup={feedbackPopup} onClose={() => setFeedbackPopup(null)} />}
+      </>
     );
   }
 
   return (
     <main className="page-shell min-h-screen p-2.5 text-ink md:p-3">
       <div className="mx-auto flex max-w-[1540px] flex-col gap-2.5">
-        <header className="glass-panel sticky top-2.5 z-10 grid gap-2.5 p-2.5 lg:grid-cols-[170px_minmax(0,1fr)_auto] lg:items-center">
-          <div>
+        <header className="glass-panel top-workbench-header sticky top-2.5 z-10">
+          <div className="top-title-block">
             <p className="text-xs text-soft">个人工作台</p>
             <h1 className="text-lg font-bold leading-tight">今日记录</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="top-control-bar">
             <div className="inline-flex rounded-full border border-white/80 bg-white/70 p-0.5">
               <button className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${pageMode === "workspace" ? "bg-mint-500 text-white" : "text-soft hover:text-ink"}`} onClick={() => setPageMode("workspace")}>
                 工作台
               </button>
               <button className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${pageMode === "history" ? "bg-pink-400 text-white" : "text-soft hover:text-ink"}`} onClick={() => setPageMode("history")}>
                 回看统计
+              </button>
+              <button className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${pageMode === "rewards" ? "bg-amber-300 text-ink" : "text-soft hover:text-ink"}`} onClick={() => setPageMode("rewards")}>
+                奖励
               </button>
             </div>
             <div className="time-chip" aria-label="现在时间">
@@ -998,21 +1542,23 @@ export function App() {
             <button className="icon-button" aria-label="刷新" onClick={() => loadDashboard()}>
               <RefreshCw size={16} />
             </button>
-            <span className="time-chip max-w-[140px] truncate" title={authUser.username}>{authUser.displayName}</span>
-            <button className="icon-button w-auto px-3 text-[11px] font-semibold" onClick={logout}>
-              退出
-            </button>
+            {growth && <GrowthMini growth={growth} />}
           </div>
 
-          <div className="grid grid-cols-4 gap-1.5">
-            <MiniStat label="实际" value={formatDuration(stats?.totalMinutes ?? 0)} />
-            <MiniStat label="完成" value={`${stats?.completedTasks ?? 0}`} />
-            <MiniStat label="复盘" value={`${stats?.stockReviewDays ?? 0}天`} />
-            <MiniStat label="日记" value={`${stats?.journalDays ?? 0}天`} />
+          <div className="top-right-block">
+            <AccountMenu user={authUser} onView={() => showNotice(`显示名：${authUser.displayName}\n账号：${authUser.username}`, "账号信息")} onLogout={logout} />
+            <div className="grid grid-cols-2 gap-1.5">
+              <MiniStat label="实际" value={formatDuration(stats?.totalMinutes ?? 0)} />
+              <MiniStat label="完成" value={`${stats?.completedTasks ?? 0}`} />
+            </div>
+            <div className="writing-shortcut-wrap">
+              {hasPendingWriting && <span className="writing-nudge">点我记录</span>}
+              <WritingShortcut label="晨写" done={Boolean(todayMorningCount)} onClick={() => setWritingModal("morning")} />
+              <WritingShortcut label="复盘" done={Boolean(todayReviewCount)} onClick={() => setWritingModal("review")} />
+              <WritingShortcut label="日记" done={Boolean(todayJournalCount)} onClick={() => setWritingModal("journal")} />
+            </div>
           </div>
         </header>
-
-        {error && <div className="glass-panel border-pink-300 p-3 text-sm text-pink-500">{error}</div>}
 
         {pageMode === "workspace" ? (
           <section className="grid min-h-[calc(100vh-106px)] gap-2.5 xl:grid-cols-[320px_minmax(0,1.28fr)_280px]">
@@ -1021,10 +1567,12 @@ export function App() {
             icon={<CalendarDays size={16} />}
             className="xl:h-full"
             action={
-              <button className="primary-button h-8 gap-1 px-3 text-[11px]" onClick={() => setScheduleModalOpen(true)}>
-                <Plus size={14} />
-                记录
-              </button>
+              <div className="flex items-center gap-1">
+                <button className="primary-button h-8 gap-1 px-3 text-[11px]" type="button" onClick={() => setScheduleModalOpen(true)}>
+                  <Plus size={14} />
+                  记录
+                </button>
+              </div>
             }
           >
             <div className="mb-2 grid grid-cols-2 gap-1.5">
@@ -1048,55 +1596,46 @@ export function App() {
             {!!timelineItems.length && <TimelineBoard items={timelineItems} onDelete={deleteSchedule} />}
           </Panel>
 
-          <Panel title="主要任务" icon={<CheckCircle2 size={17} />} className="xl:min-h-full">
-            <form className="mb-3 grid gap-2" onSubmit={createTask}>
-              <div className="grid gap-2 md:grid-cols-[1fr_170px_auto]">
-                <input className="field min-w-0" placeholder="新增一个主要任务" value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} />
-                <select className="field" value={taskCategoryId} onChange={(event) => setTaskCategoryId(event.target.value)} required>
-                  <option value="">选择类型</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <button className="primary-button px-4" type="submit">
-                  添加
+          <Panel
+            title="主要任务"
+            icon={<CheckCircle2 size={17} />}
+            className="xl:min-h-full"
+            action={
+              <div className="flex items-center gap-1">
+                <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="查看已完成任务" onClick={() => setCompletedTasksModalOpen(true)}>
+                  <CheckCircle2 size={14} />
+                  已完成
+                </button>
+                <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="接取今日任务" onClick={openDailyTaskSelector}>
+                  <Gift size={14} />
+                  接取
+                </button>
+                <button className="primary-button h-8 gap-1 px-3 text-[11px]" type="button" onClick={() => setTaskCreateModalOpen(true)}>
+                  <Plus size={14} />
+                  新增
                 </button>
               </div>
-              <label className="flex flex-wrap items-center gap-2 text-xs text-soft">
-                <input className="accent-mint-500" type="checkbox" checked={taskPlanEnabled} onChange={(event) => setTaskPlanEnabled(event.target.checked)} />
-                预设时段
-                {taskPlanEnabled && (
-                  <>
-                    <input className="field h-8 w-28" type="time" value={taskPlanStart} onChange={(event) => setTaskPlanStart(event.target.value)} />
-                    <input className="field h-8 w-28" type="time" value={taskPlanEnd} onChange={(event) => setTaskPlanEnd(event.target.value)} />
-                  </>
-                )}
-              </label>
-            </form>
-
-            {!!tasks.length && (
-              <TaskCategoryTabs
-                categories={categories}
+            }
+          >
+              {!!dailyOrderedTasks.length && (
+                <TaskDimensionTabs
+                dimensions={visibleDimensions(categories)}
                 active={taskCategoryFilter}
-                allCount={orderedTasks.length}
+                allCount={pendingOrderedTasks.length}
                 uncategorizedCount={uncategorizedTaskCount}
-                categoryCounts={categoryTaskCounts}
+                dimensionCounts={dimensionTaskCounts}
                 onChange={setTaskCategoryFilter}
               />
             )}
 
-            <div className="space-y-2 overflow-y-auto pr-1 xl:max-h-[calc(100vh-310px)]">
+            <div className="space-y-2 overflow-y-auto pr-1 xl:max-h-[calc(100vh-245px)]">
               {loading && <EmptyText text="加载中..." />}
-              {!loading && !tasks.length && <EmptyText text="还没有任务，先添加一个。" />}
-              {!!tasks.length && (
+              {!loading && !tasks.length && <EmptyText text="任务池还没有任务，先添加一个悬赏。" />}
+              {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text="今天还没有接取任务，点击上方“接取悬赏”开始选择。" />}
+              {!!dailyOrderedTasks.length && (
                 <>
                   <TaskSection title="待完成" count={pendingTasks.length}>
-                    {pendingTasks.length ? pendingTasks.map(renderTaskRow) : <EmptyText text="今天的任务都完成了。" />}
-                  </TaskSection>
-                  <TaskSection title="已完成" count={completedTasks.length} muted>
-                    {completedTasks.length ? completedTasks.map(renderTaskRow) : <EmptyText text="完成后会沉到这里。" />}
+                    {pendingTasks.length ? pendingTasks.map(renderTaskRow) : <EmptyText text="今天的悬赏都完成了。" />}
                   </TaskSection>
                 </>
               )}
@@ -1135,123 +1674,42 @@ export function App() {
               </form>
             </Panel>
 
-            <Panel title="事件类型" icon={<TimerReset size={17} />}>
-              <form className="mb-3 flex gap-2" onSubmit={createCategory}>
-                <input className="field min-w-0 flex-1" placeholder="新增类型" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} />
+            <Panel title="六维能力" icon={<TimerReset size={17} />}>
+              <form className="mb-3 grid gap-2" onSubmit={createCategory}>
+                <input className="field min-w-0" placeholder="新增技能/主题，比如 缝纫" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} />
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <select className="field" value={categoryDimensionKey} onChange={(event) => setCategoryDimensionKey(event.target.value as DimensionKey)}>
+                    <DimensionOptions />
+                  </select>
                 <button className="primary-button px-3" type="submit">
                   <Plus size={15} />
                 </button>
+                </div>
               </form>
-              <div className="category-list">
-                {!categories.length && <EmptyText text="还没有任务类型。" />}
-                {categories.map((item) => {
-                  const hours = item.totalMinutes / 60;
-                  const percent = Math.min(100, Math.round((item.totalMinutes / item.targetMinutes) * 100));
-                  return (
-                    <div className="category-row" key={item.id}>
-                      <CategoryTag category={item} />
-                      <div className="min-w-0 flex-1">
-                        <div className="h-2 rounded-full bg-white/80">
-                          <div className="progress-fill" style={{ width: `${percent}%`, backgroundColor: item.color }} />
-                        </div>
-                      </div>
-                      <span className="w-10 shrink-0 text-right text-[11px] text-soft">{hours.toFixed(1)}h</span>
-                      <button className="icon-button h-7 w-7 shrink-0" aria-label={`编辑${item.name}`} onClick={() => openCategoryEditor(item)}>
-                        <Pencil size={13} />
-                      </button>
-                      <button className="icon-button h-7 w-7 shrink-0" aria-label={`删除${item.name}`} onClick={() => deleteCategory(item)}>
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
+              <AbilityOverview categories={categories} onEdit={openCategoryEditor} onDelete={deleteCategory} />
+            </Panel>
+
+            <Panel title="小工具" icon={<Sparkles size={17} />}>
+              <div className="grid gap-2">
+                <button className="tool-entry" type="button" onClick={() => openToolModal("decision")}>
+                  <span className="tool-entry-icon"><Scale size={15} /></span>
+                  <span>
+                    <strong>辅助决策</strong>
+                    <small>好处 / 坏处 / 分数</small>
+                  </span>
+                </button>
+                <button className="tool-entry" type="button" onClick={() => openToolModal("bridge")}>
+                  <span className="tool-entry-icon"><Sparkles size={15} /></span>
+                  <span>
+                    <strong>心理桥梁</strong>
+                    <small>目标 / 阻力 / 下一步</small>
+                  </span>
+                </button>
               </div>
-            </Panel>
-
-            <Panel
-              title="晨写"
-              icon={<SunMedium size={17} />}
-              action={
-                <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => setWritingModal("morning")}>
-                  <Pencil size={13} />
-                  展开写
-                </button>
-              }
-            >
-              <form className="space-y-2" onSubmit={saveMorningWriting}>
-                <textarea className="journal-input min-h-24" placeholder="早上先写几句：醒来想到什么、今天想把注意力放在哪里..." value={morningContent} onChange={(event) => setMorningContent(event.target.value)} />
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <select className="field" value={morningMoodScore} onChange={(event) => setMorningMoodScore(event.target.value)}>
-                    <ScoreOptions items={MORNING_STATE_OPTIONS} />
-                  </select>
-                  <button className="primary-button px-4" type="submit">
-                    保存
-                  </button>
-                </div>
-              </form>
-            </Panel>
-
-            <Panel
-              title="睡前日记"
-              icon={<BookOpenText size={17} />}
-              action={
-                <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => setWritingModal("journal")}>
-                  <Pencil size={13} />
-                  展开写
-                </button>
-              }
-            >
-              <form className="space-y-2" onSubmit={saveJournal}>
-                <textarea className="journal-input" placeholder="睡前简单写几句：今天发生了什么、感谢什么、明天最重要的一件事..." value={journalContent} onChange={(event) => setJournalContent(event.target.value)} />
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <select className="field" value={journalMoodScore} onChange={(event) => setJournalMoodScore(event.target.value)}>
-                    <ScoreOptions items={JOURNAL_STATE_OPTIONS} />
-                  </select>
-                  <button className="primary-button px-4" type="submit">
-                    保存
-                  </button>
-                </div>
-              </form>
-            </Panel>
-
-            <Panel
-              title="股市复盘"
-              icon={<TrendingUp size={17} />}
-              action={
-                <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => setWritingModal("review")}>
-                  <Pencil size={13} />
-                  展开写
-                </button>
-              }
-            >
-              <form className="space-y-2" onSubmit={saveStockReview}>
-                {reviewRecord ? (
-                  <>
-                    <p className="text-xs text-soft">今天的复盘已记录</p>
-                    <p className="max-h-20 overflow-hidden text-sm leading-6 text-ink">{reviewRecord.marketSummary || reviewRecord.operations || reviewRecord.holdingsReview || reviewRecord.mistakes || reviewRecord.tomorrowPlan || "这一天还没有写复盘。"}</p>
-                    <div className="flex flex-wrap gap-2 text-[11px] text-soft">
-                      <span className="badge-gray">{reviewRecord.emotionScore ? `心情 ${reviewRecord.emotionScore}` : "心情 -"}</span>
-                      <span className="badge-gray">{reviewRecord.disciplineScore ? `纪律 ${reviewRecord.disciplineScore}` : "纪律 -"}</span>
-                      <span className="badge-gray">{reviewRecord.tags?.trim() || "无标签"}</span>
-                    </div>
-                  </>
-                ) : (
-                  <EmptyText text="今天还没有写复盘。" />
-                )}
-                <textarea className="journal-input min-h-20" placeholder="一句话复盘：今天市场/交易最重要的结论..." value={reviewMarketSummary} onChange={(event) => setReviewMarketSummary(event.target.value)} />
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <button className="icon-button w-full px-4" type="button" onClick={() => setPageMode("history")}>
-                    回看
-                  </button>
-                  <button className="primary-button px-4" type="submit">
-                    保存
-                  </button>
-                </div>
-              </form>
             </Panel>
           </div>
         </section>
-        ) : (
+        ) : pageMode === "history" ? (
           <HistoryPage
             selectedDate={selectedDate}
             onBack={() => setPageMode("workspace")}
@@ -1276,6 +1734,7 @@ export function App() {
             loading={loading}
             stats={stats}
             sleep={sleep ?? null}
+            categories={categoryTotals}
             timeBreakdown={timeBreakdown}
             pieTotalMinutes={pieTotalMinutes}
             weeklySeries={weeklySeries}
@@ -1302,16 +1761,44 @@ export function App() {
             onReviewTagsChange={setReviewTags}
             onOpenWritingModal={setWritingModal}
           />
+        ) : (
+          <RewardCenter
+            growth={rewardCenter?.growth ?? growth ?? null}
+            items={rewardCenter?.items ?? []}
+            events={rewardCenter?.events ?? recentRewardEvents}
+            redemptions={rewardCenter?.redemptions ?? []}
+            rewardName={rewardName}
+            rewardCost={rewardCost}
+            rewardDescription={rewardDescription}
+            onNameChange={setRewardName}
+            onCostChange={setRewardCost}
+            onDescriptionChange={setRewardDescription}
+            onCreate={createRewardItem}
+            onRedeem={redeemRewardItem}
+            onDelete={deleteRewardItem}
+          />
         )}
       </div>
 
       {editingTask && (
         <TaskTitleEditModal
           title={editTaskTitle}
+          description={editTaskDescription}
+          dueDate={editTaskDueDate}
+          dueTime={editTaskDueTime}
+          difficulty={editTaskDifficulty}
           onTitleChange={setEditTaskTitle}
+          onDescriptionChange={setEditTaskDescription}
+          onDueDateChange={setEditTaskDueDate}
+          onDueTimeChange={setEditTaskDueTime}
+          onDifficultyChange={setEditTaskDifficulty}
           onClose={() => {
             setEditingTask(null);
             setEditTaskTitle("");
+            setEditTaskDescription("");
+            setEditTaskDueDate("");
+            setEditTaskDueTime("18:00");
+            setEditTaskDifficulty("2");
           }}
           onSubmit={saveTaskTitle}
         />
@@ -1342,14 +1829,17 @@ export function App() {
 
       {finishTimerModalOpen && (
         <FinishTimerModal
-          taskTitle={activeTask?.title ?? "当前任务"}
+          taskTitle={tasks.find((task) => task.id === finishTimerSession?.taskId)?.title ?? "当前任务"}
           scheduleDate={finishTimerDate}
           startTime={finishTimerStart}
           endTime={finishTimerEnd}
           onDateChange={setFinishTimerDate}
           onStartChange={setFinishTimerStart}
           onEndChange={setFinishTimerEnd}
-          onClose={() => setFinishTimerModalOpen(false)}
+          onClose={() => {
+            setFinishTimerSession(null);
+            setFinishTimerModalOpen(false);
+          }}
           onSubmit={finishTimer}
         />
       )}
@@ -1370,9 +1860,11 @@ export function App() {
       {editingCategory && (
         <CategoryEditModal
           name={editCategoryName}
+          dimensionKey={editCategoryDimensionKey}
           color={editCategoryColor}
           targetHours={editCategoryTargetHours}
           onNameChange={setEditCategoryName}
+          onDimensionKeyChange={setEditCategoryDimensionKey}
           onTargetHoursChange={setEditCategoryTargetHours}
           onClose={() => setEditingCategory(null)}
           onSubmit={updateCategory}
@@ -1381,6 +1873,13 @@ export function App() {
 
       {writingModal === "morning" && (
         <WritingModal title={`晨写 · ${formatDayLabel(selectedDate)}`} onClose={() => setWritingModal(null)} onSubmit={saveMorningWriting}>
+          <div className="flex justify-end">
+            <button className="icon-button w-auto gap-1 px-3 text-[11px]" type="button" aria-label="分析晨写内容" onClick={() => analyzeInsight("morning")} disabled={aiInsightLoading === "morning"}>
+              <Sparkles size={13} />
+              AI分析
+            </button>
+          </div>
+          {morningInsight && <AiInsightCard insight={morningInsight} expanded />}
           <textarea className="writing-textarea" placeholder="早上先写几句：醒来想到什么、今天想把注意力放在哪里..." value={morningContent} onChange={(event) => setMorningContent(event.target.value)} />
           <select className="field" value={morningMoodScore} onChange={(event) => setMorningMoodScore(event.target.value)}>
             <ScoreOptions items={MORNING_STATE_OPTIONS} />
@@ -1390,6 +1889,13 @@ export function App() {
 
       {writingModal === "journal" && (
         <WritingModal title={`睡前日记 · ${formatDayLabel(selectedDate)}`} onClose={() => setWritingModal(null)} onSubmit={saveJournal}>
+          <div className="flex justify-end">
+            <button className="icon-button w-auto gap-1 px-3 text-[11px]" type="button" aria-label="分析日记内容" onClick={() => analyzeInsight("journal")} disabled={aiInsightLoading === "journal"}>
+              <Sparkles size={13} />
+              AI分析
+            </button>
+          </div>
+          {journalInsight && <AiInsightCard insight={journalInsight} expanded />}
           <textarea className="writing-textarea" placeholder="睡前慢慢写：今天发生了什么、感谢什么、明天最重要的一件事..." value={journalContent} onChange={(event) => setJournalContent(event.target.value)} />
           <select className="field" value={journalMoodScore} onChange={(event) => setJournalMoodScore(event.target.value)}>
             <ScoreOptions items={JOURNAL_STATE_OPTIONS} />
@@ -1397,7 +1903,7 @@ export function App() {
         </WritingModal>
       )}
 
-      {writingModal === "review" && (
+        {writingModal === "review" && (
         <WritingModal title={`股市复盘 · ${formatDayLabel(selectedDate)}`} onClose={() => setWritingModal(null)} onSubmit={saveStockReview}>
           <textarea className="writing-textarea min-h-[220px]" placeholder="今天的大盘和最重要的结论..." value={reviewMarketSummary} onChange={(event) => setReviewMarketSummary(event.target.value)} />
           <div className="grid gap-2 md:grid-cols-2">
@@ -1446,6 +1952,94 @@ export function App() {
           onSubmit={saveCompletionReflection}
         />
       )}
+
+      {taskCreateModalOpen && (
+        <TaskCreateModal
+          title={taskTitle}
+          description={taskDescription}
+          categoryId={taskCategoryId}
+          categories={categories}
+          difficulty={taskDifficulty}
+          dueDate={taskDueDate}
+          dueTime={taskDueTime}
+          planEnabled={taskPlanEnabled}
+          planStart={taskPlanStart}
+          planEnd={taskPlanEnd}
+          onTitleChange={setTaskTitle}
+          onDescriptionChange={setTaskDescription}
+          onCategoryChange={setTaskCategoryId}
+          onDifficultyChange={setTaskDifficulty}
+          onDueDateChange={setTaskDueDate}
+          onDueTimeChange={setTaskDueTime}
+          onPlanEnabledChange={setTaskPlanEnabled}
+          onPlanStartChange={setTaskPlanStart}
+          onPlanEndChange={setTaskPlanEnd}
+          onClearDueDate={() => setTaskDueDate("")}
+          onClose={() => setTaskCreateModalOpen(false)}
+          onSubmit={createTask}
+          onSubmitAndTake={createAndTakeTask}
+        />
+      )}
+
+      {completedTasksModalOpen && (
+        <CompletedTasksModal
+          tasks={completedTaskList}
+          categories={categories}
+          rewardsByTaskId={taskRewardsById}
+          onClose={() => setCompletedTasksModalOpen(false)}
+        />
+      )}
+
+      {taskSelectionModalOpen && (
+        <TaskSelectionModal
+          selectedDate={selectedDate}
+          tasks={orderedTasks.filter((task) => task.status !== 2 && task.status !== 3)}
+          categories={categories}
+          selectedIds={selectedDailyTaskIds}
+          onToggle={(taskId) => setSelectedDailyTaskIds((ids) => ids.includes(taskId) ? ids.filter((id) => id !== taskId) : [...ids, taskId])}
+          onDelete={(task) => deleteTask(task.id, () => setSelectedDailyTaskIds((ids) => ids.filter((id) => id !== task.id)))}
+          onClose={() => setTaskSelectionModalOpen(false)}
+          onSubmit={saveDailyTaskSelection}
+        />
+      )}
+
+      {toolModal === "decision" && (
+        <DecisionToolModal
+          records={decisionRecords}
+          selectedDate={selectedDate}
+          theme={decisionTheme}
+          benefits={decisionBenefits}
+          drawbacks={decisionDrawbacks}
+          benefitScore={decisionBenefitScore}
+          drawbackScore={decisionDrawbackScore}
+          conclusion={decisionConclusion}
+          onThemeChange={setDecisionTheme}
+          onBenefitsChange={setDecisionBenefits}
+          onDrawbacksChange={setDecisionDrawbacks}
+          onBenefitScoreChange={setDecisionBenefitScore}
+          onDrawbackScoreChange={setDecisionDrawbackScore}
+          onConclusionChange={setDecisionConclusion}
+          onSubmit={saveDecisionRecord}
+          onClose={() => setToolModal(null)}
+        />
+      )}
+
+      {toolModal === "bridge" && (
+        <PsychologicalBridgeModal
+          records={bridgeRecords}
+          selectedDate={selectedDate}
+          desiredEffect={bridgeDesiredEffect}
+          resistance={bridgeResistance}
+          result={bridgeResult}
+          loading={bridgeLoading}
+          onDesiredEffectChange={setBridgeDesiredEffect}
+          onResistanceChange={setBridgeResistance}
+          onSubmit={generatePsychologicalBridge}
+          onClose={() => setToolModal(null)}
+        />
+      )}
+
+      {feedbackPopup && <FeedbackPopup popup={feedbackPopup} onClose={() => setFeedbackPopup(null)} />}
     </main>
   );
 }
@@ -1455,7 +2049,6 @@ function AuthPage({
   username,
   displayName,
   password,
-  error,
   onModeChange,
   onUsernameChange,
   onDisplayNameChange,
@@ -1466,7 +2059,6 @@ function AuthPage({
   username: string;
   displayName: string;
   password: string;
-  error: string;
   onModeChange: (mode: AuthMode) => void;
   onUsernameChange: (value: string) => void;
   onDisplayNameChange: (value: string) => void;
@@ -1511,15 +2103,124 @@ function AuthPage({
             <input className="field" autoComplete={isRegister ? "new-password" : "current-password"} placeholder="密码" type="password" value={password} onChange={(event) => onPasswordChange(event.target.value)} />
           </div>
 
-          {error && <div className="mt-3 rounded-card border border-pink-200 bg-pink-50/80 p-2 text-xs text-pink-500">{error}</div>}
-
           <button className="primary-button mt-4 w-full" type="submit">
             {isRegister ? "注册并进入" : "登录"}
           </button>
-          {!isRegister && <p className="mt-3 text-center text-[11px] text-soft">默认账号：sip / workbench123456</p>}
         </form>
       </div>
     </main>
+  );
+}
+
+function RewardCenter(props: {
+  growth: Growth | null;
+  items: RewardItem[];
+  events: RewardEvent[];
+  redemptions: RewardRedemption[];
+  rewardName: string;
+  rewardCost: string;
+  rewardDescription: string;
+  onNameChange: (value: string) => void;
+  onCostChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onCreate: (event: FormEvent) => void;
+  onRedeem: (item: RewardItem) => void;
+  onDelete: (item: RewardItem) => void;
+}) {
+  const growth = props.growth;
+  const percent = growth ? Math.min(100, Math.round((growth.xpInLevel / Math.max(1, growth.xpForNextLevel)) * 100)) : 0;
+  return (
+    <section className="grid gap-2.5 lg:grid-cols-[minmax(0,1.1fr)_360px]">
+      <Panel title="成长进度" icon={<Sparkles size={17} />}>
+        <div className="growth-hero">
+          <div>
+            <p className="text-xs text-soft">当前等级</p>
+            <h2 className="mt-1 text-2xl font-bold">Lv.{growth?.level ?? 1}</h2>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-soft">金币</p>
+            <p className="mt-1 inline-flex items-center gap-1 text-2xl font-bold text-amber-500">
+              <Coins size={20} />
+              {growth?.coins ?? 0}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3">
+          <div className="mb-1 flex justify-between text-[11px] text-soft">
+            <span>经验</span>
+            <span>{growth?.xpInLevel ?? 0}/{growth?.xpForNextLevel ?? 50}</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-white/70">
+            <div className="h-full rounded-full bg-mint-500 transition-all duration-500" style={{ width: `${percent}%` }} />
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
+          <section className="reward-list">
+            <h3 className="mb-2 text-xs font-semibold text-ink">最近获得</h3>
+            {props.events.length ? (
+              props.events.map((event) => (
+                <div className="reward-row" key={event.id}>
+                  <span>{event.reason}</span>
+                  <span className="text-right text-mint-700">+{event.xpDelta} XP {event.coinDelta ? `+${event.coinDelta} 金币` : ""}</span>
+                </div>
+              ))
+            ) : (
+              <EmptyText text="完成一次记录后，这里会亮起来。" />
+            )}
+          </section>
+          <section className="reward-list">
+            <h3 className="mb-2 text-xs font-semibold text-ink">最近兑换</h3>
+            {props.redemptions.length ? (
+              props.redemptions.map((item) => (
+                <div className="reward-row" key={item.id}>
+                  <span>{item.name}</span>
+                  <span className="text-right text-pink-500">-{item.cost}</span>
+                </div>
+              ))
+            ) : (
+              <EmptyText text="还没有兑换奖励。" />
+            )}
+          </section>
+        </div>
+      </Panel>
+
+      <Panel title="奖励中心" icon={<Gift size={17} />}>
+        <form className="space-y-2" onSubmit={props.onCreate}>
+          <input className="field" placeholder="奖励名称，比如：买一杯喜欢的饮料" value={props.rewardName} onChange={(event) => props.onNameChange(event.target.value)} />
+          <input className="field" min={1} type="number" placeholder="金币价格" value={props.rewardCost} onChange={(event) => props.onCostChange(event.target.value)} />
+          <textarea className="journal-input min-h-20" placeholder="说明，可不填" value={props.rewardDescription} onChange={(event) => props.onDescriptionChange(event.target.value)} />
+          <button className="primary-button w-full" type="submit">添加奖励</button>
+        </form>
+
+        <div className="mt-3 space-y-2">
+          {props.items.length ? (
+            props.items.map((item) => (
+              <article className="reward-item" key={item.id}>
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold">{item.name}</h3>
+                  {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-soft">{item.description}</p>}
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-500">
+                    <Coins size={13} />
+                    {item.cost}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button className="icon-button w-auto px-3 text-[11px]" type="button" aria-label={`兑换${item.name}`} onClick={() => props.onRedeem(item)} disabled={(growth?.coins ?? 0) < item.cost}>
+                    兑换
+                  </button>
+                  <button className="icon-button h-8 w-8" type="button" aria-label="删除奖励" onClick={() => props.onDelete(item)}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <EmptyText text="先添加一个想兑换的小奖励。" />
+          )}
+        </div>
+      </Panel>
+    </section>
   );
 }
 
@@ -1538,10 +2239,54 @@ function Panel({ title, icon, children, className = "", action }: { title: strin
   );
 }
 
+function GrowthMini({ growth }: { growth: Growth }) {
+  const percent = Math.min(100, Math.round((growth.xpInLevel / Math.max(1, growth.xpForNextLevel)) * 100));
+  return (
+    <div className="top-growth-card">
+      <div className="top-growth-main">
+        <span className="top-growth-level">Lv.{growth.level}</span>
+        <span className="top-growth-coins">
+          <Coins size={16} />
+          {growth.coins}
+        </span>
+      </div>
+      <div className="top-growth-meta">
+        <span>经验 {growth.xpInLevel}/{growth.xpForNextLevel}</span>
+        <span>{percent}%</span>
+      </div>
+      <div className="top-growth-track">
+        <div className="top-growth-fill" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function AccountMenu({ user, onView, onLogout }: { user: AuthUser; onView: () => void; onLogout: () => void }) {
+  return (
+    <details className="account-menu">
+      <summary className="account-menu-trigger" title={user.username}>
+        <span className="account-avatar">{user.displayName.slice(0, 1).toUpperCase()}</span>
+        <span className="account-name">{user.displayName}</span>
+      </summary>
+      <div className="account-dropdown">
+        <button type="button" onClick={(event) => {
+          event.currentTarget.closest("details")?.removeAttribute("open");
+          onView();
+        }}>
+          查看账号
+        </button>
+        <button type="button" onClick={onLogout}>
+          退出登录
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function WritingModal({ title, children, onClose, onSubmit }: { title: string; children: ReactNode; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <form className="writing-modal" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={onClose}>
+      <form className="writing-modal" onSubmit={onSubmit}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] text-soft">大空间写作</p>
@@ -1555,7 +2300,7 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
         <div className="writing-body space-y-2">{children}</div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1563,8 +2308,280 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
           </button>
         </div>
       </form>
+    </ModalPortal>
+  );
+}
+
+function TaskSelectionModal(props: {
+  selectedDate: string;
+  tasks: Task[];
+  categories: Category[];
+  selectedIds: number[];
+  onToggle: (taskId: number) => void;
+  onDelete: (task: Task) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const categoryById = new Map(props.categories.map((category) => [category.id, category]));
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const filteredTasks = props.tasks.filter((task) => {
+    if (categoryFilter === "all") return true;
+    if (categoryFilter === "none") return !task.categoryId;
+    return String(task.categoryId) === categoryFilter;
+  });
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="task-selection-modal" onSubmit={props.onSubmit}>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[11px] text-soft">{props.selectedDate} · 任务池</p>
+            <h3 className="text-sm font-semibold">接取今天的悬赏</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
+            <X size={15} />
+          </button>
+        </div>
+        <p className="mb-3 text-[11px] leading-5 text-soft">挑选今天真正要推进的任务。未接取的任务仍会留在任务池里，不会消失。</p>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-soft">任务池 {props.tasks.length} 个</span>
+          <select className="field h-8 max-w-[220px] text-[11px]" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="all">全部分类</option>
+            <option value="none">未分类</option>
+            <CategoryOptionsGrouped categories={props.categories} />
+          </select>
+        </div>
+        <div className="task-pool-list">
+          {filteredTasks.length ? filteredTasks.map((task) => {
+            const category = task.categoryId ? categoryById.get(task.categoryId) : null;
+            const selected = props.selectedIds.includes(task.id);
+            return (
+              <div className={`task-pool-option ${selected ? "task-pool-option-selected" : ""}`} key={task.id}>
+                <label className="task-pool-main">
+                  <input type="checkbox" checked={selected} onChange={() => props.onToggle(task.id)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="task-pool-line">
+                      {task.pinned && <Star className="shrink-0 text-pink-500" size={14} fill="currentColor" />}
+                      <strong>{task.title}</strong>
+                      {category ? <CategoryTag category={category} /> : <span className="task-pool-empty-category">未分类</span>}
+                      <span className="task-pool-inline-meta">发布 {formatDateTime(task.createdAt)}</span>
+                      <span className="task-pool-inline-meta">{task.dueAt ? `截止 ${formatDateTime(task.dueAt)}` : "暂无截止"}</span>
+                      <span className="task-pool-inline-meta">{difficultyLabel(task.difficulty)}</span>
+                      {task.description?.trim() && <span className="task-pool-inline-meta task-pool-description" title={task.description}>{task.description}</span>}
+                    </span>
+                  </span>
+                </label>
+                <button className="task-pool-delete" type="button" aria-label="删除任务" title="删除任务" onClick={() => props.onDelete(task)}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          }) : <EmptyText text={props.tasks.length ? "这个分类下没有未完成任务。" : "任务池里还没有未完成任务。"} />}
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-soft">已接取 {props.selectedIds.length} 个</span>
+          <div className="flex gap-2">
+            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>取消</button>
+            <button className="primary-button px-5" type="submit">确认接取</button>
+          </div>
+        </div>
+      </form>
+    </ModalPortal>
+  );
+}
+
+function DecisionToolModal(props: {
+  records: DecisionRecord[];
+  selectedDate: string;
+  theme: string;
+  benefits: string;
+  drawbacks: string;
+  benefitScore: string;
+  drawbackScore: string;
+  conclusion: string;
+  onThemeChange: (value: string) => void;
+  onBenefitsChange: (value: string) => void;
+  onDrawbacksChange: (value: string) => void;
+  onBenefitScoreChange: (value: string) => void;
+  onDrawbackScoreChange: (value: string) => void;
+  onConclusionChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onClose: () => void;
+}) {
+  const balance = Number(props.benefitScore) - Number(props.drawbackScore);
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="tool-modal" onSubmit={props.onSubmit}>
+        <ToolModalHeader eyebrow={props.selectedDate} title="辅助决策" onClose={props.onClose} />
+        <div className="tool-modal-grid">
+          <div className="space-y-2">
+            <input className="field" placeholder="这次要决定什么？" value={props.theme} onChange={(event) => props.onThemeChange(event.target.value)} />
+            <div className="grid gap-2 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="tool-label">好处</span>
+                <textarea className="journal-input min-h-36" placeholder="会带来什么收益、成长、轻松感？" value={props.benefits} onChange={(event) => props.onBenefitsChange(event.target.value)} />
+              </label>
+              <label className="space-y-1">
+                <span className="tool-label">坏处</span>
+                <textarea className="journal-input min-h-36" placeholder="会付出什么成本、风险、精力？" value={props.drawbacks} onChange={(event) => props.onDrawbacksChange(event.target.value)} />
+              </label>
+            </div>
+            <div className="grid gap-2 md:grid-cols-[1fr_1fr_120px]">
+              <label className="space-y-1">
+                <span className="tool-label">好处权重</span>
+                <select className="field" value={props.benefitScore} onChange={(event) => props.onBenefitScoreChange(event.target.value)}>
+                  <ScoreSelectOptions />
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="tool-label">坏处权重</span>
+                <select className="field" value={props.drawbackScore} onChange={(event) => props.onDrawbackScoreChange(event.target.value)}>
+                  <ScoreSelectOptions />
+                </select>
+              </label>
+              <div className={`decision-score ${balance >= 0 ? "decision-score-positive" : "decision-score-negative"}`}>
+                <span>倾向</span>
+                <strong>{balance > 0 ? `+${balance}` : balance}</strong>
+              </div>
+            </div>
+            <input className="field" placeholder="当前倾向/结论，可不填" value={props.conclusion} onChange={(event) => props.onConclusionChange(event.target.value)} />
+            <div className="flex justify-end gap-2">
+            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>取消</button>
+              <button className="primary-button px-5" type="submit">保存决策</button>
+            </div>
+          </div>
+          <ToolRecordList
+            emptyText="保存后会在这里看到决策记录。"
+            items={props.records.map((item) => ({
+              id: item.id,
+              title: item.theme,
+              meta: `${item.decisionDate} · 好处 ${item.benefitScore} / 坏处 ${item.drawbackScore}`,
+              body: item.conclusion || item.benefits
+            }))}
+          />
+        </div>
+      </form>
+    </ModalPortal>
+  );
+}
+
+function PsychologicalBridgeModal(props: {
+  records: PsychologicalBridgeRecord[];
+  selectedDate: string;
+  desiredEffect: string;
+  resistance: string;
+  result: PsychologicalBridgeRecord | null;
+  loading: boolean;
+  onDesiredEffectChange: (value: string) => void;
+  onResistanceChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onClose: () => void;
+}) {
+  const latest = props.result ?? props.records[0] ?? null;
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="tool-modal" onSubmit={props.onSubmit}>
+        <ToolModalHeader eyebrow={props.selectedDate} title="心理桥梁" onClose={props.onClose} />
+        <div className="tool-modal-grid">
+          <div className="space-y-2">
+            <label className="space-y-1">
+              <span className="tool-label">想达成的效果</span>
+              <textarea className="journal-input min-h-28" placeholder="比如：我想稳定开始画画，不再只停留在想法里。" value={props.desiredEffect} onChange={(event) => props.onDesiredEffectChange(event.target.value)} />
+            </label>
+            <label className="space-y-1">
+              <span className="tool-label">现在的阻力</span>
+              <textarea className="journal-input min-h-28" placeholder="比如：一想到要开始就觉得麻烦，怕画得不好。" value={props.resistance} onChange={(event) => props.onResistanceChange(event.target.value)} />
+            </label>
+            <button className="primary-button w-full px-5" type="submit" disabled={props.loading}>
+              {props.loading ? "生成中..." : "生成心理桥梁"}
+            </button>
+            {latest && (
+              <article className="bridge-result">
+                <p className="whitespace-pre-wrap text-[12px] leading-6 text-ink">{latest.bridgeText}</p>
+                {latest.nextStep && <p className="mt-2 text-[12px] font-semibold text-mint-700">下一步：{latest.nextStep}</p>}
+                {latest.reassurance && <p className="mt-2 text-[12px] text-soft">{latest.reassurance}</p>}
+              </article>
+            )}
+          </div>
+          <ToolRecordList
+            emptyText="生成后会在这里看到心理桥梁记录。"
+            items={props.records.map((item) => ({
+              id: item.id,
+              title: item.desiredEffect,
+              meta: item.bridgeDate,
+              body: item.nextStep || item.bridgeText
+            }))}
+          />
+        </div>
+      </form>
+    </ModalPortal>
+  );
+}
+
+function ToolModalHeader({ eyebrow, title, onClose }: { eyebrow: string; title: string; onClose: () => void }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <div>
+        <p className="text-[11px] text-soft">{eyebrow}</p>
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}>
+        <X size={15} />
+      </button>
     </div>
   );
+}
+
+function ToolRecordList({ items, emptyText }: { items: Array<{ id: number; title: string; meta: string; body: string }>; emptyText: string }) {
+  return (
+    <aside className="tool-records">
+      <h4 className="mb-2 text-[11px] font-semibold text-soft">最近记录</h4>
+      {items.length ? (
+        items.map((item) => (
+          <article className="tool-record-card" key={item.id}>
+            <div className="flex items-start justify-between gap-2">
+              <h5 className="line-clamp-2 text-[12px] font-semibold text-ink">{item.title}</h5>
+              <span className="shrink-0 text-[10px] text-soft">{item.meta}</span>
+            </div>
+            <p className="mt-1 line-clamp-3 text-[11px] leading-5 text-soft">{item.body}</p>
+          </article>
+        ))
+      ) : (
+        <EmptyText text={emptyText} />
+      )}
+    </aside>
+  );
+}
+
+function ScoreSelectOptions() {
+  return (
+    <>
+      <option value="1">1 · 很小</option>
+      <option value="2">2 · 偏小</option>
+      <option value="3">3 · 中等</option>
+      <option value="4">4 · 重要</option>
+      <option value="5">5 · 很关键</option>
+    </>
+  );
+}
+
+function DifficultyOptions() {
+  return (
+    <>
+      {TASK_DIFFICULTY_OPTIONS.map((item) => (
+        <option key={item.value} value={item.value}>
+          {item.label}
+        </option>
+      ))}
+    </>
+  );
+}
+
+function difficultyLabel(value: number) {
+  return TASK_DIFFICULTY_OPTIONS.find((item) => Number(item.value) === value)?.label ?? "普通";
+}
+
+function DifficultyPill({ difficulty }: { difficulty: number }) {
+  return <span className="difficulty-pill">{difficultyLabel(difficulty)}</span>;
 }
 
 function ScoreOptions({ items }: { items: readonly { value: string; label: string }[] }) {
@@ -1576,6 +2593,113 @@ function ScoreOptions({ items }: { items: readonly { value: string; label: strin
         </option>
       ))}
     </>
+  );
+}
+
+function AiInsightCard({ insight, expanded = false }: { insight: AiInsight; expanded?: boolean }) {
+  const tags = insight.emotionTags?.split(",").filter(Boolean) ?? [];
+  const stress = insight.stressKeywords?.split(",").filter(Boolean) ?? [];
+  return (
+    <article className="insight-card">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-mint-700">
+          <Sparkles size={13} />
+          AI洞察
+        </span>
+        <span className="badge-gray">能量 {insight.energyScore ?? "-"}/5</span>
+      </div>
+      {insight.summary && <p className="text-[12px] leading-5 text-ink">{insight.summary}</p>}
+      {!!tags.length && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {tags.map((tag) => (
+            <span className="badge-gray" key={tag}>{tag}</span>
+          ))}
+        </div>
+      )}
+      {expanded && (
+        <div className="mt-2 space-y-2 text-[12px] leading-6 text-soft">
+          {!!stress.length && <p>压力关键词：{stress.join("、")}</p>}
+          {insight.suggestion && <p>建议：{insight.suggestion}</p>}
+          {insight.fullText && <p className="whitespace-pre-wrap text-ink">{insight.fullText}</p>}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ModalPortal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return createPortal(
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function FeedbackPopup({ popup, onClose }: { popup: FeedbackPopupState; onClose: () => void }) {
+  const totalXp = popup.kind === "reward" ? popup.rewards.reduce((sum, reward) => sum + reward.xp, 0) : 0;
+  const totalCoins = popup.kind === "reward" ? popup.rewards.reduce((sum, reward) => sum + reward.coins, 0) : 0;
+  const hasReward = popup.kind === "reward" && (totalXp > 0 || totalCoins > 0);
+  const confirm = async () => {
+    if (popup.kind !== "confirm") return;
+    const action = popup.onConfirm;
+    onClose();
+    await action();
+  };
+
+  return (
+    <ModalPortal onClose={onClose}>
+      <article className={`feedback-modal ${popup.kind === "reward" ? "feedback-modal-reward" : ""}`}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="feedback-icon">
+              {popup.kind === "reward" ? <Gift size={22} /> : <Sparkles size={22} />}
+            </span>
+            <div>
+              <h3 className="text-base font-bold">{popup.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-soft">{popup.message}</p>
+            </div>
+          </div>
+          <button className="icon-button h-8 w-8 shrink-0" type="button" aria-label="关闭" onClick={onClose}>
+            <X size={15} />
+          </button>
+        </div>
+
+        {popup.kind === "reward" && (
+          hasReward ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="reward-pop-card">
+                <Sparkles size={17} />
+                <span>+{totalXp} XP</span>
+              </div>
+              <div className="reward-pop-card">
+                <Coins size={17} />
+                <span>+{totalCoins} 金币</span>
+              </div>
+            </div>
+          ) : (
+              <p className="rounded-card border border-white/80 bg-white/65 p-3 text-xs text-soft">这次奖励之前已经发放过，不会重复计算。</p>
+            )
+          )}
+
+        {popup.kind === "confirm" ? (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button className="icon-button w-full px-4" type="button" aria-label="取消" onClick={onClose}>
+              取消
+            </button>
+            <button className="primary-button w-full" type="button" onClick={confirm}>
+              {popup.confirmText}
+            </button>
+          </div>
+        ) : (
+          <button className="primary-button mt-4 w-full" type="button" onClick={onClose}>
+            收下
+          </button>
+        )}
+      </article>
+    </ModalPortal>
   );
 }
 
@@ -1626,25 +2750,61 @@ function ArchiveList(props: {
   mediaItems: MediaWatchRecord[];
   onTabChange: (value: ArchiveTab) => void;
 }) {
+  const [selectedItem, setSelectedItem] = useState<ArchiveListItem | null>(null);
   const items =
     props.activeTab === "morning"
-      ? props.morningItems.map((item) => ({ id: item.id ?? item.writingDate, date: item.writingDate, title: "晨写", content: item.content, score: item.moodScore }))
+      ? props.morningItems.map((item) => ({
+          id: item.id ?? item.writingDate,
+          date: item.writingDate,
+          title: "晨写",
+          content: item.content,
+          score: item.moodScore,
+          sections: [
+            { label: "内容", value: item.content },
+            { label: "状态", value: item.moodScore ? `${item.moodScore}/5` : null }
+          ]
+        }))
       : props.activeTab === "journal"
-        ? props.journalItems.map((item) => ({ id: item.id, date: item.journalDate, title: "睡前日记", content: item.content, score: item.moodScore }))
+        ? props.journalItems.map((item) => ({
+            id: item.id,
+            date: item.journalDate,
+            title: "睡前日记",
+            content: item.content,
+            score: item.moodScore,
+            sections: [
+              { label: "内容", value: item.content },
+              { label: "状态", value: item.moodScore ? `${item.moodScore}/5` : null }
+            ]
+          }))
         : props.activeTab === "review"
           ? props.reviewItems.map((item) => ({
               id: item.id,
               date: item.reviewDate,
               title: item.tags?.trim() || "股市复盘",
-              content: item.marketSummary || item.operations || item.holdingsReview || item.mistakes || item.tomorrowPlan,
-              score: item.disciplineScore
+              content: item.marketSummary || item.operations || item.holdingsReview || item.mistakes || item.tomorrowPlan || item.tags,
+              score: item.disciplineScore,
+              sections: [
+                { label: "大盘结论", value: item.marketSummary },
+                { label: "操作记录", value: item.operations },
+                { label: "持仓观察", value: item.holdingsReview },
+                { label: "错误复盘", value: item.mistakes },
+                { label: "明日计划", value: item.tomorrowPlan },
+                { label: "标签", value: item.tags },
+                { label: "心情", value: item.emotionScore ? `${item.emotionScore}/5` : null },
+                { label: "纪律", value: item.disciplineScore ? `${item.disciplineScore}/5` : null }
+              ]
             }))
           : props.mediaItems.map((item) => ({
               id: item.id ?? item.watchDate,
               date: item.watchDate,
               title: item.title?.trim() || "影视陪伴",
               content: [item.episode, item.note].filter(Boolean).join(" · "),
-              score: null
+              score: null,
+              sections: [
+                { label: "剧名", value: item.title },
+                { label: "进度", value: item.episode },
+                { label: "备注", value: item.note }
+              ]
             }));
 
   return (
@@ -1667,38 +2827,100 @@ function ArchiveList(props: {
         ))}
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid gap-2.5 lg:grid-cols-2">
         {!items.length && <EmptyText text="还没有记录。" />}
         {items.map((item) => (
-          <article className="rounded-card border border-white/70 bg-white/60 p-3 transition hover:bg-white/90" key={item.id}>
+          <button className="archive-card text-left" key={item.id} type="button" onClick={() => setSelectedItem(item)}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <h3 className="truncate text-[13px] font-semibold text-ink">{item.title}</h3>
               <span className="shrink-0 text-[11px] text-soft">{formatDayLabel(item.date)}</span>
             </div>
-            <p className="line-clamp-2 text-xs leading-5 text-soft">{item.content?.trim() || "这天还没写内容。"}</p>
+            <p className="archive-card-content">{item.content?.trim() || "这天还没写内容。"}</p>
             {item.score && <p className="mt-2 text-[11px] text-mint-700">评分 {item.score}/5</p>}
-          </article>
+            <span className="mt-3 inline-flex text-[11px] font-semibold text-pink-500">查看详情</span>
+          </button>
         ))}
       </div>
+
+      {selectedItem && <ArchiveDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </div>
   );
 }
 
-function TaskTitleEditModal(props: { title: string; onTitleChange: (value: string) => void; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
+function ArchiveDetailModal({ item, onClose }: { item: ArchiveListItem; onClose: () => void }) {
+  const sections = filledSections(item.sections);
+
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={onClose}>
+      <article className="writing-modal">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] text-soft">{formatDayLabel(item.date)}</p>
+            <h3 className="text-base font-semibold">{item.title}</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="writing-body space-y-3">
+          {sections.length ? (
+            sections.map((section) => (
+              <section className="archive-detail-section" key={section.label}>
+                <p className="mb-1 text-[11px] font-semibold text-mint-700">{section.label}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-6 text-ink">{section.value}</p>
+              </section>
+            ))
+          ) : (
+            <EmptyText text="这天还没写内容。" />
+          )}
+        </div>
+      </article>
+    </ModalPortal>
+  );
+}
+
+function TaskTitleEditModal(props: {
+  title: string;
+  description: string;
+  dueDate: string;
+  dueTime: string;
+  difficulty: string;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onDueDateChange: (value: string) => void;
+  onDueTimeChange: (value: string) => void;
+  onDifficultyChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">修改任务标题</h3>
+          <h3 className="text-sm font-semibold">编辑任务</h3>
           <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
             <X size={15} />
           </button>
         </div>
 
-        <input className="field" autoFocus maxLength={200} placeholder="任务标题" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
+        <div className="space-y-2">
+          <input className="field" autoFocus maxLength={200} placeholder="任务标题" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
+          <textarea className="task-description-field" maxLength={2000} placeholder="任务详情：背景、步骤、完成标准、灵感都可以放在这里" value={props.description} onChange={(event) => props.onDescriptionChange(event.target.value)} />
+          <div className="grid gap-2 sm:grid-cols-[1fr_120px_120px_auto]">
+            <input className="field" type="date" value={props.dueDate} onChange={(event) => props.onDueDateChange(event.target.value)} />
+            <input className="field" type="time" value={props.dueTime} onChange={(event) => props.onDueTimeChange(event.target.value)} disabled={!props.dueDate} />
+            <select className="field" value={props.difficulty} onChange={(event) => props.onDifficultyChange(event.target.value)}>
+              <DifficultyOptions />
+            </select>
+              <button className="icon-button w-auto px-3 text-[11px]" type="button" aria-label="清空截止时间" onClick={() => props.onDueDateChange("")}>
+              清空截止
+            </button>
+          </div>
+        </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1706,7 +2928,7 @@ function TaskTitleEditModal(props: { title: string; onTitleChange: (value: strin
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
   );
 }
 
@@ -1731,8 +2953,8 @@ function TimeBlockModal(props: {
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">记录时间块</h3>
           <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
@@ -1759,11 +2981,7 @@ function TimeBlockModal(props: {
           <div className="mt-2 grid grid-cols-[1fr_128px] gap-2">
             <input className="field" placeholder="这段时间做了什么" value={props.scheduleTitle} onChange={(event) => props.onTitleChange(event.target.value)} />
             <select className="field" value={props.taskCategoryId} onChange={(event) => props.onCategoryChange(event.target.value)}>
-              {props.categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
+              <CategoryOptionsGrouped categories={props.categories} />
             </select>
           </div>
         )}
@@ -1782,7 +3000,7 @@ function TimeBlockModal(props: {
         <input className="field mt-2" placeholder="备注，可不填" value={props.scheduleNote} onChange={(event) => props.onNoteChange(event.target.value)} />
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1790,7 +3008,7 @@ function TimeBlockModal(props: {
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
   );
 }
 
@@ -1805,8 +3023,8 @@ function SleepEditModal(props: {
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">编辑睡眠</h3>
           <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
@@ -1834,7 +3052,7 @@ function SleepEditModal(props: {
         </select>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1842,7 +3060,7 @@ function SleepEditModal(props: {
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
   );
 }
 
@@ -1858,8 +3076,8 @@ function FinishTimerModal(props: {
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-mint-700">结束计时</p>
@@ -1888,7 +3106,7 @@ function FinishTimerModal(props: {
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1896,22 +3114,24 @@ function FinishTimerModal(props: {
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
   );
 }
 
 function CategoryEditModal(props: {
   name: string;
+  dimensionKey: DimensionKey;
   color: string;
   targetHours: string;
   onNameChange: (value: string) => void;
+  onDimensionKeyChange: (value: DimensionKey) => void;
   onTargetHoursChange: (value: string) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">编辑类型</h3>
           <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
@@ -1924,10 +3144,17 @@ function CategoryEditModal(props: {
           <input className="field mt-1" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} />
         </label>
 
+        <label className="mt-2 block text-[11px] text-soft">
+          能力维度
+          <select className="field mt-1" value={props.dimensionKey} onChange={(event) => props.onDimensionKeyChange(event.target.value as DimensionKey)}>
+            <DimensionOptions />
+          </select>
+        </label>
+
         <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-2">
           <div>
-            <p className="mb-1 text-[11px] text-soft">颜色</p>
-            <CategoryTag category={{ id: 0, name: props.name || "类型预览", color: props.color, targetMinutes: 6000, totalMinutes: 0 }} />
+            <p className="mb-1 text-[11px] text-soft">标签预览</p>
+            <CategoryTag category={{ id: 0, name: props.name || "类型预览", dimensionKey: props.dimensionKey, color: props.color, targetMinutes: 6000, totalMinutes: 0 }} />
           </div>
           <label className="text-[11px] text-soft">
             目标小时
@@ -1936,7 +3163,7 @@ function CategoryEditModal(props: {
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -1944,7 +3171,7 @@ function CategoryEditModal(props: {
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
   );
 }
 
@@ -1962,8 +3189,8 @@ function CompletionModal(props: {
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <form className="time-modal max-w-[560px]" onSubmit={props.onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal max-w-[560px]" onSubmit={props.onSubmit}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-mint-700">任务完成了</p>
@@ -1994,7 +3221,7 @@ function CompletionModal(props: {
         <textarea className="journal-input mt-2 min-h-28" placeholder="刚刚完成后的感想..." value={props.note} onChange={(event) => props.onNoteChange(event.target.value)} />
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" onClick={props.onClose}>
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
             取消
           </button>
           <button className="primary-button px-5" type="submit">
@@ -2002,73 +3229,398 @@ function CompletionModal(props: {
           </button>
         </div>
       </form>
-    </div>
+    </ModalPortal>
+  );
+}
+
+function CompletedTasksModal(props: {
+  tasks: Task[];
+  categories: Category[];
+  rewardsByTaskId: Map<number, { xp: number; coins: number; events: RewardEvent[] }>;
+  onClose: () => void;
+}) {
+  const categoryById = new Map(props.categories.map((category) => [category.id, category]));
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <section className="task-selection-modal">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[11px] text-soft">已完成任务</p>
+            <h3 className="text-sm font-semibold">完成记录</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
+            <X size={15} />
+          </button>
+        </div>
+        <div className="task-pool-list">
+          {props.tasks.length ? (
+            props.tasks.map((task) => {
+              const category = task.categoryId ? categoryById.get(task.categoryId) : null;
+              const reward = props.rewardsByTaskId.get(task.id);
+              return (
+                <article className="completed-task-row" key={task.id}>
+                  <span className="task-pool-line">
+                    <strong>{task.title}</strong>
+                    {category ? <CategoryTag category={category} /> : <span className="task-pool-empty-category">未分类</span>}
+                    <span className="task-pool-inline-meta">完成 {formatDateTime(task.completedAt)}</span>
+                    <span className="completed-reward-pill">{reward ? `+${reward.xp} XP +${reward.coins} 金币` : "未记录奖励"}</span>
+                  </span>
+                  {task.completionNote?.trim() && <p className="mt-1 truncate text-[10px] text-soft" title={task.completionNote}>感想：{task.completionNote}</p>}
+                </article>
+              );
+            })
+          ) : (
+            <EmptyText text="还没有已完成任务。" />
+          )}
+        </div>
+      </section>
+    </ModalPortal>
+  );
+}
+
+function TaskCreateModal(props: {
+  title: string;
+  description: string;
+  categoryId: string;
+  categories: Category[];
+  difficulty: string;
+  dueDate: string;
+  dueTime: string;
+  planEnabled: boolean;
+  planStart: string;
+  planEnd: string;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onDifficultyChange: (value: string) => void;
+  onDueDateChange: (value: string) => void;
+  onDueTimeChange: (value: string) => void;
+  onPlanEnabledChange: (value: boolean) => void;
+  onPlanStartChange: (value: string) => void;
+  onPlanEndChange: (value: string) => void;
+  onClearDueDate: () => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+  onSubmitAndTake: () => void;
+}) {
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal task-create-modal" onSubmit={props.onSubmit}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-mint-700">发布悬赏</p>
+            <h3 className="text-sm font-semibold">新增任务到任务池</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="task-create-layout">
+          <label className="task-form-field task-form-field-wide">
+            <span>任务标题</span>
+            <input className="field" placeholder="写一个清楚的悬赏标题" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} autoFocus />
+          </label>
+          <label className="task-form-field task-form-field-wide">
+            <span>任务详情</span>
+            <textarea className="task-description-field" maxLength={2000} placeholder="可以写背景、完成标准、步骤或灵感，任务列表里会保留一行摘要" value={props.description} onChange={(event) => props.onDescriptionChange(event.target.value)} />
+          </label>
+          <label className="task-form-field">
+            <span>事件类型</span>
+            <select className="field" value={props.categoryId} onChange={(event) => props.onCategoryChange(event.target.value)} required>
+              <option value="">选择技能/主题</option>
+              <CategoryOptionsGrouped categories={props.categories} />
+            </select>
+          </label>
+          <label className="task-form-field">
+            <span>难度</span>
+            <select className="field" value={props.difficulty} onChange={(event) => props.onDifficultyChange(event.target.value)}>
+              <DifficultyOptions />
+            </select>
+          </label>
+          <label className="task-form-field task-form-field-due">
+            <span>截止</span>
+            <span className="task-inline-inputs">
+              <input className="field" type="date" value={props.dueDate} onChange={(event) => props.onDueDateChange(event.target.value)} />
+              <input className="field" type="time" value={props.dueTime} onChange={(event) => props.onDueTimeChange(event.target.value)} disabled={!props.dueDate} />
+              {props.dueDate && (
+                <button className="icon-button h-8 w-auto px-3 text-[11px]" type="button" aria-label="清空截止时间" onClick={props.onClearDueDate}>
+                  清空
+                </button>
+              )}
+            </span>
+          </label>
+          <label className="task-form-field task-form-field-plan">
+            <span className="task-checkbox-label">
+              <input className="accent-mint-500" type="checkbox" checked={props.planEnabled} onChange={(event) => props.onPlanEnabledChange(event.target.checked)} />
+              预设时段
+            </span>
+            <span className="task-inline-inputs">
+              <input className="field" type="time" value={props.planStart} onChange={(event) => props.onPlanStartChange(event.target.value)} disabled={!props.planEnabled} />
+              <input className="field" type="time" value={props.planEnd} onChange={(event) => props.onPlanEndChange(event.target.value)} disabled={!props.planEnabled} />
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary-button px-5" type="submit">
+            发布
+          </button>
+          <button className="primary-button px-5" type="button" onClick={props.onSubmitAndTake}>
+            发布并接取
+          </button>
+        </div>
+      </form>
+    </ModalPortal>
   );
 }
 
 function CategoryTag({ category }: { category: Category }) {
   return (
-    <span className="category-tag" style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}>
+    <span className="category-tag" title={`${dimensionMeta(category.dimensionKey).label} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}>
       <i style={{ backgroundColor: category.color }} />
       <span>{category.name}</span>
     </span>
   );
 }
 
+function DimensionOptions() {
+  return (
+    <>
+      {CORE_DIMENSIONS.map((dimension) => (
+        <option key={dimension.key} value={dimension.key}>
+          {dimension.label}
+        </option>
+      ))}
+      <option value="leisure">兴趣成长</option>
+      <option value="foundation">基础状态</option>
+    </>
+  );
+}
+
+function CategoryOptionsGrouped({ categories }: { categories: Category[] }) {
+  return (
+    <>
+      {visibleDimensions(categories).map((dimension) => {
+        const items = categoriesInDimension(categories, dimension.key);
+        if (!items.length) return null;
+        return (
+          <optgroup key={dimension.key} label={dimension.label}>
+            {items.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </optgroup>
+        );
+      })}
+    </>
+  );
+}
+
+function AbilityOverview({ categories, onEdit, onDelete }: { categories: Category[]; onEdit: (category: Category) => void; onDelete: (category: Category) => void }) {
+  if (!categories.length) return <EmptyText text="还没有技能/主题。" />;
+  const totalCoreMinutes = CORE_DIMENSIONS.reduce((sum, dimension) => sum + dimensionTotalMinutes(categories, dimension.key), 0);
+
+  return (
+    <div className="ability-list">
+      {visibleDimensions(categories).map((dimension) => {
+        const items = categoriesInDimension(categories, dimension.key);
+        if (!items.length) return null;
+        const minutes = dimensionTotalMinutes(categories, dimension.key);
+        const percent = totalCoreMinutes && dimension.key !== "foundation" && dimension.key !== "leisure" ? Math.max(4, Math.round((minutes / totalCoreMinutes) * 100)) : 0;
+        return (
+          <section className="ability-card" key={dimension.key}>
+            <div className="ability-head">
+              <span className="ability-title">
+                <i style={{ backgroundColor: dimension.color }} />
+                {dimension.label}
+              </span>
+              <span className="text-[11px] text-soft">{formatDuration(minutes)}</span>
+            </div>
+            <p className="mb-2 truncate text-[10px] text-soft">{dimension.hint}</p>
+            {percent > 0 && (
+              <div className="mb-2 h-1.5 rounded-full bg-white/80">
+                <div className="progress-fill !h-1.5" style={{ width: `${percent}%`, backgroundColor: dimension.color }} />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              {items.map((item) => {
+                const hours = item.totalMinutes / 60;
+                const skillPercent = Math.min(100, Math.round((item.totalMinutes / item.targetMinutes) * 100));
+                return (
+                  <div className="category-row" key={item.id}>
+                    <CategoryTag category={item} />
+                    <div className="min-w-0 flex-1">
+                      <div className="h-1.5 rounded-full bg-white/80">
+                        <div className="progress-fill !h-1.5" style={{ width: `${skillPercent}%`, backgroundColor: item.color }} />
+                      </div>
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-[11px] text-soft">{hours.toFixed(1)}h</span>
+                    <button className="icon-button h-7 w-7 shrink-0" aria-label={`编辑${item.name}`} onClick={() => onEdit(item)}>
+                      <Pencil size={13} />
+                    </button>
+                    <button className="icon-button h-7 w-7 shrink-0" aria-label={`删除${item.name}`} onClick={() => onDelete(item)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+type TimelineLayout = {
+  item: TimelineItem;
+  start: number;
+  end: number;
+  top: number;
+  height: number;
+  lane: number;
+  laneCount: number;
+};
+
+function timelineEndMinute(item: TimelineItem) {
+  const start = timeToMinutes(item.startTime);
+  const end = timeToMinutes(item.endTime);
+  return item.marker === "sleep" && end <= start ? end + 24 * 60 : end;
+}
+
+function timelineDurationMinutes(item: TimelineItem) {
+  if (item.marker !== "sleep") return durationMinutes(item);
+  return Math.max(1, timelineEndMinute(item) - timeToMinutes(item.startTime));
+}
+
+function timelineVisualMinute(minute: number) {
+  if (minute <= COMPRESSED_START_MINUTE) return minute;
+  if (minute < COMPRESSED_END_MINUTE) {
+    return COMPRESSED_START_MINUTE + ((minute - COMPRESSED_START_MINUTE) / (COMPRESSED_END_MINUTE - COMPRESSED_START_MINUTE)) * COMPRESSED_VISUAL_MINUTES;
+  }
+  return minute - (COMPRESSED_END_MINUTE - COMPRESSED_START_MINUTE) + COMPRESSED_VISUAL_MINUTES;
+}
+
+function timelineTopPercent(minute: number) {
+  return (timelineVisualMinute(minute) / TIMELINE_VISUAL_MINUTES) * 100;
+}
+
+function layoutTimelineBlocks(items: TimelineItem[], dayStart: number, dayEnd: number) {
+  const layouts: TimelineLayout[] = items
+    .filter((item) => item.marker !== "water")
+    .map((item) => {
+      const rawStart = timeToMinutes(item.startTime);
+      const rawEnd = timelineEndMinute(item);
+      const start = Math.max(dayStart, rawStart);
+      const end = Math.min(dayEnd, rawEnd);
+      if (end <= dayStart || start >= dayEnd || end <= start) return null;
+      return {
+        item,
+        start,
+        end,
+        top: timelineTopPercent(start),
+        height: Math.max(2.8, timelineTopPercent(end) - timelineTopPercent(start)),
+        lane: 0,
+        laneCount: 1
+      };
+    })
+    .filter((item): item is TimelineLayout => Boolean(item))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  let group: TimelineLayout[] = [];
+  let groupEnd = -1;
+  const applyGroupLanes = () => {
+    const laneEnds: number[] = [];
+    for (const item of group) {
+      const reusableLane = laneEnds.findIndex((end) => end <= item.start);
+      item.lane = reusableLane === -1 ? laneEnds.length : reusableLane;
+      laneEnds[item.lane] = item.end;
+    }
+    group.forEach((item) => {
+      item.laneCount = Math.max(1, laneEnds.length);
+    });
+  };
+
+  for (const item of layouts) {
+    if (!group.length || item.start < groupEnd) {
+      group.push(item);
+      groupEnd = Math.max(groupEnd, item.end);
+      continue;
+    }
+    applyGroupLanes();
+    group = [item];
+    groupEnd = item.end;
+  }
+  applyGroupLanes();
+  return layouts;
+}
+
 function TimelineBoard({ items, onDelete }: { items: TimelineItem[]; onDelete: (id: number) => void }) {
   const dayStart = HOUR_START * 60;
   const dayEnd = HOUR_END * 60;
-  const span = dayEnd - dayStart;
+  const blockLayouts = layoutTimelineBlocks(items, dayStart, dayEnd);
+  const waterItems = items.filter((item) => item.marker === "water");
 
   return (
     <div className="timeline-board">
-      {timelineHours.map((hour) => {
-        const top = ((hour * 60 - dayStart) / span) * 100;
+      {timelineTicks.map((tick) => {
+        const top = timelineTopPercent(tick.minute);
         return (
-          <div key={hour} className="timeline-hour" style={{ top: `${top}%` }}>
-            <span>{String(hour).padStart(2, "0")}:00</span>
+          <div key={`${tick.minute}-${tick.label}`} className={`timeline-hour ${"compressed" in tick && tick.compressed ? "timeline-hour-compressed" : ""}`} style={{ top: `${top}%` }}>
+            <span>{tick.label}</span>
           </div>
         );
       })}
 
-      {items.map((item, index) => {
-        const start = Math.max(dayStart, timeToMinutes(item.startTime));
-        const end = Math.min(dayEnd, timeToMinutes(item.endTime));
-        const top = ((start - dayStart) / span) * 100;
-        if (item.marker === "water") {
-          return (
-            <div key={`water-${item.id}-${item.startTime}`} className="timeline-point timeline-point-water" title={`${item.startTime.slice(0, 5)} · ${item.title}`} style={{ top: `${top}%` }}>
-              <span className="timeline-point-dot">
-                <Droplets size={12} />
-              </span>
-              <span className="truncate">{`${item.startTime.slice(0, 5)} ${item.title}`}</span>
-            </div>
-          );
-        }
-        const minutes = durationMinutes(item);
-        const height = Math.max(2.8, ((end - start) / span) * 100);
+      {blockLayouts.map(({ item, top, height, lane, laneCount }) => {
+        const minutes = timelineDurationMinutes(item);
         const short = minutes < 15;
         const planned = item.kind === 0;
+        const sleepBlock = item.marker === "sleep";
+        const laneWidth = 74 / laneCount;
         return (
           <div
             key={item.id}
-            className={`timeline-block ${short ? "timeline-block-short" : ""} ${planned ? "timeline-block-planned" : "timeline-block-actual"}`}
+            className={`timeline-block ${short ? "timeline-block-short" : ""} ${laneCount > 1 ? "timeline-block-overlap" : ""} ${planned ? "timeline-block-planned" : "timeline-block-actual"} ${sleepBlock ? "timeline-block-sleep" : ""}`}
             title={[`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`, item.title, item.note ? `备注：${item.note}` : ""].filter(Boolean).join("\n")}
             style={{
               top: `${top}%`,
               height: `max(${height}%, ${short ? 28 : 34}px)`,
               borderColor: item.color,
-              left: planned ? "58px" : `${92 + (short ? index % 2 : 1) * 12}px`,
-              right: planned ? "48%" : "8px"
+              left: `${23 + lane * laneWidth}%`,
+              width: `calc(${laneWidth}% - ${laneCount > 1 ? 4 : 0}px)`
             }}
           >
-            <div className="min-w-0">
-              <p className="timeline-block-title">{item.title}</p>
+            <div className="min-w-0 flex-1">
+              <p className="timeline-block-title inline-flex max-w-full items-center gap-1.5">
+                {sleepBlock && <Moon className="shrink-0" size={12} />}
+                <span className="truncate">{item.title}</span>
+              </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
             </div>
-            <button className="timeline-delete" aria-label="删除时间记录" onClick={() => onDelete(item.id)}>
-              <Trash2 size={12} />
-            </button>
+            {!sleepBlock && (
+              <button className="timeline-delete" aria-label="删除时间记录" onClick={() => onDelete(item.id)}>
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {waterItems.map((item) => {
+        const start = Math.max(dayStart, timeToMinutes(item.startTime));
+        const top = timelineTopPercent(start);
+        return (
+          <div key={`water-${item.id}-${item.startTime}`} className="timeline-point timeline-point-water" title={`${item.startTime.slice(0, 5)} · ${item.title}`} style={{ top: `${top}%` }}>
+            <span className="timeline-point-dot">
+              <Droplets size={12} />
+            </span>
+            <span className="truncate">{`${item.startTime.slice(0, 5)} ${item.title}`}</span>
           </div>
         );
       })}
@@ -2076,30 +3628,31 @@ function TimelineBoard({ items, onDelete }: { items: TimelineItem[]; onDelete: (
   );
 }
 
-function sourceText(item: Schedule) {
+function sourceText(item: TimelineItem) {
+  if (item.marker === "sleep") return "睡眠";
   if (item.kind === 0) return "安排";
   if (item.source === 1) return "计时";
   return "实际";
 }
 
-function TaskCategoryTabs(props: {
-  categories: Category[];
+function TaskDimensionTabs(props: {
+  dimensions: ReadonlyArray<(typeof ALL_DIMENSIONS)[number]>;
   active: TaskCategoryFilter;
   allCount: number;
   uncategorizedCount: number;
-  categoryCounts: Map<number, number>;
+  dimensionCounts: Map<DimensionKey, number>;
   onChange: (value: TaskCategoryFilter) => void;
 }) {
   return (
-    <div className="task-tabs" aria-label="任务类型筛选">
+    <div className="task-tabs" aria-label="能力维度筛选">
       <button className={`task-tab ${props.active === "all" ? "task-tab-active" : ""}`} type="button" onClick={() => props.onChange("all")}>
         全部 <span>{props.allCount}</span>
       </button>
-      {props.categories.map((category) => (
-        <button className={`task-tab ${props.active === String(category.id) ? "task-tab-active" : ""}`} type="button" key={category.id} onClick={() => props.onChange(String(category.id))}>
-          <i style={{ backgroundColor: category.color }} />
-          {category.name}
-          <span>{props.categoryCounts.get(category.id) ?? 0}</span>
+      {props.dimensions.map((dimension) => (
+        <button className={`task-tab ${props.active === dimension.key ? "task-tab-active" : ""}`} type="button" key={dimension.key} onClick={() => props.onChange(dimension.key)}>
+          <i style={{ backgroundColor: dimension.color }} />
+          {dimension.label}
+          <span>{props.dimensionCounts.get(dimension.key) ?? 0}</span>
         </button>
       ))}
       {!!props.uncategorizedCount && (
@@ -2128,25 +3681,33 @@ function TaskRow(props: {
   category: Category | null;
   categories: Category[];
   plannedSchedule: Schedule | null;
-  active: boolean;
-  activeStartedAt?: string;
+  activeTimer: TimerSession | null;
   disabled: boolean;
   dragging: boolean;
   dragOver: boolean;
   onDone: () => void;
   onPinned: () => void;
   onCategoryChange: (categoryId: number | null) => void;
+  onProgressChange: (progressPercent: number) => void;
   onTitleEdit: () => void;
   onStart: () => void;
-  onPause: () => void;
-  onFinish: () => void;
+  onPause: (timerId: number) => void;
+  onFinish: (timer: TimerSession) => void;
   onDelete: () => void;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
   onDrop: () => void;
 }) {
-  const { task, category, categories, plannedSchedule, active, activeStartedAt, disabled, dragging, dragOver, onDone, onPinned, onCategoryChange, onTitleEdit, onStart, onPause, onFinish, onDelete, onDragStart, onDragEnter, onDragEnd, onDrop } = props;
+  const { task, category, categories, plannedSchedule, activeTimer, disabled, dragging, dragOver, onDone, onPinned, onCategoryChange, onProgressChange, onTitleEdit, onStart, onPause, onFinish, onDelete, onDragStart, onDragEnter, onDragEnd, onDrop } = props;
+  const active = Boolean(activeTimer);
+  const estimatedReward = estimatePlannedTaskReward(task, plannedSchedule);
+  const [editingProgress, setEditingProgress] = useState(false);
+  const saveProgress = (value: string) => {
+    const next = Number(value);
+    setEditingProgress(false);
+    if (Number.isFinite(next)) onProgressChange(next);
+  };
   return (
     <div
       className={`task-row ${active ? "task-row-active" : ""} ${dragging ? "task-row-dragging" : ""} ${dragOver ? "task-row-drop" : ""}`}
@@ -2181,37 +3742,65 @@ function TaskRow(props: {
         <button className={`shrink-0 ${task.pinned ? "text-pink-500" : "text-soft"}`} aria-label="重要标记" onClick={onPinned}>
           <Star size={17} fill={task.pinned ? "currentColor" : "none"} />
         </button>
-        <label className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <input className="h-4 w-4 accent-mint-500" type="checkbox" checked={task.status === 2} onChange={onDone} />
             <span className="min-w-0">
               <span className="flex min-w-0 items-center gap-2">
                 <span className={`task-title ${task.status === 2 ? "text-soft line-through" : ""}`}>{task.title}</span>
+                <span className="task-created-inline">创建 {formatDateTime(task.createdAt)}</span>
                 {category && <CategoryTag category={category} />}
+                <DifficultyPill difficulty={task.difficulty} />
               </span>
               <span className="task-meta">{plannedSchedule ? `${plannedSchedule.startTime.slice(0, 5)}-${plannedSchedule.endTime.slice(0, 5)} · 安排` : "未安排时段"}</span>
+              {task.description?.trim() && <span className="task-meta" title={task.description}>详情：{task.description}</span>}
+              {estimatedReward && <span className="task-reward-estimate">预计 +{estimatedReward.xp} XP +{estimatedReward.coins} 金币</span>}
+              {task.dueAt && <span className="task-meta">截止 {formatDateTime(task.dueAt)}</span>}
+              <span className="task-progress-line">
+                <button
+                  className="task-progress-track"
+                  type="button"
+                  aria-label="编辑任务完成百分比"
+                  title={`进度 ${task.progressPercent}%，点击编辑`}
+                  onClick={() => setEditingProgress(true)}
+                >
+                  <span className="task-progress-fill" style={{ width: `${task.progressPercent}%` }} />
+                </button>
+                {editingProgress && (
+                  <input
+                    className="field task-progress-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    defaultValue={task.progressPercent}
+                    autoFocus
+                    aria-label="任务完成百分比"
+                    onBlur={(event) => saveProgress(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") setEditingProgress(false);
+                    }}
+                  />
+                )}
+              </span>
               {task.status === 2 && task.completionNote?.trim() && <span className="task-meta" title={task.completionNote}>感想：{task.completionNote}</span>}
             </span>
-          </label>
+          </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        {active && <span className="timer-pill">{elapsedText(activeStartedAt)}</span>}
-        <button className="icon-button h-8 w-8" aria-label="修改任务标题" title="修改任务标题" onClick={onTitleEdit}>
+        {activeTimer && <span className="timer-pill">{elapsedText(activeTimer.startTime)}</span>}
+        <button className="icon-button h-8 w-8" aria-label="编辑任务" title="编辑任务" onClick={onTitleEdit}>
           <Pencil size={14} />
         </button>
         <select className="task-category-picker" aria-label="修改事件类型" value={task.categoryId ?? ""} onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}>
           <option value="">未分类</option>
-          {categories.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
+          <CategoryOptionsGrouped categories={categories} />
         </select>
-        {active ? (
+        {activeTimer ? (
           <>
-            <button className="icon-button" aria-label="暂停并计入时间轴" title="暂停并计入时间轴" onClick={onPause}>
+            <button className="icon-button" aria-label="暂停并记录阶段完成" title="暂停并记录阶段完成" onClick={() => onPause(activeTimer.id)}>
               <Pause size={17} />
             </button>
-            <button className="icon-button" aria-label="结束并计入时间轴" title="结束并计入时间轴" onClick={onFinish}>
+            <button className="icon-button" aria-label="结束并计入时间轴" title="结束并计入时间轴" onClick={() => onFinish(activeTimer)}>
               <Square size={17} />
             </button>
           </>
@@ -2220,8 +3809,8 @@ function TaskRow(props: {
             <Play size={17} />
           </button>
         )}
-        <button className="icon-button" aria-label="删除任务" onClick={onDelete}>
-          <Trash2 size={15} />
+        <button className="icon-button" aria-label="取消今日任务" title="取消今日任务，放回任务池" onClick={onDelete}>
+          <X size={15} />
         </button>
       </div>
     </div>
@@ -2237,13 +3826,26 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="mini-stat">
       <p className="text-[11px] text-soft">{label}</p>
       <p className="text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function WritingShortcut({ label, done, onClick }: { label: string; done: boolean; onClick: () => void }) {
+  return (
+    <button className={`writing-shortcut ${done ? "writing-shortcut-done" : ""}`} type="button" onClick={onClick}>
+      <span>{label}</span>
+      <DoneMark done={done} />
+    </button>
+  );
+}
+
+function DoneMark({ done }: { done: boolean }) {
+  return done ? <CheckCircle2 className="text-mint-500" size={16} /> : <X className="text-pink-400" size={16} />;
 }
 
 function EmptyText({ text }: { text: string }) {
@@ -2254,6 +3856,10 @@ function formatDayLabel(date: string) {
   return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(`${date}T12:00:00+08:00`));
 }
 
+function filledSections(sections: ArchiveListItem["sections"]) {
+  return sections.filter((section) => String(section.value ?? "").trim());
+}
+
 function HistoryPage(props: {
   selectedDate: string;
   onBack: () => void;
@@ -2261,6 +3867,7 @@ function HistoryPage(props: {
   sleepRange: SleepRange;
   stats: Dashboard["weeklyStats"] | undefined;
   sleep: SleepRecord | null;
+  categories: Category[];
   weeklySeries: WeeklySeriesItem[];
   monthlySleepSeries: SleepSeriesItem[];
   sleepChartSeries: SleepSeriesItem[];
@@ -2305,28 +3912,30 @@ function HistoryPage(props: {
   onOpenWritingModal: (value: WritingModalKind) => void;
 }) {
   return (
-    <section className="grid gap-2.5 xl:grid-cols-[minmax(0,1.16fr)_340px]">
-      <div className="grid gap-2.5">
-        <Panel
-          title="全部记录"
-          icon={<ListFilter size={17} />}
-          action={<button className="icon-button h-8 w-auto px-3 text-[11px]" type="button" onClick={props.onBack}>回工作台</button>}
-        >
-          <ArchiveList
-            activeTab={props.archiveTab}
-            morningItems={props.morningArchive}
-            journalItems={props.journalArchive}
-            reviewItems={props.reviewArchive}
-            mediaItems={props.mediaArchive}
-            onTabChange={props.onArchiveTabChange}
-          />
-        </Panel>
+    <section className="grid gap-2.5">
+      <Panel
+        title="全部记录"
+        icon={<ListFilter size={17} />}
+        className="min-h-[420px]"
+        action={<button className="icon-button h-8 w-auto px-3 text-[11px]" type="button" aria-label="回到工作台" onClick={props.onBack}>回工作台</button>}
+      >
+        <ArchiveList
+          activeTab={props.archiveTab}
+          morningItems={props.morningArchive}
+          journalItems={props.journalArchive}
+          reviewItems={props.reviewArchive}
+          mediaItems={props.mediaArchive}
+          onTabChange={props.onArchiveTabChange}
+        />
+      </Panel>
 
+      <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-2.5">
         <Panel
           title={`晨写 · ${formatDayLabel(props.selectedDate)}`}
           icon={<SunMedium size={17} />}
           action={
-            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => props.onOpenWritingModal("morning")}>
+            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="打开晨写编辑" onClick={() => props.onOpenWritingModal("morning")}>
               <Pencil size={13} />
               展开写
             </button>
@@ -2349,7 +3958,7 @@ function HistoryPage(props: {
           title={`睡前日记 · ${formatDayLabel(props.selectedDate)}`}
           icon={<BookOpenText size={17} />}
           action={
-            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => props.onOpenWritingModal("journal")}>
+            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="打开日记编辑" onClick={() => props.onOpenWritingModal("journal")}>
               <Pencil size={13} />
               展开写
             </button>
@@ -2373,7 +3982,7 @@ function HistoryPage(props: {
           title={`股市复盘 · ${formatDayLabel(props.selectedDate)}`}
           icon={<TrendingUp size={17} />}
           action={
-            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" onClick={() => props.onOpenWritingModal("review")}>
+            <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="打开复盘编辑" onClick={() => props.onOpenWritingModal("review")}>
               <Pencil size={13} />
               展开写
             </button>
@@ -2418,6 +4027,10 @@ function HistoryPage(props: {
           <DailyPieChart items={props.timeBreakdown} totalMinutes={props.pieTotalMinutes} />
         </Panel>
 
+        <Panel title="能力总统计" icon={<TimerReset size={17} />}>
+          <AbilityTotalStats categories={props.categories} />
+        </Panel>
+
         <Panel
           title={props.sleepRange === "week" ? "睡眠柱图 · 周" : "睡眠柱图 · 月"}
           icon={<TrendingUp size={17} />}
@@ -2454,7 +4067,94 @@ function HistoryPage(props: {
           <p className="mt-1 text-[11px] text-soft">今日记录：{formatDuration(props.actualMinutes)} · 安排 {props.plannedCount} 段</p>
         </Panel>
       </div>
+      </div>
     </section>
+  );
+}
+
+function AbilityTotalStats({ categories }: { categories: Category[] }) {
+  const items = categories.filter((category) => category.totalMinutes > 0).sort((a, b) => b.totalMinutes - a.totalMinutes);
+  const coreDimensions = CORE_DIMENSIONS
+    .map((dimension) => ({ ...dimension, minutes: dimensionTotalMinutes(categories, dimension.key) }))
+    .filter((dimension) => dimension.minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
+  const extraDimensions = EXTRA_DIMENSIONS
+    .map((dimension) => ({ ...dimension, minutes: dimensionTotalMinutes(categories, dimension.key) }))
+    .filter((dimension) => dimension.minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
+  const coreItems = items.filter((item) => isCoreDimensionKey(item.dimensionKey));
+  const totalMinutes = coreDimensions.reduce((sum, item) => sum + item.minutes, 0);
+  const extraTotalMinutes = extraDimensions.reduce((sum, item) => sum + item.minutes, 0);
+  if (!totalMinutes && !extraTotalMinutes) {
+    return <EmptyText text="还没有能力耗时记录。" />;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5">
+        <Metric label="六维累计" value={formatDuration(totalMinutes)} />
+        <Metric label="六维技能" value={`${coreItems.length}`} />
+      </div>
+      {!!coreDimensions.length && (
+        <div className="space-y-2">
+          {coreDimensions.map((dimension) => {
+          const percent = Math.max(1, Math.round((dimension.minutes / totalMinutes) * 100));
+          const skillItems = categoriesInDimension(coreItems, dimension.key);
+          return (
+            <div className="rounded-card bg-white/55 p-2" key={dimension.key}>
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                <span className="ability-title">
+                  <i style={{ backgroundColor: dimension.color }} />
+                  {dimension.label}
+                </span>
+                <span className="shrink-0 text-soft">{formatDuration(dimension.minutes)}</span>
+              </div>
+              <div className="h-2 rounded-full bg-white/80">
+                <div className="progress-fill" style={{ width: `${percent}%`, backgroundColor: dimension.color }} />
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {skillItems.map((item) => (
+                  <span className="text-[10px] text-soft" key={item.id}>
+                    {item.name} {formatDuration(item.totalMinutes)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+          })}
+        </div>
+      )}
+      {!!extraDimensions.length && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-soft">附加记录，不计入六维</p>
+          {extraDimensions.map((dimension) => {
+            const percent = Math.max(1, Math.round((dimension.minutes / Math.max(1, extraTotalMinutes)) * 100));
+            const skillItems = categoriesInDimension(items, dimension.key);
+            return (
+              <div className="rounded-card bg-white/45 p-2" key={dimension.key}>
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                  <span className="ability-title">
+                    <i style={{ backgroundColor: dimension.color }} />
+                    {dimension.label}
+                  </span>
+                  <span className="shrink-0 text-soft">{formatDuration(dimension.minutes)}</span>
+                </div>
+                <div className="h-2 rounded-full bg-white/80">
+                  <div className="progress-fill" style={{ width: `${percent}%`, backgroundColor: dimension.color }} />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {skillItems.map((item) => (
+                    <span className="text-[10px] text-soft" key={item.id}>
+                      {item.name} {formatDuration(item.totalMinutes)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

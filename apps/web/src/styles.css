@@ -58,6 +58,16 @@ body {
   }
 }
 
+@keyframes nudge-bounce {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  45% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
 @layer components {
   .page-shell {
     @apply min-h-screen bg-[linear-gradient(135deg,rgba(221,248,238,0.92)_0%,rgba(255,243,248,0.72)_45%,rgba(241,255,249,0.96)_100%)];
@@ -77,7 +87,90 @@ body {
   }
 
   .icon-button {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/75 text-ink transition duration-150 hover:-translate-y-0.5 hover:bg-mint-100 hover:text-mint-700 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40;
+    @apply relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/75 text-ink transition duration-150 hover:-translate-y-0.5 hover:bg-mint-100 hover:text-mint-700 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .icon-button[aria-label]::after {
+    content: attr(aria-label);
+    @apply pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-white/80 bg-ink px-2 py-1 text-[10px] font-semibold text-white shadow-glass;
+  }
+
+  .icon-button[aria-label]:hover::after,
+  .icon-button[aria-label]:focus-visible::after {
+    @apply block;
+  }
+
+  .top-workbench-header {
+    @apply grid gap-2.5 p-2.5 lg:grid-cols-[150px_minmax(0,1fr)_260px] lg:items-center;
+  }
+
+  .top-title-block {
+    @apply min-w-0;
+  }
+
+  .top-control-bar {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .top-right-block {
+    @apply grid gap-1.5;
+  }
+
+  .top-growth-card {
+    @apply min-w-[220px] max-w-[300px] flex-1 rounded-card border border-white/80 bg-white/65 px-3 py-2 shadow-[0_10px_26px_rgba(53,201,154,0.12)];
+  }
+
+  .top-growth-main {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .top-growth-level {
+    @apply text-xl font-bold leading-none text-mint-700;
+  }
+
+  .top-growth-coins {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-sm font-bold text-amber-600;
+  }
+
+  .top-growth-meta {
+    @apply mt-1 flex items-center justify-between text-[10px] font-semibold text-soft;
+  }
+
+  .top-growth-track {
+    @apply mt-1.5 h-2 overflow-hidden rounded-full bg-white/80;
+  }
+
+  .top-growth-fill {
+    @apply h-full rounded-full bg-mint-500 transition-all duration-500;
+  }
+
+  .account-menu {
+    @apply relative justify-self-end;
+  }
+
+  .account-menu-trigger {
+    @apply flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-white/80 bg-white/70 px-2.5 text-[12px] font-semibold text-ink transition hover:bg-white/90;
+  }
+
+  .account-menu-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .account-avatar {
+    @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-mint-100 text-[11px] font-bold text-mint-700;
+  }
+
+  .account-name {
+    @apply max-w-[130px] truncate;
+  }
+
+  .account-dropdown {
+    @apply absolute right-0 top-11 z-50 w-36 rounded-card border border-white/80 bg-white/95 p-1.5 shadow-glass backdrop-blur-xl;
+    animation: soft-enter 140ms ease-out both;
+  }
+
+  .account-dropdown button {
+    @apply block w-full rounded-card px-3 py-2 text-left text-[12px] font-semibold text-soft transition hover:bg-mint-50 hover:text-mint-700;
   }
 
   .field {
@@ -152,8 +245,32 @@ body {
     @apply block truncate text-[13px] font-semibold text-ink transition;
   }
 
+  .task-created-inline {
+    @apply shrink-0 text-[10px] font-normal text-soft;
+  }
+
   .task-meta {
     @apply mt-0.5 block truncate text-[10px] text-soft;
+  }
+
+  .task-reward-estimate {
+    @apply mt-1 inline-flex w-fit rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600;
+  }
+
+  .task-progress-line {
+    @apply mt-1 flex items-center gap-2;
+  }
+
+  .task-progress-track {
+    @apply h-[5px] min-w-24 flex-1 overflow-hidden rounded-full bg-mint-50 text-left outline-none transition hover:bg-mint-100 focus:ring-2 focus:ring-mint-100;
+  }
+
+  .task-progress-fill {
+    @apply block h-full rounded-full bg-mint-500 transition-all duration-500;
+  }
+
+  .task-progress-input {
+    @apply h-7 w-14 px-2 text-[11px];
   }
 
   .timer-pill {
@@ -193,6 +310,14 @@ body {
     @apply absolute left-2 -translate-y-1/2 rounded-full bg-white/80 px-1.5 py-0.5;
   }
 
+  .timeline-hour-compressed {
+    @apply border-dashed border-mint-100;
+  }
+
+  .timeline-hour-compressed span {
+    @apply bg-mint-50/90 text-mint-700;
+  }
+
   .timeline-block {
     @apply absolute z-[1] flex min-w-0 items-start justify-between gap-1 overflow-hidden rounded-none border-l-4 bg-white/80 px-2 py-1 shadow-[0_10px_24px_rgba(53,201,154,0.1)] transition duration-150 hover:z-10 hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_14px_30px_rgba(236,125,166,0.16)];
   }
@@ -203,6 +328,14 @@ body {
 
   .timeline-block-actual {
     @apply text-ink ring-1 ring-white/70;
+  }
+
+  .timeline-block-sleep {
+    @apply border-sky-300 bg-sky-50/90 text-sky-950 ring-1 ring-sky-100;
+  }
+
+  .timeline-block-sleep .timeline-block-meta {
+    @apply text-sky-600;
   }
 
   .timeline-block-title {
@@ -219,6 +352,22 @@ body {
 
   .timeline-block-short .timeline-block-title {
     @apply text-[11px] leading-4;
+  }
+
+  .timeline-block-overlap {
+    @apply gap-0.5 px-1.5;
+  }
+
+  .timeline-block-overlap .timeline-block-title {
+    @apply text-[10px];
+  }
+
+  .timeline-block-overlap .timeline-block-meta {
+    @apply text-[9px];
+  }
+
+  .timeline-block-overlap .timeline-delete {
+    @apply h-4 w-4;
   }
 
   .timeline-point {
@@ -245,6 +394,137 @@ body {
     @apply rounded-card bg-white/60 px-2.5 py-1.5 transition duration-150 hover:-translate-y-0.5 hover:bg-white/90;
   }
 
+  .writing-shortcut {
+    @apply inline-flex h-8 min-w-0 items-center justify-between gap-1 rounded-card border border-white/70 bg-white/65 px-2 text-[11px] font-semibold text-ink transition duration-150 hover:-translate-y-0.5 hover:bg-pink-50/90;
+  }
+
+  .writing-shortcut-wrap {
+    @apply relative grid grid-cols-3 gap-1.5 pt-5;
+  }
+
+  .writing-nudge {
+    @apply pointer-events-none absolute -top-0.5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-pink-100 bg-pink-50 px-2.5 py-1 text-[10px] font-bold text-pink-500 shadow-[0_8px_18px_rgba(236,125,166,0.14)];
+    animation: nudge-bounce 1.15s ease-in-out infinite;
+  }
+
+  .writing-nudge::after {
+    content: "";
+    @apply absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-pink-100 bg-pink-50;
+  }
+
+  .writing-shortcut span {
+    @apply truncate;
+  }
+
+  .writing-shortcut-done {
+    @apply bg-mint-50/75;
+  }
+
+  .growth-hero {
+    @apply rounded-card border border-white/70 bg-white/55 p-3;
+  }
+
+  .reward-list {
+    @apply rounded-card border border-white/70 bg-white/45 p-2;
+  }
+
+  .reward-row {
+    @apply flex items-center justify-between gap-2 border-t border-white/60 py-2 text-[12px] text-soft first:border-t-0 first:pt-0 last:pb-0;
+  }
+
+  .reward-item {
+    @apply flex items-center justify-between gap-2 rounded-card border border-white/70 bg-white/55 p-2 transition hover:-translate-y-0.5 hover:bg-white/80;
+  }
+
+  .insight-card {
+    @apply rounded-card border border-mint-100 bg-mint-50/70 p-2;
+  }
+
+  .tool-entry {
+    @apply flex items-center gap-2 rounded-card border border-white/70 bg-white/55 p-2 text-left transition duration-150 hover:-translate-y-0.5 hover:border-mint-100 hover:bg-white/85;
+  }
+
+  .tool-entry-icon {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mint-100 text-mint-700;
+  }
+
+  .tool-entry strong {
+    @apply block text-[12px] text-ink;
+  }
+
+  .tool-entry small {
+    @apply mt-0.5 block text-[10px] text-soft;
+  }
+
+  .task-selection-modal {
+    @apply w-full max-w-[680px] rounded-card border border-white/80 bg-white/90 p-4 text-ink shadow-glass backdrop-blur-xl;
+    animation: soft-enter 160ms ease-out both;
+  }
+
+  .task-pool-list {
+    @apply max-h-[58vh] space-y-2 overflow-y-auto pr-1;
+  }
+
+  .task-pool-option {
+    @apply flex items-center gap-2 rounded-card border border-white/70 bg-white/55 p-2 transition duration-150 hover:-translate-y-0.5 hover:bg-white/85;
+  }
+
+  .task-pool-main {
+    @apply flex min-w-0 flex-1 cursor-pointer items-center gap-2;
+  }
+
+  .task-pool-option input {
+    @apply mt-0.5 h-4 w-4 shrink-0 accent-mint-500;
+  }
+
+  .task-pool-option-selected {
+    @apply border-mint-100 bg-mint-50/75;
+  }
+
+  .task-pool-meta {
+    @apply mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10px] leading-4 text-soft;
+  }
+
+  .task-pool-line {
+    @apply flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap;
+  }
+
+  .task-pool-line strong {
+    @apply min-w-0 flex-1 truncate text-[12px];
+  }
+
+  .task-pool-line .category-tag {
+    @apply max-w-[110px];
+  }
+
+  .task-pool-inline-meta {
+    @apply shrink-0 text-[10px] text-soft;
+  }
+
+  .task-pool-description {
+    @apply max-w-[180px] truncate rounded-full bg-mint-50/70 px-2 py-0.5 text-mint-700;
+  }
+
+  .task-pool-empty-category {
+    @apply inline-flex shrink-0 rounded-full border border-white/80 bg-white/65 px-2 py-0.5 text-[10px] font-semibold text-soft;
+  }
+
+  .task-pool-delete {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-soft transition hover:bg-pink-50 hover:text-pink-500;
+  }
+
+  .completed-task-row {
+    @apply rounded-card border border-white/70 bg-white/55 p-2 transition duration-150 hover:bg-white/85;
+  }
+
+  .completed-reward-pill {
+    @apply shrink-0 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600;
+  }
+
+  .difficulty-pill {
+    @apply shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-600;
+  }
+
   .progress-fill {
     @apply h-2 origin-left rounded-full bg-mint-500 transition-all duration-500;
     animation: progress-grow 360ms ease-out both;
@@ -256,6 +536,26 @@ body {
 
   .category-list {
     @apply max-h-56 space-y-2 overflow-y-auto pr-1;
+  }
+
+  .ability-list {
+    @apply max-h-72 space-y-2 overflow-y-auto pr-1;
+  }
+
+  .ability-card {
+    @apply rounded-card border border-white/70 bg-white/45 p-2;
+  }
+
+  .ability-head {
+    @apply mb-1 flex items-center justify-between gap-2;
+  }
+
+  .ability-title {
+    @apply inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-ink;
+  }
+
+  .ability-title i {
+    @apply h-2 w-2 shrink-0 rounded-full;
   }
 
   .category-tag {
@@ -275,7 +575,11 @@ body {
   }
 
   .modal-backdrop {
-    @apply fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4 backdrop-blur-sm;
+    @apply fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-ink/20 p-4 backdrop-blur-sm;
+  }
+
+  .modal-shell {
+    @apply flex w-full items-center justify-center;
   }
 
   .time-modal {
@@ -283,9 +587,116 @@ body {
     animation: soft-enter 160ms ease-out both;
   }
 
+  .task-create-modal {
+    @apply max-w-[680px];
+  }
+
+  .task-create-layout {
+    @apply grid gap-3 md:grid-cols-[minmax(0,1fr)_180px];
+  }
+
+  .task-form-field {
+    @apply min-w-0 space-y-1 text-[11px] font-semibold text-soft;
+  }
+
+  .task-form-field-wide {
+    @apply md:col-span-2;
+  }
+
+  .task-form-field-due,
+  .task-form-field-plan {
+    @apply md:col-span-1;
+  }
+
+  .task-description-field {
+    @apply min-h-24 w-full resize-y rounded-card border border-white/80 bg-pink-50/45 p-3 text-[13px] font-normal leading-5 text-ink outline-none transition focus:border-pink-300 focus:bg-white/90 focus:ring-4 focus:ring-pink-100/60;
+  }
+
+  .task-inline-inputs {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .task-inline-inputs .field {
+    @apply h-8 min-w-0 flex-1 px-2 text-[12px];
+  }
+
+  .task-checkbox-label {
+    @apply inline-flex items-center gap-2;
+  }
+
   .writing-modal {
     @apply w-full max-w-[860px] rounded-card border border-white/80 bg-white/90 p-4 text-ink shadow-glass backdrop-blur-xl;
     animation: soft-enter 160ms ease-out both;
+  }
+
+  .tool-modal {
+    @apply w-full max-w-[920px] rounded-card border border-white/80 bg-white/90 p-4 text-ink shadow-glass backdrop-blur-xl;
+    animation: soft-enter 160ms ease-out both;
+  }
+
+  .tool-modal-grid {
+    @apply grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px];
+  }
+
+  .tool-label {
+    @apply block px-1 text-[11px] font-semibold text-soft;
+  }
+
+  .decision-score {
+    @apply flex h-[58px] flex-col items-center justify-center rounded-card border border-white/80 bg-white/65 text-[11px] text-soft;
+  }
+
+  .decision-score strong {
+    @apply mt-0.5 text-lg leading-none;
+  }
+
+  .decision-score-positive strong {
+    @apply text-mint-700;
+  }
+
+  .decision-score-negative strong {
+    @apply text-pink-500;
+  }
+
+  .tool-records {
+    @apply max-h-[68vh] overflow-y-auto rounded-card border border-white/70 bg-white/40 p-2;
+  }
+
+  .tool-record-card {
+    @apply rounded-card border border-white/70 bg-white/60 p-2 transition duration-150 hover:bg-white/85;
+  }
+
+  .tool-record-card + .tool-record-card {
+    @apply mt-2;
+  }
+
+  .bridge-result {
+    @apply rounded-card border border-mint-100 bg-mint-50/75 p-3;
+  }
+
+  .feedback-modal {
+    @apply w-full max-w-[420px] rounded-card border border-white/80 bg-white/90 p-4 text-ink shadow-glass backdrop-blur-xl;
+    animation: soft-enter 160ms ease-out both;
+  }
+
+  .feedback-modal-reward {
+    @apply border-amber-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(255,245,250,0.9)_48%,rgba(232,255,245,0.92))];
+  }
+
+  .feedback-icon {
+    @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mint-100 text-mint-700;
+  }
+
+  .feedback-modal-reward .feedback-icon {
+    @apply bg-amber-100 text-amber-600;
+  }
+
+  .reward-pop-card {
+    @apply flex h-20 flex-col items-center justify-center gap-1 rounded-card border border-white/80 bg-white/70 text-sm font-bold text-ink;
+  }
+
+  .reward-pop-card svg {
+    @apply text-amber-500;
   }
 
   .writing-body {
@@ -294,5 +705,17 @@ body {
 
   .writing-textarea {
     @apply min-h-[420px] w-full resize-y rounded-card border border-white/80 bg-pink-50/55 p-3 text-[13px] leading-6 outline-none transition focus:border-pink-300 focus:bg-white/90 focus:ring-4 focus:ring-pink-100/60;
+  }
+
+  .archive-card {
+    @apply flex min-h-40 flex-col rounded-card border border-white/70 bg-white/60 p-4 transition duration-150 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-[0_12px_28px_rgba(53,201,154,0.12)] focus:outline-none focus:ring-4 focus:ring-mint-100/70;
+  }
+
+  .archive-card-content {
+    @apply line-clamp-6 min-h-24 whitespace-pre-wrap text-xs leading-5 text-soft;
+  }
+
+  .archive-detail-section {
+    @apply rounded-card border border-white/70 bg-white/60 p-3;
   }
 }
