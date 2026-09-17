@@ -10,6 +10,7 @@ import {
   Droplets,
   Gift,
   GripVertical,
+  Lightbulb,
   ListFilter,
   Moon,
   Pause,
@@ -84,6 +85,8 @@ type TimelineItem = Schedule & { marker?: "water" | "sleep" };
 type SleepRecord = { id: number; sleepStart: string; wakeTime: string; durationMinutes: number; qualityScore: number | null };
 type WaterRecord = { id?: number; waterDate: string; cups: number; targetCups: number; lastDrinkAt?: string | null; drinkTimes?: string | string[] | null };
 type MediaWatchRecord = { id?: number; watchDate: string; title: string | null; episode: string | null; note: string | null };
+type QuickNote = { id: number; noteDate: string; title: string | null; content: string; tag: string | null; createdAt: string; updatedAt: string };
+type QuickNoteSaveResult = QuickNote & { reward: RewardGrant | null };
 type Growth = { level: number; xpTotal: number; coins: number; xpInLevel: number; xpForNextLevel: number };
 type RewardEvent = { id: number; reason: string; xpDelta: number; coinDelta: number; sourceType?: string; sourceId?: string; createdAt: string };
 type RewardGrant = { xp: number; coins: number; reason: string };
@@ -578,6 +581,12 @@ export function App() {
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>("morning");
   const [sleepRange, setSleepRange] = useState<SleepRange>("week");
   const [writingModal, setWritingModal] = useState<WritingModalKind | null>(null);
+  const [quickNoteModalOpen, setQuickNoteModalOpen] = useState(false);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
+  const [quickNoteTitle, setQuickNoteTitle] = useState("");
+  const [quickNoteContent, setQuickNoteContent] = useState("");
+  const [quickNoteTag, setQuickNoteTag] = useState("");
   const [morningArchive, setMorningArchive] = useState<MorningWritingRecord[]>([]);
   const [journalArchive, setJournalArchive] = useState<JournalRecord[]>([]);
   const [reviewArchive, setReviewArchive] = useState<StockReviewRecord[]>([]);
@@ -701,6 +710,14 @@ export function App() {
     }
   }
 
+  async function loadQuickNotes(date = selectedDate) {
+    try {
+      setQuickNotes(await api<QuickNote[]>(`/api/quick-notes?date=${date}&limit=8`));
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : "随手记加载失败", "随手记加载失败");
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) {
@@ -721,7 +738,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (authUser) void loadDashboard(selectedDate);
+    if (authUser) {
+      void loadDashboard(selectedDate);
+      void loadQuickNotes(selectedDate);
+    }
   }, [selectedDate, authUser?.id]);
 
   useEffect(() => {
@@ -1090,8 +1110,43 @@ export function App() {
           note: mediaNote
         })
       });
+      setMediaModalOpen(false);
       await loadDashboard();
     });
+  }
+
+  async function saveQuickNote(event: FormEvent) {
+    event.preventDefault();
+    if (!quickNoteContent.trim()) {
+      showNotice("先写下一点内容，哪怕只有一句话。");
+      return;
+    }
+    await run(async () => {
+      const result = await api<QuickNoteSaveResult>("/api/quick-notes", {
+        method: "POST",
+        body: JSON.stringify({
+          noteDate: selectedDate,
+          title: quickNoteTitle.trim() || undefined,
+          content: quickNoteContent.trim(),
+          tag: quickNoteTag.trim() || undefined
+        })
+      });
+      setQuickNoteTitle("");
+      setQuickNoteContent("");
+      setQuickNoteTag("");
+      setQuickNoteModalOpen(false);
+      await loadQuickNotes();
+      showRecordRewardPopup("随手记", result.reward);
+    });
+  }
+
+  async function deleteQuickNote(note: QuickNote) {
+    showConfirm("删除随手记", `删除「${note.title?.trim() || "这条灵感"}」吗？删除后不可恢复。`, async () => {
+      await run(async () => {
+        await api(`/api/quick-notes/${note.id}`, { method: "DELETE" });
+        await loadQuickNotes();
+      });
+    }, "删除");
   }
 
   async function loadArchiveRecords() {
@@ -1546,7 +1601,13 @@ export function App() {
           </div>
 
           <div className="top-right-block">
-            <AccountMenu user={authUser} onView={() => showNotice(`显示名：${authUser.displayName}\n账号：${authUser.username}`, "账号信息")} onLogout={logout} />
+            <div className="top-right-actions">
+              <button className="top-media-button" type="button" aria-label="打开影视陪伴" onClick={() => setMediaModalOpen(true)}>
+                <Clapperboard size={14} />
+                <span>影视</span>
+              </button>
+              <AccountMenu user={authUser} onView={() => showNotice(`显示名：${authUser.displayName}\n账号：${authUser.username}`, "账号信息")} onLogout={logout} />
+            </div>
             <div className="grid grid-cols-2 gap-1.5">
               <MiniStat label="实际" value={formatDuration(stats?.totalMinutes ?? 0)} />
               <MiniStat label="完成" value={`${stats?.completedTasks ?? 0}`} />
@@ -1663,15 +1724,42 @@ export function App() {
               <WaterTracker water={water} plan={waterPlan} onCupClick={saveWaterCups} />
             </Panel>
 
-            <Panel title="影视陪伴" icon={<Clapperboard size={17} />}>
-              <form className="space-y-2" onSubmit={saveMediaWatch}>
-                <input className="field" placeholder="今天在看什么剧/电影" value={mediaTitle} onChange={(event) => setMediaTitle(event.target.value)} />
-                <input className="field" placeholder="集数/进度，比如第 12 集" value={mediaEpisode} onChange={(event) => setMediaEpisode(event.target.value)} />
-                <textarea className="journal-input min-h-20" placeholder="一句备注：剧情、氛围、适合搭配什么任务..." value={mediaNote} onChange={(event) => setMediaNote(event.target.value)} />
-                <button className="primary-button w-full px-4" type="submit">
-                  保存
+            <Panel
+              title="随手记 / 灵感库"
+              icon={<Lightbulb size={17} />}
+              action={
+                <button className="icon-button h-8 w-8" type="button" aria-label="新增随手记" onClick={() => setQuickNoteModalOpen(true)}>
+                  <Plus size={14} />
                 </button>
-              </form>
+              }
+            >
+              <div className="quick-note-panel">
+                <button className="quick-note-capture" type="button" onClick={() => setQuickNoteModalOpen(true)}>
+                  <Lightbulb size={15} />
+                  <span>记下此刻想到的事</span>
+                  <Plus size={14} />
+                </button>
+                <div className="quick-note-list">
+                  {quickNotes.length ? (
+                    quickNotes.slice(0, 4).map((note) => (
+                      <article className="quick-note-entry" key={note.id} title={note.content}>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <strong className="truncate">{note.title?.trim() || "未命名灵感"}</strong>
+                            {note.tag && <span className="quick-note-tag">{note.tag}</span>}
+                          </div>
+                          <p>{note.content}</p>
+                        </div>
+                        <button className="timeline-delete" type="button" aria-label="删除随手记" onClick={() => deleteQuickNote(note)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <EmptyText text="还没有随手记，想到什么就先记下来。" />
+                  )}
+                </div>
+              </div>
             </Panel>
 
             <Panel title="六维能力" icon={<TimerReset size={17} />}>
@@ -1903,7 +1991,7 @@ export function App() {
         </WritingModal>
       )}
 
-        {writingModal === "review" && (
+      {writingModal === "review" && (
         <WritingModal title={`股市复盘 · ${formatDayLabel(selectedDate)}`} onClose={() => setWritingModal(null)} onSubmit={saveStockReview}>
           <textarea className="writing-textarea min-h-[220px]" placeholder="今天的大盘和最重要的结论..." value={reviewMarketSummary} onChange={(event) => setReviewMarketSummary(event.target.value)} />
           <div className="grid gap-2 md:grid-cols-2">
@@ -1932,6 +2020,34 @@ export function App() {
             <input className="field" placeholder="标签，用逗号分隔" value={reviewTags} onChange={(event) => setReviewTags(event.target.value)} />
           </div>
         </WritingModal>
+      )}
+
+      {quickNoteModalOpen && (
+        <QuickNoteModal
+          noteDate={selectedDate}
+          title={quickNoteTitle}
+          content={quickNoteContent}
+          tag={quickNoteTag}
+          onTitleChange={setQuickNoteTitle}
+          onContentChange={setQuickNoteContent}
+          onTagChange={setQuickNoteTag}
+          onClose={() => setQuickNoteModalOpen(false)}
+          onSubmit={saveQuickNote}
+        />
+      )}
+
+      {mediaModalOpen && (
+        <MediaWatchModal
+          watchDate={selectedDate}
+          title={mediaTitle}
+          episode={mediaEpisode}
+          note={mediaNote}
+          onTitleChange={setMediaTitle}
+          onEpisodeChange={setMediaEpisode}
+          onNoteChange={setMediaNote}
+          onClose={() => setMediaModalOpen(false)}
+          onSubmit={saveMediaWatch}
+        />
       )}
 
       {completionTask && (
@@ -2305,6 +2421,96 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
           </button>
           <button className="primary-button px-5" type="submit">
             保存
+          </button>
+        </div>
+      </form>
+    </ModalPortal>
+  );
+}
+
+function QuickNoteModal(props: {
+  noteDate: string;
+  title: string;
+  content: string;
+  tag: string;
+  onTitleChange: (value: string) => void;
+  onContentChange: (value: string) => void;
+  onTagChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="writing-modal quick-note-modal" onSubmit={props.onSubmit}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] text-soft">{formatDayLabel(props.noteDate)} · 随手记</p>
+            <h3 className="text-base font-semibold">记下一个念头</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭随手记" onClick={props.onClose}>
+            <X size={15} />
+          </button>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
+          <input className="field" placeholder="标题，可不填" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
+          <input className="field" placeholder="标签，比如 灵感" value={props.tag} onChange={(event) => props.onTagChange(event.target.value)} />
+        </div>
+        <textarea
+          className="writing-textarea quick-note-textarea"
+          autoFocus
+          placeholder="想到什么就写什么，不用整理得很完整..."
+          value={props.content}
+          onChange={(event) => props.onContentChange(event.target.value)}
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消随手记" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary-button gap-1 px-5" type="submit">
+            <Lightbulb size={14} />
+            保存灵感
+          </button>
+        </div>
+      </form>
+    </ModalPortal>
+  );
+}
+
+function MediaWatchModal(props: {
+  watchDate: string;
+  title: string;
+  episode: string;
+  note: string;
+  onTitleChange: (value: string) => void;
+  onEpisodeChange: (value: string) => void;
+  onNoteChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  return (
+    <ModalPortal onClose={props.onClose}>
+      <form className="time-modal media-modal" onSubmit={props.onSubmit}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] text-soft">{formatDayLabel(props.watchDate)} · 影视陪伴</p>
+            <h3 className="text-base font-semibold">记下今天在看的内容</h3>
+          </div>
+          <button className="icon-button h-8 w-8" type="button" aria-label="关闭影视陪伴" onClick={props.onClose}>
+            <X size={15} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          <input className="field" autoFocus placeholder="今天在看什么剧/电影" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
+          <input className="field" placeholder="集数/进度，比如第 12 集" value={props.episode} onChange={(event) => props.onEpisodeChange(event.target.value)} />
+          <textarea className="journal-input min-h-28" placeholder="一句备注：剧情、氛围、适合搭配什么任务..." value={props.note} onChange={(event) => props.onNoteChange(event.target.value)} />
+        </div>
+        <div className="mt-3 flex justify-end gap-2">
+          <button className="icon-button w-auto px-4" type="button" aria-label="取消影视记录" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary-button gap-1 px-5" type="submit">
+            <Clapperboard size={14} />
+            保存影视记录
           </button>
         </div>
       </form>

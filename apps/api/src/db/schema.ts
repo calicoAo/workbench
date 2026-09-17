@@ -181,6 +181,18 @@ export const mediaWatchRecords = mysqlTable("media_watch_records", {
   deletedAt: datetime("deleted_at")
 });
 
+export const quickNotes = mysqlTable("quick_notes", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  noteDate: date("note_date", { mode: "string" }).notNull(),
+  title: varchar("title", { length: 120 }),
+  content: text("content").notNull(),
+  tag: varchar("tag", { length: 64 }),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
 export const userGrowth = mysqlTable("user_growth", {
   userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
   level: int("level").notNull(),
