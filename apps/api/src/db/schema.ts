@@ -66,6 +66,8 @@ export const timerSessions = mysqlTable("timer_sessions", {
   endTime: datetime("end_time"),
   durationMinutes: int("duration_minutes").notNull(),
   status: tinyint("status").notNull(),
+  completionRequested: tinyint("completion_requested").notNull().default(0),
+  taskCompleted: tinyint("task_completed").notNull().default(0),
   note: varchar("note", { length: 500 }),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
@@ -85,6 +87,7 @@ export const schedules = mysqlTable("schedules", {
   completed: tinyint("completed").notNull(),
   kind: tinyint("kind").notNull(),
   source: tinyint("source").notNull(),
+  sourceId: varchar("source_id", { length: 128 }),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
