@@ -10,7 +10,6 @@ import {
   Droplets,
   Gift,
   GripVertical,
-  Lightbulb,
   ListFilter,
   Moon,
   Pause,
@@ -30,7 +29,8 @@ import {
   X
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { estimatePlannedTaskReward, GrowthSummary, RewardsFeature, type Growth, type RewardEvent, type RewardGrant } from "./features/rewards";
 
 type ApiResponse<T> = { code: number; message: string; data: T };
 type AuthUser = { id: number; username: string; displayName: string };
@@ -79,27 +79,20 @@ type Schedule = {
   note: string | null;
   kind: number;
   source: number;
+  sourceId?: string | null;
   color: string;
 };
 type TimelineItem = Schedule & { marker?: "water" | "sleep" };
 type SleepRecord = { id: number; sleepStart: string; wakeTime: string; durationMinutes: number; qualityScore: number | null };
 type WaterRecord = { id?: number; waterDate: string; cups: number; targetCups: number; lastDrinkAt?: string | null; drinkTimes?: string | string[] | null };
 type MediaWatchRecord = { id?: number; watchDate: string; title: string | null; episode: string | null; note: string | null };
-type QuickNote = { id: number; noteDate: string; title: string | null; content: string; tag: string | null; createdAt: string; updatedAt: string };
-type QuickNoteSaveResult = QuickNote & { reward: RewardGrant | null };
-type Growth = { level: number; xpTotal: number; coins: number; xpInLevel: number; xpForNextLevel: number };
-type RewardEvent = { id: number; reason: string; xpDelta: number; coinDelta: number; sourceType?: string; sourceId?: string; createdAt: string };
-type RewardGrant = { xp: number; coins: number; reason: string };
-type RewardItem = { id: number; name: string; cost: number; description: string | null };
-type RewardRedemption = { id: number; name: string; cost: number; createdAt: string };
-type RewardsPayload = { growth: Growth; items: RewardItem[]; events: RewardEvent[]; redemptions: RewardRedemption[] };
 type FeedbackPopupState =
   | { kind: "notice"; title: string; message: string }
   | { kind: "reward"; title: string; message: string; rewards: RewardGrant[] }
   | { kind: "confirm"; title: string; message: string; confirmText: string; onConfirm: () => void | Promise<void> };
 type TaskCompleteResult = { id: number; status: number; scheduleId: number; reward: RewardGrant | null };
 type TaskCreateResult = { id: number };
-type TimerStopResult = { id: number; status: number; durationMinutes: number; rewards: RewardGrant[] };
+type TimerStopResult = { id: number; status: number; durationMinutes: number; scheduleId: number; taskCompleted: boolean; rewards: RewardGrant[] };
 type AiInsight = {
   id: number;
   sourceType: "morning" | "journal";
@@ -456,24 +449,6 @@ function formatDuration(minutes: number) {
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
-const TASK_REWARD_BASE: Record<number, { xp: number; coins: number }> = {
-  1: { xp: 10, coins: 3 },
-  2: { xp: 20, coins: 6 },
-  3: { xp: 40, coins: 12 },
-  4: { xp: 70, coins: 20 }
-};
-
-function estimatePlannedTaskReward(task: Task, plannedSchedule: Schedule | null) {
-  if (!plannedSchedule) return null;
-  const base = TASK_REWARD_BASE[task.difficulty] ?? TASK_REWARD_BASE[2];
-  const hours = Math.max(0.25, durationMinutes(plannedSchedule) / 60);
-  const multiplier = task.pinned ? 1.3 : 1;
-  return {
-    xp: Math.max(1, Math.round(base.xp * hours * multiplier)),
-    coins: Math.max(1, Math.round(base.coins * hours * multiplier))
-  };
-}
-
 function plannedMap(schedules: Schedule[]) {
   const map = new Map<number, Schedule>();
   for (const schedule of schedules) {
@@ -581,12 +556,6 @@ export function App() {
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>("morning");
   const [sleepRange, setSleepRange] = useState<SleepRange>("week");
   const [writingModal, setWritingModal] = useState<WritingModalKind | null>(null);
-  const [quickNoteModalOpen, setQuickNoteModalOpen] = useState(false);
-  const [mediaModalOpen, setMediaModalOpen] = useState(false);
-  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
-  const [quickNoteTitle, setQuickNoteTitle] = useState("");
-  const [quickNoteContent, setQuickNoteContent] = useState("");
-  const [quickNoteTag, setQuickNoteTag] = useState("");
   const [morningArchive, setMorningArchive] = useState<MorningWritingRecord[]>([]);
   const [journalArchive, setJournalArchive] = useState<JournalRecord[]>([]);
   const [reviewArchive, setReviewArchive] = useState<StockReviewRecord[]>([]);
@@ -608,10 +577,6 @@ export function App() {
   const [editTaskDueDate, setEditTaskDueDate] = useState("");
   const [editTaskDueTime, setEditTaskDueTime] = useState("18:00");
   const [editTaskDifficulty, setEditTaskDifficulty] = useState("2");
-  const [rewardCenter, setRewardCenter] = useState<RewardsPayload | null>(null);
-  const [rewardName, setRewardName] = useState("");
-  const [rewardCost, setRewardCost] = useState("120");
-  const [rewardDescription, setRewardDescription] = useState("");
   const [aiInsightLoading, setAiInsightLoading] = useState<"morning" | "journal" | null>(null);
   const [toolModal, setToolModal] = useState<ToolModalKind | null>(null);
   const [decisionRecords, setDecisionRecords] = useState<DecisionRecord[]>([]);
@@ -628,6 +593,7 @@ export function App() {
   const [bridgeLoading, setBridgeLoading] = useState(false);
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
   const [completionNote, setCompletionNote] = useState("");
+  const [completionKey, setCompletionKey] = useState("");
   const [sleepModalOpen, setSleepModalOpen] = useState(false);
   const [sleepStart, setSleepStart] = useState("23:30");
   const [wakeTime, setWakeTime] = useState("07:30");
@@ -639,10 +605,10 @@ export function App() {
   const [feedbackPopup, setFeedbackPopup] = useState<FeedbackPopupState | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function showNotice(message: string, title = "需要看一下") {
+  const showNotice = useCallback((message: string, title = "需要看一下") => {
     setError("");
     setFeedbackPopup({ kind: "notice", title, message });
-  }
+  }, []);
 
   function showConfirm(title: string, message: string, onConfirm: () => void | Promise<void>, confirmText = "确认") {
     setError("");
@@ -710,14 +676,6 @@ export function App() {
     }
   }
 
-  async function loadQuickNotes(date = selectedDate) {
-    try {
-      setQuickNotes(await api<QuickNote[]>(`/api/quick-notes?date=${date}&limit=8`));
-    } catch (err) {
-      showNotice(err instanceof Error ? err.message : "随手记加载失败", "随手记加载失败");
-    }
-  }
-
   useEffect(() => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) {
@@ -738,10 +696,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (authUser) {
-      void loadDashboard(selectedDate);
-      void loadQuickNotes(selectedDate);
-    }
+    if (authUser) void loadDashboard(selectedDate);
   }, [selectedDate, authUser?.id]);
 
   useEffect(() => {
@@ -752,10 +707,6 @@ export function App() {
   useEffect(() => {
     if (authUser && pageMode === "history") void loadArchiveRecords();
   }, [pageMode, archiveTab, authUser?.id]);
-
-  useEffect(() => {
-    if (authUser && pageMode === "rewards") void loadRewardCenter();
-  }, [pageMode, authUser?.id]);
 
   async function run(action: () => Promise<void>) {
     setError("");
@@ -1110,43 +1061,8 @@ export function App() {
           note: mediaNote
         })
       });
-      setMediaModalOpen(false);
       await loadDashboard();
     });
-  }
-
-  async function saveQuickNote(event: FormEvent) {
-    event.preventDefault();
-    if (!quickNoteContent.trim()) {
-      showNotice("先写下一点内容，哪怕只有一句话。");
-      return;
-    }
-    await run(async () => {
-      const result = await api<QuickNoteSaveResult>("/api/quick-notes", {
-        method: "POST",
-        body: JSON.stringify({
-          noteDate: selectedDate,
-          title: quickNoteTitle.trim() || undefined,
-          content: quickNoteContent.trim(),
-          tag: quickNoteTag.trim() || undefined
-        })
-      });
-      setQuickNoteTitle("");
-      setQuickNoteContent("");
-      setQuickNoteTag("");
-      setQuickNoteModalOpen(false);
-      await loadQuickNotes();
-      showRecordRewardPopup("随手记", result.reward);
-    });
-  }
-
-  async function deleteQuickNote(note: QuickNote) {
-    showConfirm("删除随手记", `删除「${note.title?.trim() || "这条灵感"}」吗？删除后不可恢复。`, async () => {
-      await run(async () => {
-        await api(`/api/quick-notes/${note.id}`, { method: "DELETE" });
-        await loadQuickNotes();
-      });
-    }, "删除");
   }
 
   async function loadArchiveRecords() {
@@ -1162,14 +1078,6 @@ export function App() {
       }
     } catch (err) {
       showNotice(err instanceof Error ? err.message : "列表加载失败", "列表加载失败");
-    }
-  }
-
-  async function loadRewardCenter() {
-    try {
-      setRewardCenter(await api<RewardsPayload>("/api/rewards"));
-    } catch (err) {
-      showNotice(err instanceof Error ? err.message : "奖励中心加载失败", "奖励中心加载失败");
     }
   }
 
@@ -1244,35 +1152,6 @@ export function App() {
     setBridgeLoading(false);
   }
 
-  async function createRewardItem(event: FormEvent) {
-    event.preventDefault();
-    if (!rewardName.trim()) return;
-    await run(async () => {
-      await api("/api/rewards/items", {
-        method: "POST",
-        body: JSON.stringify({ name: rewardName.trim(), cost: Number(rewardCost), description: rewardDescription.trim() || undefined })
-      });
-      setRewardName("");
-      setRewardCost("120");
-      setRewardDescription("");
-      await loadRewardCenter();
-    });
-  }
-
-  async function deleteRewardItem(item: RewardItem) {
-    await run(async () => {
-      await api(`/api/rewards/items/${item.id}`, { method: "DELETE" });
-      await loadRewardCenter();
-    });
-  }
-
-  async function redeemRewardItem(item: RewardItem) {
-    await run(async () => {
-      await api(`/api/rewards/items/${item.id}/redeem`, { method: "POST" });
-      await Promise.all([loadRewardCenter(), loadDashboard()]);
-    });
-  }
-
   async function analyzeInsight(sourceType: "morning" | "journal") {
     const content = sourceType === "morning" ? morningContent : journalContent;
     if (!content.trim()) {
@@ -1297,6 +1176,7 @@ export function App() {
         if (completionTask?.id === task.id) {
           setCompletionTask(null);
           setCompletionNote("");
+          setCompletionKey("");
         }
         await loadDashboard();
       });
@@ -1309,6 +1189,7 @@ export function App() {
     setFinishTimerEnd(plannedSchedule?.endTime.slice(0, 5) ?? currentTimeInput());
     setCompletionTask(task);
     setCompletionNote(task.completionNote ?? "");
+    setCompletionKey(crypto.randomUUID());
   }
 
   async function saveCompletionReflection(event: FormEvent) {
@@ -1320,9 +1201,12 @@ export function App() {
     }
     await run(async () => {
       const task = completionTask;
+      const stableCompletionKey = completionKey || crypto.randomUUID();
+      if (!completionKey) setCompletionKey(stableCompletionKey);
       const result = await api<TaskCompleteResult>(`/api/tasks/${task.id}/complete`, {
         method: "PUT",
         body: JSON.stringify({
+          completionKey: stableCompletionKey,
           scheduleDate: finishTimerDate,
           startTime: finishTimerStart,
           endTime: finishTimerEnd,
@@ -1331,6 +1215,7 @@ export function App() {
       });
       setCompletionTask(null);
       setCompletionNote("");
+      setCompletionKey("");
       await loadDashboard();
       showTaskRewardPopup(task, [result.reward]);
     });
@@ -1384,7 +1269,8 @@ export function App() {
         body: JSON.stringify({
           scheduleDate: finishTimerDate,
           startTime: finishTimerStart,
-          endTime: finishTimerEnd
+          endTime: finishTimerEnd,
+          completeTask: true
         })
       });
       setFinishTimerSession(null);
@@ -1597,17 +1483,11 @@ export function App() {
             <button className="icon-button" aria-label="刷新" onClick={() => loadDashboard()}>
               <RefreshCw size={16} />
             </button>
-            {growth && <GrowthMini growth={growth} />}
+            {growth && <GrowthSummary growth={growth} />}
           </div>
 
           <div className="top-right-block">
-            <div className="top-right-actions">
-              <button className="top-media-button" type="button" aria-label="打开影视陪伴" onClick={() => setMediaModalOpen(true)}>
-                <Clapperboard size={14} />
-                <span>影视</span>
-              </button>
-              <AccountMenu user={authUser} onView={() => showNotice(`显示名：${authUser.displayName}\n账号：${authUser.username}`, "账号信息")} onLogout={logout} />
-            </div>
+            <AccountMenu user={authUser} onView={() => showNotice(`显示名：${authUser.displayName}\n账号：${authUser.username}`, "账号信息")} onLogout={logout} />
             <div className="grid grid-cols-2 gap-1.5">
               <MiniStat label="实际" value={formatDuration(stats?.totalMinutes ?? 0)} />
               <MiniStat label="完成" value={`${stats?.completedTasks ?? 0}`} />
@@ -1724,42 +1604,15 @@ export function App() {
               <WaterTracker water={water} plan={waterPlan} onCupClick={saveWaterCups} />
             </Panel>
 
-            <Panel
-              title="随手记 / 灵感库"
-              icon={<Lightbulb size={17} />}
-              action={
-                <button className="icon-button h-8 w-8" type="button" aria-label="新增随手记" onClick={() => setQuickNoteModalOpen(true)}>
-                  <Plus size={14} />
+            <Panel title="影视陪伴" icon={<Clapperboard size={17} />}>
+              <form className="space-y-2" onSubmit={saveMediaWatch}>
+                <input className="field" placeholder="今天在看什么剧/电影" value={mediaTitle} onChange={(event) => setMediaTitle(event.target.value)} />
+                <input className="field" placeholder="集数/进度，比如第 12 集" value={mediaEpisode} onChange={(event) => setMediaEpisode(event.target.value)} />
+                <textarea className="journal-input min-h-20" placeholder="一句备注：剧情、氛围、适合搭配什么任务..." value={mediaNote} onChange={(event) => setMediaNote(event.target.value)} />
+                <button className="primary-button w-full px-4" type="submit">
+                  保存
                 </button>
-              }
-            >
-              <div className="quick-note-panel">
-                <button className="quick-note-capture" type="button" onClick={() => setQuickNoteModalOpen(true)}>
-                  <Lightbulb size={15} />
-                  <span>记下此刻想到的事</span>
-                  <Plus size={14} />
-                </button>
-                <div className="quick-note-list">
-                  {quickNotes.length ? (
-                    quickNotes.slice(0, 4).map((note) => (
-                      <article className="quick-note-entry" key={note.id} title={note.content}>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <strong className="truncate">{note.title?.trim() || "未命名灵感"}</strong>
-                            {note.tag && <span className="quick-note-tag">{note.tag}</span>}
-                          </div>
-                          <p>{note.content}</p>
-                        </div>
-                        <button className="timeline-delete" type="button" aria-label="删除随手记" onClick={() => deleteQuickNote(note)}>
-                          <Trash2 size={13} />
-                        </button>
-                      </article>
-                    ))
-                  ) : (
-                    <EmptyText text="还没有随手记，想到什么就先记下来。" />
-                  )}
-                </div>
-              </div>
+              </form>
             </Panel>
 
             <Panel title="六维能力" icon={<TimerReset size={17} />}>
@@ -1850,20 +1703,12 @@ export function App() {
             onOpenWritingModal={setWritingModal}
           />
         ) : (
-          <RewardCenter
-            growth={rewardCenter?.growth ?? growth ?? null}
-            items={rewardCenter?.items ?? []}
-            events={rewardCenter?.events ?? recentRewardEvents}
-            redemptions={rewardCenter?.redemptions ?? []}
-            rewardName={rewardName}
-            rewardCost={rewardCost}
-            rewardDescription={rewardDescription}
-            onNameChange={setRewardName}
-            onCostChange={setRewardCost}
-            onDescriptionChange={setRewardDescription}
-            onCreate={createRewardItem}
-            onRedeem={redeemRewardItem}
-            onDelete={deleteRewardItem}
+          <RewardsFeature
+            request={api}
+            initialGrowth={growth ?? null}
+            initialEvents={recentRewardEvents}
+            onError={showNotice}
+            onGrowthChanged={() => loadDashboard()}
           />
         )}
       </div>
@@ -1991,7 +1836,7 @@ export function App() {
         </WritingModal>
       )}
 
-      {writingModal === "review" && (
+        {writingModal === "review" && (
         <WritingModal title={`股市复盘 · ${formatDayLabel(selectedDate)}`} onClose={() => setWritingModal(null)} onSubmit={saveStockReview}>
           <textarea className="writing-textarea min-h-[220px]" placeholder="今天的大盘和最重要的结论..." value={reviewMarketSummary} onChange={(event) => setReviewMarketSummary(event.target.value)} />
           <div className="grid gap-2 md:grid-cols-2">
@@ -2022,34 +1867,6 @@ export function App() {
         </WritingModal>
       )}
 
-      {quickNoteModalOpen && (
-        <QuickNoteModal
-          noteDate={selectedDate}
-          title={quickNoteTitle}
-          content={quickNoteContent}
-          tag={quickNoteTag}
-          onTitleChange={setQuickNoteTitle}
-          onContentChange={setQuickNoteContent}
-          onTagChange={setQuickNoteTag}
-          onClose={() => setQuickNoteModalOpen(false)}
-          onSubmit={saveQuickNote}
-        />
-      )}
-
-      {mediaModalOpen && (
-        <MediaWatchModal
-          watchDate={selectedDate}
-          title={mediaTitle}
-          episode={mediaEpisode}
-          note={mediaNote}
-          onTitleChange={setMediaTitle}
-          onEpisodeChange={setMediaEpisode}
-          onNoteChange={setMediaNote}
-          onClose={() => setMediaModalOpen(false)}
-          onSubmit={saveMediaWatch}
-        />
-      )}
-
       {completionTask && (
         <CompletionModal
           task={completionTask}
@@ -2064,6 +1881,7 @@ export function App() {
           onClose={() => {
             setCompletionTask(null);
             setCompletionNote("");
+            setCompletionKey("");
           }}
           onSubmit={saveCompletionReflection}
         />
@@ -2228,118 +2046,6 @@ function AuthPage({
   );
 }
 
-function RewardCenter(props: {
-  growth: Growth | null;
-  items: RewardItem[];
-  events: RewardEvent[];
-  redemptions: RewardRedemption[];
-  rewardName: string;
-  rewardCost: string;
-  rewardDescription: string;
-  onNameChange: (value: string) => void;
-  onCostChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
-  onCreate: (event: FormEvent) => void;
-  onRedeem: (item: RewardItem) => void;
-  onDelete: (item: RewardItem) => void;
-}) {
-  const growth = props.growth;
-  const percent = growth ? Math.min(100, Math.round((growth.xpInLevel / Math.max(1, growth.xpForNextLevel)) * 100)) : 0;
-  return (
-    <section className="grid gap-2.5 lg:grid-cols-[minmax(0,1.1fr)_360px]">
-      <Panel title="成长进度" icon={<Sparkles size={17} />}>
-        <div className="growth-hero">
-          <div>
-            <p className="text-xs text-soft">当前等级</p>
-            <h2 className="mt-1 text-2xl font-bold">Lv.{growth?.level ?? 1}</h2>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-soft">金币</p>
-            <p className="mt-1 inline-flex items-center gap-1 text-2xl font-bold text-amber-500">
-              <Coins size={20} />
-              {growth?.coins ?? 0}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3">
-          <div className="mb-1 flex justify-between text-[11px] text-soft">
-            <span>经验</span>
-            <span>{growth?.xpInLevel ?? 0}/{growth?.xpForNextLevel ?? 50}</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-white/70">
-            <div className="h-full rounded-full bg-mint-500 transition-all duration-500" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          <section className="reward-list">
-            <h3 className="mb-2 text-xs font-semibold text-ink">最近获得</h3>
-            {props.events.length ? (
-              props.events.map((event) => (
-                <div className="reward-row" key={event.id}>
-                  <span>{event.reason}</span>
-                  <span className="text-right text-mint-700">+{event.xpDelta} XP {event.coinDelta ? `+${event.coinDelta} 金币` : ""}</span>
-                </div>
-              ))
-            ) : (
-              <EmptyText text="完成一次记录后，这里会亮起来。" />
-            )}
-          </section>
-          <section className="reward-list">
-            <h3 className="mb-2 text-xs font-semibold text-ink">最近兑换</h3>
-            {props.redemptions.length ? (
-              props.redemptions.map((item) => (
-                <div className="reward-row" key={item.id}>
-                  <span>{item.name}</span>
-                  <span className="text-right text-pink-500">-{item.cost}</span>
-                </div>
-              ))
-            ) : (
-              <EmptyText text="还没有兑换奖励。" />
-            )}
-          </section>
-        </div>
-      </Panel>
-
-      <Panel title="奖励中心" icon={<Gift size={17} />}>
-        <form className="space-y-2" onSubmit={props.onCreate}>
-          <input className="field" placeholder="奖励名称，比如：买一杯喜欢的饮料" value={props.rewardName} onChange={(event) => props.onNameChange(event.target.value)} />
-          <input className="field" min={1} type="number" placeholder="金币价格" value={props.rewardCost} onChange={(event) => props.onCostChange(event.target.value)} />
-          <textarea className="journal-input min-h-20" placeholder="说明，可不填" value={props.rewardDescription} onChange={(event) => props.onDescriptionChange(event.target.value)} />
-          <button className="primary-button w-full" type="submit">添加奖励</button>
-        </form>
-
-        <div className="mt-3 space-y-2">
-          {props.items.length ? (
-            props.items.map((item) => (
-              <article className="reward-item" key={item.id}>
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold">{item.name}</h3>
-                  {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-soft">{item.description}</p>}
-                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-500">
-                    <Coins size={13} />
-                    {item.cost}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <button className="icon-button w-auto px-3 text-[11px]" type="button" aria-label={`兑换${item.name}`} onClick={() => props.onRedeem(item)} disabled={(growth?.coins ?? 0) < item.cost}>
-                    兑换
-                  </button>
-                  <button className="icon-button h-8 w-8" type="button" aria-label="删除奖励" onClick={() => props.onDelete(item)}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </article>
-            ))
-          ) : (
-            <EmptyText text="先添加一个想兑换的小奖励。" />
-          )}
-        </div>
-      </Panel>
-    </section>
-  );
-}
-
 function Panel({ title, icon, children, className = "", action }: { title: string; icon: ReactNode; children: ReactNode; className?: string; action?: ReactNode }) {
   return (
     <section className={`glass-panel p-3 ${className}`}>
@@ -2352,28 +2058,6 @@ function Panel({ title, icon, children, className = "", action }: { title: strin
       </div>
       {children}
     </section>
-  );
-}
-
-function GrowthMini({ growth }: { growth: Growth }) {
-  const percent = Math.min(100, Math.round((growth.xpInLevel / Math.max(1, growth.xpForNextLevel)) * 100));
-  return (
-    <div className="top-growth-card">
-      <div className="top-growth-main">
-        <span className="top-growth-level">Lv.{growth.level}</span>
-        <span className="top-growth-coins">
-          <Coins size={16} />
-          {growth.coins}
-        </span>
-      </div>
-      <div className="top-growth-meta">
-        <span>经验 {growth.xpInLevel}/{growth.xpForNextLevel}</span>
-        <span>{percent}%</span>
-      </div>
-      <div className="top-growth-track">
-        <div className="top-growth-fill" style={{ width: `${percent}%` }} />
-      </div>
-    </div>
   );
 }
 
@@ -2421,96 +2105,6 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
           </button>
           <button className="primary-button px-5" type="submit">
             保存
-          </button>
-        </div>
-      </form>
-    </ModalPortal>
-  );
-}
-
-function QuickNoteModal(props: {
-  noteDate: string;
-  title: string;
-  content: string;
-  tag: string;
-  onTitleChange: (value: string) => void;
-  onContentChange: (value: string) => void;
-  onTagChange: (value: string) => void;
-  onClose: () => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return (
-    <ModalPortal onClose={props.onClose}>
-      <form className="writing-modal quick-note-modal" onSubmit={props.onSubmit}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] text-soft">{formatDayLabel(props.noteDate)} · 随手记</p>
-            <h3 className="text-base font-semibold">记下一个念头</h3>
-          </div>
-          <button className="icon-button h-8 w-8" type="button" aria-label="关闭随手记" onClick={props.onClose}>
-            <X size={15} />
-          </button>
-        </div>
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
-          <input className="field" placeholder="标题，可不填" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
-          <input className="field" placeholder="标签，比如 灵感" value={props.tag} onChange={(event) => props.onTagChange(event.target.value)} />
-        </div>
-        <textarea
-          className="writing-textarea quick-note-textarea"
-          autoFocus
-          placeholder="想到什么就写什么，不用整理得很完整..."
-          value={props.content}
-          onChange={(event) => props.onContentChange(event.target.value)}
-        />
-        <div className="mt-3 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" aria-label="取消随手记" onClick={props.onClose}>
-            取消
-          </button>
-          <button className="primary-button gap-1 px-5" type="submit">
-            <Lightbulb size={14} />
-            保存灵感
-          </button>
-        </div>
-      </form>
-    </ModalPortal>
-  );
-}
-
-function MediaWatchModal(props: {
-  watchDate: string;
-  title: string;
-  episode: string;
-  note: string;
-  onTitleChange: (value: string) => void;
-  onEpisodeChange: (value: string) => void;
-  onNoteChange: (value: string) => void;
-  onClose: () => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return (
-    <ModalPortal onClose={props.onClose}>
-      <form className="time-modal media-modal" onSubmit={props.onSubmit}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] text-soft">{formatDayLabel(props.watchDate)} · 影视陪伴</p>
-            <h3 className="text-base font-semibold">记下今天在看的内容</h3>
-          </div>
-          <button className="icon-button h-8 w-8" type="button" aria-label="关闭影视陪伴" onClick={props.onClose}>
-            <X size={15} />
-          </button>
-        </div>
-        <div className="space-y-2">
-          <input className="field" autoFocus placeholder="今天在看什么剧/电影" value={props.title} onChange={(event) => props.onTitleChange(event.target.value)} />
-          <input className="field" placeholder="集数/进度，比如第 12 集" value={props.episode} onChange={(event) => props.onEpisodeChange(event.target.value)} />
-          <textarea className="journal-input min-h-28" placeholder="一句备注：剧情、氛围、适合搭配什么任务..." value={props.note} onChange={(event) => props.onNoteChange(event.target.value)} />
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
-          <button className="icon-button w-auto px-4" type="button" aria-label="取消影视记录" onClick={props.onClose}>
-            取消
-          </button>
-          <button className="primary-button gap-1 px-5" type="submit">
-            <Clapperboard size={14} />
-            保存影视记录
           </button>
         </div>
       </form>

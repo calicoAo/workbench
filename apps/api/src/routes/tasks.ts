@@ -8,7 +8,7 @@ import { BusinessError, ErrorCode } from "../errors.js";
 import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue } from "../enums.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
-import { grantTaskDoneReward, grantTaskDoneRewardInClient } from "../rewards.js";
+import { completeTaskWithActualTime } from "../task-completion.js";
 
 
 const createTaskSchema = z.object({
@@ -27,11 +27,11 @@ const createTaskSchema = z.object({
 });
 
 const updateStatusSchema = z.object({
-  status: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
-  completionNote: z.string().max(1000).optional()
+  status: z.union([z.literal(0), z.literal(1), z.literal(3)])
 });
 
 const completeTaskSchema = z.object({
+  completionKey: z.string().trim().min(1).max(96),
   scheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -197,19 +197,13 @@ export const tasksRoute = new Hono()
       .update(tasks)
       .set({
         status: body.status,
-        completedAt: body.status === TaskStatus.DONE && task.status !== TaskStatus.DONE ? new Date() : body.status !== TaskStatus.DONE ? null : task.completedAt,
-        completionNote: body.completionNote?.trim() ? body.completionNote.trim() : task.completionNote,
+        completedAt: null,
         updatedAt: new Date()
       })
       .where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
 
-    const reward =
-      body.status === TaskStatus.DONE && task.status !== TaskStatus.DONE
-        ? await grantTaskDoneReward(getCurrentUserId(c), task)
-        : null;
-
     log.info({ userId: getCurrentUserId(c), taskId: id, from: current, to: body.status }, "[task_status_changed]");
-    return ok(c, { id, status: body.status, reward });
+    return ok(c, { id, status: body.status });
   })
   .put("/:id/complete", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
@@ -219,44 +213,14 @@ export const tasksRoute = new Hono()
     }
 
     const userId = getCurrentUserId(c);
-    const now = new Date();
-    const result = await db.transaction(async (tx) => {
-      const [task] = await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-      if (!task) throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
-
-      const current = task.status as TaskStatusValue;
-      if (current !== TaskStatus.DONE && !canTransitTaskStatus(current, TaskStatus.DONE)) {
-        throw new BusinessError(ErrorCode.PARAM_ERROR, "invalid task status transition");
-      }
-
-      await tx
-        .update(tasks)
-        .set({
-          status: TaskStatus.DONE,
-          completedAt: current !== TaskStatus.DONE ? now : task.completedAt,
-          completionNote: body.completionNote?.trim() ? body.completionNote.trim() : task.completionNote,
-          updatedAt: now
-        })
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-
-      const [scheduleResult] = await tx.insert(schedules).values({
-        userId,
-        taskId: task.id,
-        categoryId: task.categoryId,
-        scheduleDate: body.scheduleDate,
-        startTime: `${body.startTime}:00`,
-        endTime: `${body.endTime}:00`,
-        title: task.title,
-        note: body.completionNote?.trim() || undefined,
-        completed: 1,
-        kind: ScheduleKind.ACTUAL,
-        source: ScheduleSource.MANUAL,
-        createdAt: now,
-        updatedAt: now
-      });
-
-      const reward = current !== TaskStatus.DONE ? await grantTaskDoneRewardInClient(tx, userId, task) : null;
-      return { id, status: TaskStatus.DONE, scheduleId: scheduleResult.insertId, reward };
+    const result = await completeTaskWithActualTime({
+      userId,
+      taskId: id,
+      completionKey: body.completionKey,
+      scheduleDate: body.scheduleDate,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      completionNote: body.completionNote
     });
 
     log.info({ userId, taskId: id, scheduleId: result.scheduleId }, "[task_completed]");
@@ -269,4 +233,3 @@ export const tasksRoute = new Hono()
     log.info({ userId: getCurrentUserId(c), taskId: id, pinned: body.pinned }, "[task_pinned_changed]");
     return ok(c, { id, pinned: body.pinned });
   });
-

@@ -5,3 +5,5 @@ import * as schema from "./schema.js";
 
 export const pool = mysql.createPool(env.DATABASE_URL);
 export const db = drizzle(pool, { schema, mode: "default" });
+
+export type DatabaseClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];

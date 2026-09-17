@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { db } from "./db/index.js";
+import { db, type DatabaseClient } from "./db/index.js";
 import { rewardEvents, userGrowth, type tasks } from "./db/schema.js";
 
 type RewardInput = {
@@ -13,7 +13,6 @@ type RewardInput = {
   reason: string;
 };
 
-type RewardClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 type TaskRewardSource = Pick<typeof tasks.$inferSelect, "id" | "difficulty" | "pinned">;
 
 const taskBase: Record<number, { xp: number; coins: number }> = {
@@ -84,7 +83,7 @@ export async function grantReward(input: RewardInput) {
   return db.transaction((tx) => grantRewardInClient(tx, input));
 }
 
-export async function grantRewardInClient(client: RewardClient, input: RewardInput) {
+export async function grantRewardInClient(client: DatabaseClient, input: RewardInput) {
   const xp = Math.max(0, Math.round(input.xp));
   const coins = Math.max(0, Math.round(input.coins));
   if (!xp && !coins) return null;
@@ -142,7 +141,7 @@ export async function grantTaskDoneReward(userId: number, task: TaskRewardSource
   return db.transaction((tx) => grantTaskDoneRewardInClient(tx, userId, task));
 }
 
-export async function grantTaskDoneRewardInClient(client: RewardClient, userId: number, task: TaskRewardSource) {
+export async function grantTaskDoneRewardInClient(client: DatabaseClient, userId: number, task: TaskRewardSource) {
   const base = taskBase[task.difficulty] ?? taskBase[2];
   const multiplier = task.pinned ? 1.3 : 1;
   return grantRewardInClient(client, {
@@ -157,11 +156,15 @@ export async function grantTaskDoneRewardInClient(client: RewardClient, userId: 
 }
 
 export async function grantTaskPartialReward(userId: number, timerId: number, date: string, durationMinutes: number, task: TaskRewardSource) {
+  return db.transaction((tx) => grantTaskPartialRewardInClient(tx, userId, timerId, date, durationMinutes, task));
+}
+
+export async function grantTaskPartialRewardInClient(client: DatabaseClient, userId: number, timerId: number, date: string, durationMinutes: number, task: TaskRewardSource) {
   if (durationMinutes < 1) return null;
   const base = taskBase[task.difficulty] ?? taskBase[2];
   const multiplier = task.pinned ? 1.3 : 1;
   const ratio = Math.min(0.5, Math.max(0.15, durationMinutes / 120));
-  return grantReward({
+  return grantRewardInClient(client, {
     userId,
     eventKey: `task_partial:${userId}:${timerId}`,
     sourceType: "task_partial",
@@ -174,9 +177,13 @@ export async function grantTaskPartialReward(userId: number, timerId: number, da
 }
 
 export async function grantTimerReward(userId: number, timerId: number, date: string, durationMinutes: number) {
+  return db.transaction((tx) => grantTimerRewardInClient(tx, userId, timerId, date, durationMinutes));
+}
+
+export async function grantTimerRewardInClient(client: DatabaseClient, userId: number, timerId: number, date: string, durationMinutes: number) {
   if (durationMinutes < 3) return null;
   const blocks = Math.floor(durationMinutes / 25);
-  return grantReward({
+  return grantRewardInClient(client, {
     userId,
     eventKey: `timer:${userId}:${timerId}`,
     sourceType: "timer",
@@ -186,6 +193,11 @@ export async function grantTimerReward(userId: number, timerId: number, date: st
     coins: blocks,
     reason: "任务计时"
   });
+}
+
+export async function rewardGrantByEventKeyInClient(client: DatabaseClient, eventKey: string) {
+  const [event] = await client.select().from(rewardEvents).where(eq(rewardEvents.eventKey, eventKey));
+  return event ? { xp: event.xpDelta, coins: event.coinDelta, reason: event.reason } : null;
 }
 
 export async function recentRewardEvents(userId: number, limit = 8) {

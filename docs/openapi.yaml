@@ -651,7 +651,8 @@ paths:
           description: Updated task importance
   /tasks/{id}/status:
     put:
-      summary: Update task status
+      summary: Update a non-completion task status
+      description: Task completion is only available through PUT /tasks/{id}/complete.
       parameters:
         - in: path
           name: id
@@ -668,6 +669,8 @@ paths:
       responses:
         "200":
           description: Updated task
+        "400":
+          description: Invalid status transition or an attempt to complete through the generic status endpoint
   /tasks/{id}/complete:
     put:
       summary: Complete task and save actual timeline block
@@ -686,7 +689,9 @@ paths:
               $ref: "#/components/schemas/CompleteTaskRequest"
       responses:
         "200":
-          description: Completed task, saved timeline block, and granted reward
+          description: Completed task, saved one idempotent timeline block, and returned the lifecycle reward result
+        "409":
+          description: The completion key was previously used for another completion or the task is already complete
   /timer-sessions/start:
     post:
       summary: Start task timer
@@ -714,9 +719,18 @@ paths:
       responses:
         "200":
           description: Paused timer session, saved elapsed block, and granted partial completion reward
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkSessionResultResponse"
+        "404":
+          description: Timer session does not belong to the authenticated user
+        "409":
+          description: Timer session already has a different terminal result
   /timer-sessions/{id}/finish:
     put:
-      summary: Finish timer session and save elapsed timeline block
+      summary: Finish a work session, optionally completing its task
+      description: Repeating the same terminal command returns the existing result. A different command against a terminal session returns 409.
       parameters:
         - in: path
           name: id
@@ -724,9 +738,23 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinishWorkSessionRequest"
       responses:
         "200":
-          description: Finished timer session and saved elapsed block
+          description: Finished timer session, one timer-derived Actual projection, rewards, and optional Task completion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkSessionResultResponse"
+        "404":
+          description: Timer session or associated task does not belong to the authenticated user
+        "409":
+          description: Timer session already has a different terminal result or recorded time
 components:
   securitySchemes:
     BearerAuth:
@@ -925,6 +953,42 @@ components:
         status:
           type: integer
           enum: [0, 1, 2, 3]
+    RewardGrant:
+      type: object
+      required: [xp, coins, reason]
+      properties:
+        xp:
+          type: integer
+        coins:
+          type: integer
+        reason:
+          type: string
+    WorkSessionResultResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [id, status, durationMinutes, scheduleId, taskCompleted, rewards]
+              properties:
+                id:
+                  type: integer
+                  format: int64
+                status:
+                  type: integer
+                  enum: [1, 2]
+                durationMinutes:
+                  type: integer
+                scheduleId:
+                  type: integer
+                  format: int64
+                taskCompleted:
+                  type: boolean
+                rewards:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/RewardGrant"
     Schedule:
       type: object
       properties:
@@ -952,6 +1016,10 @@ components:
           type: integer
           enum: [0, 1, 2]
           description: 0 manual, 1 timer, 2 planned task
+        sourceId:
+          type: string
+          nullable: true
+          description: Stable workflow source identity when the schedule is a generated projection.
         color:
           type: string
     SleepRecord:
@@ -1276,14 +1344,17 @@ components:
       properties:
         status:
           type: integer
-          enum: [0, 1, 2, 3]
-        completionNote:
-          type: string
-          maxLength: 1000
+          enum: [0, 1, 3]
+          description: Use the explicit task completion endpoint for DONE (2).
     CompleteTaskRequest:
       type: object
-      required: [scheduleDate, startTime, endTime]
+      required: [completionKey, scheduleDate, startTime, endTime]
       properties:
+        completionKey:
+          type: string
+          minLength: 1
+          maxLength: 96
+          description: Stable identity reused when retrying the same completion command.
         scheduleDate:
           type: string
           format: date
@@ -1303,6 +1374,22 @@ components:
         taskId:
           type: integer
           format: int64
+    FinishWorkSessionRequest:
+      type: object
+      properties:
+        scheduleDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: "09:00"
+        endTime:
+          type: string
+          example: "10:00"
+        completeTask:
+          type: boolean
+          default: false
+          description: Explicitly complete the associated Task in the same transaction.
     CreateScheduleRequest:
       type: object
       required: [scheduleDate, startTime, endTime, kind]
