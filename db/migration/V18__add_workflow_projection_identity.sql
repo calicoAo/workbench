@@ -1,4 +1,4 @@
--- V17__add_workflow_projection_identity.sql
+-- V18__add_workflow_projection_identity.sql
 -- Give work-session projections and terminal intent stable database identities.
 
 ALTER TABLE timer_sessions
