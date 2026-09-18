@@ -10,6 +10,7 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces --if-present",
     "test:workflows": "npm run test:workflows -w apps/api",
+    "test:workflows:ci": "npm run test:workflows:ci -w apps/api",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspaces",
     "db:up": "docker compose -p personal-workbench up -d mysql",

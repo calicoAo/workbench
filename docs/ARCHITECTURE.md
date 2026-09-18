@@ -188,7 +188,9 @@ Do not create `shared`, `common`, `utils`, wrappers, repositories, or generic se
 
 ## Testing Boundaries
 
-The repository has focused MySQL integration tests for Task completion and work-session finalization under `apps/api/tests/workflows.test.ts`. They require a dedicated `TEST_DATABASE_URL` whose database name ends in `_test`; the test command reports a skip when that infrastructure is unavailable. `npm run lint` still performs TypeScript checking rather than ESLint-style rules.
+The repository has focused MySQL integration tests for Task completion and work-session finalization under `apps/api/tests/workflows.test.ts`. They require a dedicated `TEST_DATABASE_URL` whose database name ends in `_test` and the complete migration schema; missing configuration or an unavailable database fails the tests. Fixtures clean workflow data but do not recreate tables. `npm run lint` still performs TypeScript checking rather than ESLint-style rules.
+
+`.github/workflows/ci.yml` owns CI verification only: an isolated MySQL 8 service starts with an empty `personal_workbench_test` database, Flyway applies and validates all versioned SQL migrations, then `npm run test:workflows:ci` executes the focused database suite. The CI reporter fails on skipped/TODO/cancelled/failed tests or a missing/empty summary. Typecheck, lint and build run only after the suite passes. Production composition and workflow ownership are unchanged; this workflow does not deploy.
 
 Minimum verification for non-trivial changes:
 
@@ -218,6 +220,7 @@ npm run typecheck  # TypeScript boundaries and type safety across both workspace
 npm run lint       # Currently aliases TypeScript checks; no additional lint policy
 npm run build      # API compilation and production Web bundle
 npm test           # Focused tests; DB-backed workflow cases require TEST_DATABASE_URL
+npm run test:workflows:ci  # Required DB suite with a no-skip reporter and its regression checks
 ```
 
 Current architecture rules are otherwise soft contract. Do not add dependencies solely to claim governance coverage.
@@ -300,7 +303,7 @@ Ranked by change cost and architecture risk:
 1. Move carryover/inheritance writes out of `GET /api/dashboard` into an explicit, idempotent workflow.
 2. Continue migrating one coherent Web feature at a time out of root ownership. Rewards is the first established boundary and must not be collapsed back into `App.tsx`; preserve behavior and avoid arbitrary file splitting.
 3. Move writing/record form drafts to their feature/modal owners so unrelated Dashboard reloads cannot overwrite unsaved input.
-4. Execute the focused completion tests against an isolated MySQL test database in CI, then extend only for newly identified execution invariants such as resume/segments or single-active-session enforcement.
+4. Extend the focused completion CI suite only for newly identified execution invariants such as resume/segments or single-active-session enforcement.
 5. Add focused tests for remaining state transitions, Dashboard aggregation, and critical HTTP contracts.
 6. Resolve delete/retention semantics per business capability and document deliberate exceptions.
 7. Reassess URL navigation and generated/shared API contracts only when product needs or repeated drift provide evidence.

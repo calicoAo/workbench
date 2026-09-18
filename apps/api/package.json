@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "test": "tsc -p tsconfig.test.json --noEmit && tsx --test tests/*.test.ts",
     "test:workflows": "tsc -p tsconfig.test.json --noEmit && tsx --test tests/workflows.test.ts",
+    "test:workflows:ci": "node --test tests/require-all-tests.test.mjs && tsc -p tsconfig.test.json --noEmit && tsx --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/require-all-tests.mjs --test-reporter-destination=stdout tests/workflows.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
