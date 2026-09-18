@@ -369,6 +369,50 @@ paths:
       responses:
         "200":
           description: Media watch record list
+  /quick-notes:
+    get:
+      summary: List quick notes and inspiration records
+      parameters:
+        - in: query
+          name: date
+          required: false
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Quick note list
+    post:
+      summary: Create a quick note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuickNoteRequest"
+      responses:
+        "200":
+          description: Created quick note
+  /quick-notes/{id}:
+    delete:
+      summary: Hard delete a quick note
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Deleted quick note
   /rewards:
     get:
       summary: Get growth, reward items, recent rewards, and redemptions
@@ -1066,6 +1110,29 @@ components:
         note:
           type: string
           nullable: true
+    QuickNote:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        noteDate:
+          type: string
+          format: date
+        title:
+          type: string
+          nullable: true
+        content:
+          type: string
+        tag:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     StockReview:
       type: object
       properties:
@@ -1435,6 +1502,24 @@ components:
         note:
           type: string
           maxLength: 500
+          nullable: true
+    CreateQuickNoteRequest:
+      type: object
+      required: [noteDate, content]
+      properties:
+        noteDate:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 120
+          nullable: true
+        content:
+          type: string
+          maxLength: 5000
+        tag:
+          type: string
+          maxLength: 64
           nullable: true
     CreateRewardItemRequest:
       type: object
