@@ -75,3 +75,11 @@ TEST_DATABASE_URL=mysql://root:ci_test_password@127.0.0.1:3307/personal_workbenc
 测试会清空该库的 workflow 数据，不要指向需要保留数据的数据库。普通 `npm test` / `npm run test:workflows` 同样需要已迁移的测试库，缺少 URL 会报错。
 
 当前没有独立的 OpenAPI 或 architecture 静态检查 script，因此未加入此类自动 gate；`lint` 目前等同 TypeScript 检查。UI/E2E、其他业务集成测试、coverage、部署与 release 均未纳入第一版 CI。
+
+## 自动部署
+
+`.github/workflows/deploy.yml` 在默认分支的 `CI` 成功后自动执行，也支持 GitHub Actions 的手动 `workflow_dispatch`。它通过 SSH 上传通过 CI 的提交，由 `deploy/release.sh` 保留服务器上的 `deploy/.env`，构建镜像，将数据库备份到 `/opt/personal-workbench-backups`，运行 Compose 中的 Flyway migration service，再重启 API/Web 容器并验证 `https://calicovo.icu/api/health`。本机健康检查失败时会恢复上一版容器镜像，成功时保留上一版代码在 `/opt/personal-workbench.previous`。
+
+在仓库的 `production` Environment 中配置以下 Secrets：`DEPLOY_HOST=8.129.88.130`、`DEPLOY_USER=root`、`DEPLOY_SSH_KEY`（服务器授权的私钥）、`DEPLOY_KNOWN_HOSTS`（`ssh-keyscan -H 8.129.88.130` 的输出）。不要把生产 `.env` 提交到仓库；服务器必须已有 `/opt/personal-workbench/deploy/.env` 且权限为 `600`。
+
+首次自动部署使用 Flyway `baselineVersion=16` 识别当前线上已手工迁移到 V16 的数据库，然后执行 V17/V18；空数据库则从 V1 开始执行全部迁移。之后由 `flyway_schema_history` 控制增量执行和 checksum 校验，不一致时停止部署。Compose project 名称固定为 `deploy`，继续使用现有 `workbench_mysql_data` 卷和 Nginx `127.0.0.1:8080` 入口。

@@ -47,5 +47,27 @@ services:
     depends_on:
       - api
 
+  migrate:
+    image: flyway/flyway:10-alpine
+    profiles:
+      - tools
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command:
+      - -url=jdbc:mysql://mysql:3306/personal_workbench?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+      - -user=workbench
+      - -password=${MYSQL_PASSWORD}
+      - -locations=filesystem:/flyway/sql
+      - -connectRetries=60
+      - -baselineOnMigrate=true
+      - -baselineVersion=16
+      - -baselineDescription=Production baseline before automated deployment
+      - -validateOnMigrate=true
+      - -validateMigrationNaming=true
+      - migrate
+    volumes:
+      - ../db/migration:/flyway/sql:ro
+
 volumes:
   workbench_mysql_data:
