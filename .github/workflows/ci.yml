@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: MySQL workflows and workspace checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: personal_workbench_test
+          MYSQL_ROOT_PASSWORD: ci_test_password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_test_password --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      NODE_ENV: test
+      JWT_SECRET: workflow-ci-only-secret
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: Migrate empty test database and validate migration history
+        env:
+          MYSQL_PORT: ${{ job.services.mysql.ports['3306'] }}
+        run: |
+          docker run --rm --network host \
+            -v "$PWD/db:/flyway/project:ro" \
+            flyway/flyway:10-alpine \
+            -configFiles=/flyway/project/flyway.conf \
+            "-url=jdbc:mysql://127.0.0.1:${MYSQL_PORT}/personal_workbench_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
+            -user=root -password=ci_test_password \
+            -locations=filesystem:/flyway/project/migration \
+            -baselineOnMigrate=false -validateMigrationNaming=true \
+            -connectRetries=10 migrate validate
+
+      - name: Workflow integration tests (no skipped cases)
+        env:
+          TEST_DATABASE_URL: mysql://root:ci_test_password@127.0.0.1:${{ job.services.mysql.ports['3306'] }}/personal_workbench_test
+        run: npm run test:workflows:ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build

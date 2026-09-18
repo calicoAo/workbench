@@ -46,3 +46,32 @@ npm run db:init
 ```bash
 flyway -configFiles=db/flyway.conf migrate
 ```
+
+## GitHub Actions CI
+
+`.github/workflows/ci.yml` 在 push、pull request 和手动触发时执行单个 Ubuntu / Node 22 job，不部署应用。
+
+1. 启动独立 `mysql:8.0` service，创建空库 `personal_workbench_test`；3306 映射到 runner 的动态端口。
+2. `npm ci` 安装 lockfile 中的依赖。
+3. 使用 `flyway/flyway:10-alpine` 执行 `migrate validate`，复用 `db/flyway.conf` 和 `db/migration`，显式覆盖测试连接、migration 路径及 `baselineOnMigrate=false`，启用 migration 命名校验。包括 `V2_1` 在内的版本顺序由 Flyway 处理。
+4. `npm run test:workflows:ci` 调用 API workspace 的同名 script，先验证 no-skip reporter，再编译测试并运行 `workflows.test.ts` 中的 7 个真实数据库用例。
+5. 依次执行 `npm run typecheck`、`npm run lint`、`npm run build`。
+
+CI 使用公开的临时测试凭据（不需要 GitHub Secrets）：`TEST_DATABASE_URL=mysql://root:ci_test_password@127.0.0.1:<service-port>/personal_workbench_test`、`NODE_ENV=test`、`JWT_SECRET=workflow-ci-only-secret`。测试入口会把测试 URL 赋给 `DATABASE_URL`。root 仅用于这个临时容器，允许回滚测试创建故障注入 trigger。
+
+数据库健康检查、迁移/校验、reporter 自检、测试 TypeScript 检查、所有 workflow 用例及后续 workspace 检查都是 job 的 hard gate；缺少 URL、非 `_test` 数据库、连接失败、失败/取消/skip/TODO 用例都会返回非零退出码。测试不再创建简化表，直接使用迁移后的真实 schema。分支合并是否强制等待 `MySQL workflows and workspace checks`，仍取决于 GitHub branch protection/ruleset 配置。
+
+本地复现时先准备**空的专用测试库**，然后运行：
+
+```bash
+flyway -configFiles=db/flyway.conf \
+  '-url=jdbc:mysql://127.0.0.1:3307/personal_workbench_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai' \
+  -user=root -password=ci_test_password \
+  -baselineOnMigrate=false -validateMigrationNaming=true migrate validate
+TEST_DATABASE_URL=mysql://root:ci_test_password@127.0.0.1:3307/personal_workbench_test \
+  NODE_ENV=test JWT_SECRET=workflow-ci-only-secret npm run test:workflows:ci
+```
+
+测试会清空该库的 workflow 数据，不要指向需要保留数据的数据库。普通 `npm test` / `npm run test:workflows` 同样需要已迁移的测试库，缺少 URL 会报错。
+
+当前没有独立的 OpenAPI 或 architecture 静态检查 script，因此未加入此类自动 gate；`lint` 目前等同 TypeScript 检查。UI/E2E、其他业务集成测试、coverage、部署与 release 均未纳入第一版 CI。

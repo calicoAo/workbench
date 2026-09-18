@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import test, { after, before, beforeEach } from "node:test";
+import test, { after, beforeEach } from "node:test";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
 if (!testDatabaseUrl) {
-  test("workflow integration tests require TEST_DATABASE_URL", { skip: "set TEST_DATABASE_URL to a dedicated MySQL database ending in _test" }, () => {});
+  throw new Error("Set TEST_DATABASE_URL to a migrated, dedicated MySQL database ending in _test");
 } else {
   const databaseName = new URL(testDatabaseUrl).pathname.slice(1);
   if (!databaseName.endsWith("_test")) {
@@ -35,90 +35,6 @@ if (!testDatabaseUrl) {
     return Number(Object.values(row)[0]);
   }
 
-  async function createSchema() {
-    await pool.query("DROP TRIGGER IF EXISTS fail_reward_insert");
-    for (const table of ["reward_events", "user_growth", "schedules", "timer_sessions", "tasks"]) {
-      await pool.query(`DROP TABLE IF EXISTS ${table}`);
-    }
-    await pool.query(`CREATE TABLE tasks (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      category_id BIGINT UNSIGNED NULL,
-      title VARCHAR(200) NOT NULL,
-      description TEXT NULL,
-      priority TINYINT NOT NULL,
-      difficulty TINYINT NOT NULL,
-      status TINYINT NOT NULL,
-      estimated_minutes INT NULL,
-      due_date DATE NULL,
-      due_at DATETIME NULL,
-      pinned TINYINT NOT NULL,
-      progress_percent TINYINT NOT NULL,
-      sort_order INT NOT NULL,
-      completed_at DATETIME NULL,
-      completion_note TEXT NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL,
-      deleted_at DATETIME NULL
-    ) ENGINE=InnoDB`);
-    await pool.query(`CREATE TABLE timer_sessions (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      task_id BIGINT UNSIGNED NOT NULL,
-      category_id BIGINT UNSIGNED NULL,
-      start_time DATETIME NOT NULL,
-      end_time DATETIME NULL,
-      duration_minutes INT NOT NULL,
-      status TINYINT NOT NULL,
-      completion_requested TINYINT NOT NULL DEFAULT 0,
-      task_completed TINYINT NOT NULL DEFAULT 0,
-      note VARCHAR(500) NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL,
-      deleted_at DATETIME NULL
-    ) ENGINE=InnoDB`);
-    await pool.query(`CREATE TABLE schedules (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      task_id BIGINT UNSIGNED NULL,
-      category_id BIGINT UNSIGNED NULL,
-      schedule_date DATE NOT NULL,
-      start_time TIME NOT NULL,
-      end_time TIME NOT NULL,
-      title VARCHAR(200) NOT NULL,
-      note VARCHAR(500) NULL,
-      completed TINYINT NOT NULL,
-      kind TINYINT NOT NULL,
-      source TINYINT NOT NULL,
-      source_id VARCHAR(128) NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL,
-      deleted_at DATETIME NULL,
-      UNIQUE KEY uk_user_source_identity (user_id, source, source_id)
-    ) ENGINE=InnoDB`);
-    await pool.query(`CREATE TABLE user_growth (
-      user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
-      level INT NOT NULL,
-      xp_total INT NOT NULL,
-      coins INT NOT NULL,
-      created_at DATETIME NOT NULL,
-      updated_at DATETIME NOT NULL
-    ) ENGINE=InnoDB`);
-    await pool.query(`CREATE TABLE reward_events (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      event_key VARCHAR(128) NOT NULL,
-      source_type VARCHAR(32) NOT NULL,
-      source_id VARCHAR(64) NOT NULL,
-      event_date DATE NULL,
-      xp_delta INT NOT NULL,
-      coin_delta INT NOT NULL,
-      reason VARCHAR(255) NOT NULL,
-      created_at DATETIME NOT NULL,
-      UNIQUE KEY uk_event_key (event_key)
-    ) ENGINE=InnoDB`);
-  }
-
   async function insertTask(userId = 1, status = TaskStatus.TODO) {
     const now = new Date("2026-09-18T01:00:00.000Z");
     const [result] = await pool.query(
@@ -139,7 +55,7 @@ if (!testDatabaseUrl) {
     return Number((result as { insertId: number }).insertId);
   }
 
-  before(createSchema);
+  // Test the real migration schema; never replace it with fixture DDL.
   beforeEach(async () => {
     await pool.query("DROP TRIGGER IF EXISTS fail_reward_insert");
     for (const table of ["reward_events", "user_growth", "schedules", "timer_sessions", "tasks"]) {
