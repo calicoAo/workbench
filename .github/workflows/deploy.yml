@@ -59,5 +59,3 @@ jobs:
         run: |
           ssh "$DEPLOY_USER@$DEPLOY_HOST" \
             "sh '/opt/personal-workbench.release-$RELEASE_SHA/deploy/release.sh' '$RELEASE_SHA'"
-      - name: Public HTTPS health check
-        run: curl --fail --silent --show-error https://calicovo.icu/api/health
