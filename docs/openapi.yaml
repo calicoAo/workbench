@@ -59,7 +59,7 @@ paths:
                         $ref: "#/components/schemas/AuthUser"
   /dashboard:
     get:
-      summary: Get dashboard aggregate data
+      summary: Get the read-only dashboard aggregate
       parameters:
         - in: query
           name: date
@@ -79,6 +79,39 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/Dashboard"
+  /daily-carryovers:
+    post:
+      summary: Carry unfinished work forward to a selected date
+      description: Safe to retry. Existing target-date assignments, plan projections, and handled source records are not duplicated. Daily-assignment inheritance and planned-Schedule carryover commit independently; if the latter fails, a retry completes the remaining work without duplicating the committed assignment result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyDailyCarryoverRequest"
+      responses:
+        "200":
+          description: Daily carryover applied or already complete
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [targetDate]
+                        properties:
+                          targetDate:
+                            type: string
+                            format: date
+        "400":
+          description: Invalid targetDate request
+        "401":
+          description: Authentication required
+        "500":
+          description: Carryover workflow failed; independently committed work remains retry-safe
   /task-days:
     get:
       summary: Get tasks accepted for a day
@@ -884,6 +917,13 @@ components:
               type: integer
             stockReviewDays:
               type: integer
+    ApplyDailyCarryoverRequest:
+      type: object
+      required: [targetDate]
+      properties:
+        targetDate:
+          type: string
+          format: date
     Task:
       type: object
       properties:

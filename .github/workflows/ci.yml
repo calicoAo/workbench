@@ -58,6 +58,8 @@ jobs:
         env:
           TEST_DATABASE_URL: mysql://root:ci_test_password@127.0.0.1:${{ job.services.mysql.ports['3306'] }}/personal_workbench_test
         run: npm run test:workflows:ci
+      - name: Web feature behavior tests
+        run: npm run test -w apps/web
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
