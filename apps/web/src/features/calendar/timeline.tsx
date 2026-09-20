@@ -12,6 +12,8 @@ export type Schedule = {
   source: number;
   sourceId?: string | null;
   color: string;
+  version?: number;
+  actualTimeClass?: number;
 };
 
 export type TimelineItem = Schedule & { marker?: "water" | "sleep" };
@@ -89,7 +91,7 @@ export function TimelineBoard({ items, onDelete }: { items: TimelineItem[]; onDe
               </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
             </div>
-            {!sleepBlock && (
+            {!sleepBlock && item.source !== 1 && (
               <button className="timeline-delete" aria-label="删除时间记录" onClick={() => onDelete(item.id)}>
                 <Trash2 size={12} />
               </button>

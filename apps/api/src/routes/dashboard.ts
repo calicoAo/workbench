@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { aiInsights, journals, mediaWatchRecords, morningWritings, rewardEvents, schedules, sleepRecords, stockReviews, taskCategories, taskDailyAssignments, tasks, timerSessions, userGrowth, waterRecords } from "../db/schema.js";
+import { aiInsights, journals, morningWritings, rewardEvents, schedules, sleepRecords, stockReviews, taskCategories, taskDailyAssignments, tasks, timerSessions, userGrowth, waterRecords } from "../db/schema.js";
 import { ScheduleKind, TimerStatus } from "../enums.js";
 import { ok } from "../http.js";
 import { growthSummary, recentRewardEvents } from "../rewards.js";
@@ -77,7 +77,6 @@ export const dashboardRoute = new Hono().get("/", async (c) => {
     journalRows,
     morningRows,
     waterRows,
-    mediaWatchRows,
     weekJournalRows,
     reviewRows,
     weekReviewRows,
@@ -101,7 +100,6 @@ export const dashboardRoute = new Hono().get("/", async (c) => {
     db.select().from(journals).where(and(eq(journals.userId, userId), eq(journals.journalDate, query.date), isNull(journals.deletedAt))),
     db.select().from(morningWritings).where(and(eq(morningWritings.userId, userId), eq(morningWritings.writingDate, query.date), isNull(morningWritings.deletedAt))),
     db.select().from(waterRecords).where(and(eq(waterRecords.userId, userId), eq(waterRecords.waterDate, query.date), isNull(waterRecords.deletedAt))),
-    db.select().from(mediaWatchRecords).where(and(eq(mediaWatchRecords.userId, userId), eq(mediaWatchRecords.watchDate, query.date), isNull(mediaWatchRecords.deletedAt))),
     db.select().from(journals).where(and(eq(journals.userId, userId), gte(journals.journalDate, range.start), lte(journals.journalDate, range.end), isNull(journals.deletedAt))),
     db.select().from(stockReviews).where(and(eq(stockReviews.userId, userId), eq(stockReviews.reviewDate, query.date), isNull(stockReviews.deletedAt))),
     db.select().from(stockReviews).where(and(eq(stockReviews.userId, userId), gte(stockReviews.reviewDate, range.start), lte(stockReviews.reviewDate, range.end), isNull(stockReviews.deletedAt))),
@@ -151,7 +149,6 @@ export const dashboardRoute = new Hono().get("/", async (c) => {
     journalRecord: journalRows[0] ?? null,
     morningWritingRecord: morningRows[0] ?? null,
     waterRecord: waterRows[0] ?? { waterDate: query.date, cups: 0, targetCups: 8, lastDrinkAt: null, drinkTimes: "[]" },
-    mediaWatchRecord: mediaWatchRows[0] ?? { watchDate: query.date, title: null, episode: null, note: null },
     growth: growthSummary(growth[0] ?? { level: 1, xpTotal: 0, coins: 0 }),
     rewardEvents: rewardEventRows,
     taskRewardEvents: taskRewardEventRows,

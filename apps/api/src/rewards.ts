@@ -28,7 +28,6 @@ export const RewardAmount = {
   stockReview: { xp: 20, coins: 8 },
   sleep: { xp: 10, coins: 3 },
   waterFull: { xp: 12, coins: 4 },
-  media: { xp: 5, coins: 1 },
   decision: { xp: 8, coins: 2 },
   bridge: { xp: 12, coins: 4 },
   scheduleHour: { xp: 2, coins: 0 }
@@ -66,7 +65,7 @@ function isDuplicateError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ER_DUP_ENTRY";
 }
 
-export async function ensureGrowth(userId: number) {
+export async function ensureGrowthForWrite(userId: number) {
   const [row] = await db.select().from(userGrowth).where(eq(userGrowth.userId, userId));
   if (row) return row;
   const now = new Date();

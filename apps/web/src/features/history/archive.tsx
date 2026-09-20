@@ -1,11 +1,10 @@
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { type MediaWatchRecord } from "../media-watch";
 import { type JournalRecord, type MorningWritingRecord, type StockReviewRecord } from "../writing-reflection";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
-type ArchiveTab = "morning" | "journal" | "review" | "media";
+type ArchiveTab = "morning" | "journal" | "review";
 type ArchiveItem = {
   id: string | number;
   date: string;
@@ -21,7 +20,7 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
   onError: (message: string, title?: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<ArchiveTab>("morning");
-  const [records, setRecords] = useState<MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[] | MediaWatchRecord[]>([]);
+  const [records, setRecords] = useState<MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[]>([]);
   const [selectedItem, setSelectedItem] = useState<ArchiveItem | null>(null);
 
   useEffect(() => {
@@ -30,10 +29,8 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
       ? "/api/morning-writings/list?limit=50"
       : activeTab === "journal"
         ? "/api/journals/list?limit=50"
-        : activeTab === "review"
-          ? "/api/stock-reviews/list?limit=50"
-          : "/api/media-watch-records/list?limit=50";
-    void request<MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[] | MediaWatchRecord[]>(path)
+        : "/api/stock-reviews/list?limit=50";
+    void request<MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[]>(path)
       .then((items) => { if (current) setRecords(items); })
       .catch((error) => { if (current) onError(errorMessage(error), "列表加载失败"); });
     return () => { current = false; };
@@ -43,7 +40,7 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
   return (
     <div>
       <div className="mb-3 inline-flex rounded-full border border-white/80 bg-white/70 p-0.5">
-        {[["morning", "晨写"], ["journal", "日记"], ["review", "复盘"], ["media", "影视"]].map(([value, label]) => (
+        {[["morning", "晨写"], ["journal", "日记"], ["review", "复盘"]].map(([value, label]) => (
           <button
             className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${activeTab === value ? "bg-mint-500 text-white" : "text-soft hover:text-ink"}`}
             key={value}
@@ -74,10 +71,10 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
   );
 }
 
-function archiveItems(tab: ArchiveTab, records: MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[] | MediaWatchRecord[]): ArchiveItem[] {
+function archiveItems(tab: ArchiveTab, records: MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[]): ArchiveItem[] {
   if (tab === "morning") return (records as MorningWritingRecord[]).map((item) => ({ id: item.id ?? item.writingDate, date: item.writingDate, title: "晨写", content: item.content, score: item.moodScore, sections: [{ label: "内容", value: item.content }, { label: "状态", value: item.moodScore ? `${item.moodScore}/5` : null }] }));
   if (tab === "journal") return (records as JournalRecord[]).map((item) => ({ id: item.id, date: item.journalDate, title: "睡前日记", content: item.content, score: item.moodScore, sections: [{ label: "内容", value: item.content }, { label: "状态", value: item.moodScore ? `${item.moodScore}/5` : null }] }));
-  if (tab === "review") return (records as StockReviewRecord[]).map((item) => ({
+  return (records as StockReviewRecord[]).map((item) => ({
     id: item.id,
     date: item.reviewDate,
     title: item.tags?.trim() || "股市复盘",
@@ -89,7 +86,6 @@ function archiveItems(tab: ArchiveTab, records: MorningWritingRecord[] | Journal
       { label: "心情", value: item.emotionScore ? `${item.emotionScore}/5` : null }, { label: "纪律", value: item.disciplineScore ? `${item.disciplineScore}/5` : null }
     ]
   }));
-  return (records as MediaWatchRecord[]).map((item) => ({ id: item.id ?? item.watchDate, date: item.watchDate, title: item.title?.trim() || "影视陪伴", content: [item.episode, item.note].filter(Boolean).join(" · "), score: null, sections: [{ label: "剧名", value: item.title }, { label: "进度", value: item.episode }, { label: "备注", value: item.note }] }));
 }
 
 function ArchiveDetailDialog({ item, onClose }: { item: ArchiveItem; onClose: () => void }) {

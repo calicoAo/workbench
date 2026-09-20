@@ -26,8 +26,8 @@ describe("HistoryFeature ownership", () => {
     const requestMock = vi.fn(async (_path: string) => []) as Props["request"];
     render(feature({ request: requestMock }));
     await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/morning-writings/list?limit=50"));
-    fireEvent.click(screen.getByRole("button", { name: "影视" }));
-    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/media-watch-records/list?limit=50"));
+    fireEvent.click(screen.getByRole("button", { name: "日记" }));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/journals/list?limit=50"));
   });
 
   it("reports archive loading failures", async () => {

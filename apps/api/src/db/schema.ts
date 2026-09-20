@@ -1,9 +1,10 @@
-import { bigint, date, datetime, int, mysqlTable, text, time, tinyint, varchar } from "drizzle-orm/mysql-core";
+import { bigint, date, datetime, int, json, mysqlTable, text, time, tinyint, varchar } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   username: varchar("username", { length: 64 }).notNull(),
   displayName: varchar("display_name", { length: 64 }).notNull(),
+  timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   passwordHash: varchar("password_hash", { length: 255 }),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
@@ -39,8 +40,10 @@ export const tasks = mysqlTable("tasks", {
   dueAt: datetime("due_at"),
   pinned: tinyint("pinned").notNull(),
   progressPercent: tinyint("progress_percent").notNull(),
+  version: int("version", { unsigned: true }).notNull().default(1),
   sortOrder: int("sort_order").notNull(),
   completedAt: datetime("completed_at"),
+  completionSequence: int("completion_sequence", { unsigned: true }).notNull().default(0),
   completionNote: text("completion_note"),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
@@ -52,7 +55,17 @@ export const taskDailyAssignments = mysqlTable("task_daily_assignments", {
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
   taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
   taskDate: date("task_date", { mode: "string" }).notNull(),
+  assignmentStatus: tinyint("assignment_status").notNull().default(0),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   sortOrder: int("sort_order").notNull(),
+  continuationState: tinyint("continuation_state").notNull().default(0),
+  continuationHandledAt: datetime("continuation_handled_at"),
+  continuationTargetDate: date("continuation_target_date", { mode: "string" }),
+  continuationTargetTimezone: varchar("continuation_target_timezone", { length: 64 }),
+  continuationTargetAssignmentId: bigint("continuation_target_assignment_id", { mode: "number", unsigned: true }),
+  continuationTargetScheduleId: bigint("continuation_target_schedule_id", { mode: "number", unsigned: true }),
+  continuationReason: varchar("continuation_reason", { length: 255 }),
+  version: int("version", { unsigned: true }).notNull().default(1),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull()
 });
@@ -61,6 +74,8 @@ export const timerSessions = mysqlTable("timer_sessions", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
   taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
+  sessionModel: tinyint("session_model").notNull().default(0),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   categoryId: bigint("category_id", { mode: "number", unsigned: true }),
   startTime: datetime("start_time").notNull(),
   endTime: datetime("end_time"),
@@ -68,7 +83,30 @@ export const timerSessions = mysqlTable("timer_sessions", {
   status: tinyint("status").notNull(),
   completionRequested: tinyint("completion_requested").notNull().default(0),
   taskCompleted: tinyint("task_completed").notNull().default(0),
+  version: int("version", { unsigned: true }).notNull().default(1),
   note: varchar("note", { length: 500 }),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull(),
+  deletedAt: datetime("deleted_at")
+});
+
+export const timerSegments = mysqlTable("timer_segments", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  timerSessionId: bigint("timer_session_id", { mode: "number", unsigned: true }).notNull(),
+  taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
+  status: tinyint("status").notNull(),
+  startedAt: datetime("started_at", { mode: "string" }).notNull(),
+  endedAt: datetime("ended_at", { mode: "string" }),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull(),
+  projectIdAtOccurrence: bigint("project_id_at_occurrence", { mode: "number", unsigned: true }),
+  projectAttributionStatus: tinyint("project_attribution_status").notNull(),
+  categoryIdAtOccurrence: bigint("category_id_at_occurrence", { mode: "number", unsigned: true }),
+  categoryAttributionStatus: tinyint("category_attribution_status").notNull(),
+  taskTitleSnapshot: varchar("task_title_snapshot", { length: 200 }).notNull(),
+  categoryNameSnapshot: varchar("category_name_snapshot", { length: 64 }),
+  version: int("version", { unsigned: true }).notNull().default(1),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
@@ -80,14 +118,27 @@ export const schedules = mysqlTable("schedules", {
   taskId: bigint("task_id", { mode: "number", unsigned: true }),
   categoryId: bigint("category_id", { mode: "number", unsigned: true }),
   scheduleDate: date("schedule_date", { mode: "string" }).notNull(),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
+  actualStartedAt: datetime("actual_started_at", { mode: "string" }),
+  actualEndedAt: datetime("actual_ended_at", { mode: "string" }),
   title: varchar("title", { length: 200 }).notNull(),
   note: varchar("note", { length: 500 }),
   completed: tinyint("completed").notNull(),
   kind: tinyint("kind").notNull(),
   source: tinyint("source").notNull(),
   sourceId: varchar("source_id", { length: 128 }),
+  actualTimeClass: tinyint("actual_time_class").notNull().default(0),
+  includeInActualTime: tinyint("include_in_actual_time").notNull().default(1),
+  timerSessionId: bigint("timer_session_id", { mode: "number", unsigned: true }),
+  timerSegmentId: bigint("timer_segment_id", { mode: "number", unsigned: true }),
+  sliceDate: date("slice_date", { mode: "string" }),
+  projectIdAtOccurrence: bigint("project_id_at_occurrence", { mode: "number", unsigned: true }),
+  projectAttributionStatus: tinyint("project_attribution_status").notNull().default(0),
+  categoryIdAtOccurrence: bigint("category_id_at_occurrence", { mode: "number", unsigned: true }),
+  categoryAttributionStatus: tinyint("category_attribution_status").notNull().default(0),
+  version: int("version", { unsigned: true }).notNull().default(1),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
@@ -119,6 +170,7 @@ export const journals = mysqlTable("journals", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
   journalDate: date("journal_date", { mode: "string" }).notNull(),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   happyMoment: text("happy_moment"),
   achievement: text("achievement"),
   learning: text("learning"),
@@ -188,6 +240,7 @@ export const quickNotes = mysqlTable("quick_notes", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
   noteDate: date("note_date", { mode: "string" }).notNull(),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   title: varchar("title", { length: 120 }),
   content: text("content").notNull(),
   tag: varchar("tag", { length: 64 }),
@@ -284,4 +337,38 @@ export const psychologicalBridges = mysqlTable("psychological_bridges", {
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
+});
+
+export const taskCompletionEvents = mysqlTable("task_completion_events", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
+  occurredAt: datetime("occurred_at", { mode: "string" }).notNull(),
+  recordTimezone: varchar("record_timezone", { length: 64 }).notNull(),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  lifecycleVersion: int("lifecycle_version", { unsigned: true }).notNull(),
+  operationId: varchar("operation_id", { length: 64 }),
+  source: tinyint("source").notNull(),
+  createdAt: datetime("created_at").notNull()
+});
+
+export const mutationReceipts = mysqlTable("mutation_receipts", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  operationId: varchar("operation_id", { length: 64 }).notNull(),
+  commandType: varchar("command_type", { length: 64 }).notNull(),
+  contractVersion: int("contract_version", { unsigned: true }).notNull(),
+  requestFingerprint: varchar("request_fingerprint", { length: 64 }).notNull(),
+  requestSnapshot: json("request_snapshot").notNull(),
+  resultReference: varchar("result_reference", { length: 255 }),
+  resultMetadata: json("result_metadata"),
+  createdAt: datetime("created_at").notNull(),
+  committedAt: datetime("committed_at")
+});
+
+export const userExecutionSlots = mysqlTable("user_execution_slots", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
+  activeSessionId: bigint("active_session_id", { mode: "number", unsigned: true }),
+  version: int("version", { unsigned: true }).notNull().default(1),
+  updatedAt: datetime("updated_at").notNull()
 });

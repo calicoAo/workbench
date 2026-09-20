@@ -1,13 +1,15 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { taskDailyAssignments, tasks } from "../db/schema.js";
-import { TaskStatus } from "../enums.js";
+import { taskDailyAssignments, tasks, users } from "../db/schema.js";
+import { AssignmentStatus, ContinuationState, TaskStatus } from "../enums.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { acceptTaskForDate, carryOverAssignment, releaseAssignment, replaceAssignmentsForDate, resolveContinuation } from "../task-assignments.js";
+import { isValidTimezone } from "../time.js";
 
 const dateSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -18,48 +20,71 @@ const updateDailyTasksSchema = z.object({
   taskIds: z.array(z.number().int().positive()).max(30)
 });
 
+const operationId = z.string().uuid();
+const acceptSchema = z.object({ operationId, taskId: z.number().int().positive(), taskDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), recordTimezone: z.string().refine(isValidTimezone) });
+const releaseSchema = z.object({ operationId, expectedVersion: z.number().int().positive() });
+const resolveSchema = z.object({
+  operationId,
+  sources: z.array(z.object({ id: z.number().int().positive(), expectedVersion: z.number().int().positive() })).min(1),
+  resolution: z.union([z.literal(ContinuationState.CARRIED_FORWARD), z.literal(ContinuationState.DEFERRED), z.literal(ContinuationState.DISMISSED), z.literal(ContinuationState.RESCHEDULED)]),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  targetTimezone: z.string().refine(isValidTimezone).optional(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  reason: z.string().trim().max(255).optional()
+});
+
 export const taskDaysRoute = new Hono()
+  .post("/accept", async (c) => ok(c, await acceptTaskForDate({ userId: getCurrentUserId(c), ...acceptSchema.parse(await c.req.json()) })))
+  .post("/continuations/resolve", async (c) => ok(c, await resolveContinuation({ userId: getCurrentUserId(c), ...resolveSchema.parse(await c.req.json()) })))
+  .post("/continuations/carry-over", async (c) => {
+    const body = resolveSchema.omit({ resolution: true }).parse(await c.req.json());
+    return ok(c, await carryOverAssignment({ userId: getCurrentUserId(c), ...body }));
+  })
+  .put("/:id/release", async (c) => {
+    const assignmentId = z.coerce.number().int().positive().parse(c.req.param("id"));
+    return ok(c, await releaseAssignment({ userId: getCurrentUserId(c), assignmentId, ...releaseSchema.parse(await c.req.json()) }));
+  })
+  .get("/continuations", async (c) => {
+    const query = dateSchema.parse(c.req.query());
+    const userId = getCurrentUserId(c);
+    const rows = await db
+      .select({ assignment: taskDailyAssignments, task: tasks })
+      .from(taskDailyAssignments)
+      .innerJoin(tasks, eq(taskDailyAssignments.taskId, tasks.id))
+      .where(and(
+        eq(taskDailyAssignments.userId, userId),
+        eq(taskDailyAssignments.assignmentStatus, AssignmentStatus.ACCEPTED),
+        lt(taskDailyAssignments.taskDate, query.date),
+        isNull(tasks.deletedAt),
+        or(eq(tasks.status, TaskStatus.TODO), eq(tasks.status, TaskStatus.IN_PROGRESS)),
+        or(
+          eq(taskDailyAssignments.continuationState, ContinuationState.PENDING),
+          and(
+            eq(taskDailyAssignments.continuationState, ContinuationState.DEFERRED),
+            lte(taskDailyAssignments.continuationTargetDate, query.date)
+          )
+        )
+      ))
+      .orderBy(asc(taskDailyAssignments.taskDate), asc(taskDailyAssignments.id));
+    return ok(c, rows);
+  })
   .get("/", async (c) => {
     const query = dateSchema.parse(c.req.query());
     const rows = await db
       .select({ taskId: taskDailyAssignments.taskId })
       .from(taskDailyAssignments)
-      .where(and(eq(taskDailyAssignments.userId, getCurrentUserId(c)), eq(taskDailyAssignments.taskDate, query.date)))
+      .where(and(eq(taskDailyAssignments.userId, getCurrentUserId(c)), eq(taskDailyAssignments.taskDate, query.date), eq(taskDailyAssignments.assignmentStatus, AssignmentStatus.ACCEPTED)))
       .orderBy(asc(taskDailyAssignments.sortOrder), asc(taskDailyAssignments.id));
     return ok(c, { taskDate: query.date, taskIds: rows.map((row) => row.taskId) });
   })
   .put("/", async (c) => {
     const body = updateDailyTasksSchema.parse(await c.req.json());
     const userId = getCurrentUserId(c);
-    const uniqueTaskIds = [...new Set(body.taskIds)];
-    if (uniqueTaskIds.length) {
-      const rows = await db
-        .select({ id: tasks.id, status: tasks.status })
-        .from(tasks)
-        .where(and(eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-      const validTasks = new Map(rows.map((row) => [row.id, row.status]));
-      if (uniqueTaskIds.some((taskId) => !validTasks.has(taskId) || validTasks.get(taskId) === TaskStatus.DONE || validTasks.get(taskId) === TaskStatus.ARCHIVED)) {
-        throw new BusinessError(ErrorCode.NOT_FOUND, "one or more tasks not found", 404);
-      }
-    }
+    const [user] = await db.select({ timezone: users.timezone }).from(users).where(eq(users.id, userId));
+    if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
+    const result = await replaceAssignmentsForDate({ userId, taskDate: body.taskDate, taskIds: body.taskIds, recordTimezone: user.timezone });
 
-    const now = new Date();
-    await db.transaction(async (tx) => {
-      await tx.delete(taskDailyAssignments).where(and(eq(taskDailyAssignments.userId, userId), eq(taskDailyAssignments.taskDate, body.taskDate)));
-      if (uniqueTaskIds.length) {
-        await tx.insert(taskDailyAssignments).values(
-          uniqueTaskIds.map((taskId, index) => ({
-            userId,
-            taskId,
-            taskDate: body.taskDate,
-            sortOrder: index + 1,
-            createdAt: now,
-            updatedAt: now
-          }))
-        );
-      }
-    });
-
-    log.info({ userId, taskDate: body.taskDate, taskCount: uniqueTaskIds.length }, "[daily_tasks_updated]");
-    return ok(c, { taskDate: body.taskDate, taskIds: uniqueTaskIds });
+    log.info({ userId, taskDate: body.taskDate, taskCount: result.taskIds.length }, "[daily_tasks_updated]");
+    return ok(c, result);
   });

@@ -11,6 +11,8 @@
     "test": "npm run test --workspaces --if-present",
     "test:workflows": "npm run test:workflows -w apps/api",
     "test:workflows:ci": "npm run test:workflows:ci -w apps/api",
+    "test:r1a": "npm run test:r1a -w apps/api",
+    "test:r1b": "npm run test:r1b -w apps/api",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspaces",
     "db:up": "docker compose -p personal-workbench up -d mysql",

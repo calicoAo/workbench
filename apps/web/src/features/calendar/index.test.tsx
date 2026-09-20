@@ -37,6 +37,11 @@ function openEditor() {
 }
 
 describe("CalendarFeature workflow ownership", () => {
+  it("does not expose Timer projections as Calendar-owned deletes", () => {
+    render(feature({ items: [{ ...items[0], source: 1, actualTimeClass: 3 }] }));
+    expect(screen.queryByRole("button", { name: "删除时间记录" })).toBeNull();
+  });
+
   it("renders schedule metrics and deletes only persisted Schedule rows", async () => {
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
     const onChanged = vi.fn(async () => undefined);
@@ -47,7 +52,8 @@ describe("CalendarFeature workflow ownership", () => {
     expect(screen.getAllByRole("button", { name: "删除时间记录" })).toHaveLength(2);
     fireEvent.click(screen.getAllByRole("button", { name: "删除时间记录" })[0]);
 
-    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/schedules/1", { method: "DELETE" }));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/schedules/1", expect.objectContaining({ method: "DELETE", body: expect.any(String) })));
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({ expectedVersion: 1 });
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
@@ -64,7 +70,7 @@ describe("CalendarFeature workflow ownership", () => {
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(requestMock.mock.calls[0][0]).toBe("/api/schedules");
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toEqual({
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
       scheduleDate: "2026-09-19",
       startTime: "13:00",
       endTime: "14:30",
@@ -73,6 +79,7 @@ describe("CalendarFeature workflow ownership", () => {
       title: "手工记录",
       note: "保持专注"
     });
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(screen.queryByRole("heading", { name: "记录时间块" })).toBeNull();
   });
 

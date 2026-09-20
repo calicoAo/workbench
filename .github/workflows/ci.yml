@@ -29,6 +29,7 @@ jobs:
           --health-retries=30
     env:
       NODE_ENV: test
+      TZ: UTC
       JWT_SECRET: workflow-ci-only-secret
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -58,6 +59,14 @@ jobs:
         env:
           TEST_DATABASE_URL: mysql://root:ci_test_password@127.0.0.1:${{ job.services.mysql.ports['3306'] }}/personal_workbench_test
         run: npm run test:workflows:ci
+      - name: R1A schema and migration semantics
+        env:
+          TEST_DATABASE_URL: mysql://root:ci_test_password@127.0.0.1:${{ job.services.mysql.ports['3306'] }}/personal_workbench_test
+        run: npm run test:r1a
+      - name: R1B transactional workflow semantics
+        env:
+          TEST_DATABASE_URL: mysql://root:ci_test_password@127.0.0.1:${{ job.services.mysql.ports['3306'] }}/personal_workbench_test
+        run: npm run test:r1b
       - name: Web feature behavior tests
         run: npm run test -w apps/web
       - run: npm run typecheck

@@ -6,7 +6,7 @@ import { db } from "../db/index.js";
 import { rewardItems, rewardRedemptions, userGrowth } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
-import { ensureGrowth, growthSummary, recentRewardEvents } from "../rewards.js";
+import { ensureGrowthForWrite, growthSummary, recentRewardEvents } from "../rewards.js";
 
 const createRewardItemSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -21,14 +21,14 @@ const updateRewardItemSchema = createRewardItemSchema.partial().refine((value) =
 export const rewardsRoute = new Hono()
   .get("/", async (c) => {
     const userId = getCurrentUserId(c);
-    const [growth, items, events, redemptions] = await Promise.all([
-      ensureGrowth(userId),
+    const [growthRows, items, events, redemptions] = await Promise.all([
+      db.select().from(userGrowth).where(eq(userGrowth.userId, userId)),
       db.select().from(rewardItems).where(and(eq(rewardItems.userId, userId), isNull(rewardItems.deletedAt))).orderBy(desc(rewardItems.createdAt)),
       recentRewardEvents(userId),
       db.select().from(rewardRedemptions).where(eq(rewardRedemptions.userId, userId)).orderBy(desc(rewardRedemptions.createdAt)).limit(8)
     ]);
 
-    return ok(c, { growth: growthSummary(growth), items, events, redemptions });
+    return ok(c, { growth: growthSummary(growthRows[0] ?? { level: 1, xpTotal: 0, coins: 0 }), items, events, redemptions });
   })
   .post("/items", async (c) => {
     const body = createRewardItemSchema.parse(await c.req.json());
@@ -74,7 +74,7 @@ export const rewardsRoute = new Hono()
     if (!item) throw new BusinessError(ErrorCode.NOT_FOUND, "reward item not found", 404);
 
     const now = new Date();
-    await ensureGrowth(userId);
+    await ensureGrowthForWrite(userId);
     const coins = await db.transaction(async (tx) => {
       const [updated] = await tx
         .update(userGrowth)

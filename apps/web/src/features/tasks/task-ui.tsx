@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { DIMENSIONS, type Category, visibleDimensions } from "../categories";
@@ -21,7 +21,26 @@ export function DifficultyOptions() {
 }
 
 export function ModalPortal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>{children}</div></div>, document.body);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const shell = shellRef.current;
+    shell?.querySelector<HTMLElement>("button, input, textarea, select, [tabindex]:not([tabindex='-1'])")?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key !== "Tab" || !shell) return;
+      const focusable = [...shell.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])")];
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); trigger?.focus(); };
+  }, []);
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" onMouseDown={(event) => event.stopPropagation()}>{children}</div></div>, document.body);
 }
 
 export function CloseButton({ onClose }: { onClose: () => void }) {

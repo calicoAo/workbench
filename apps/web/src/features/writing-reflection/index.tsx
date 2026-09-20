@@ -1,4 +1,4 @@
-import { createContext, type FormEvent, type ReactNode, useContext, useState } from "react";
+import { createContext, type FormEvent, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpenText, CheckCircle2, Pencil, Sparkles, SunMedium, TrendingUp, X } from "lucide-react";
 
@@ -424,9 +424,28 @@ function WritingShortcut({ label, done, disabled, onClick }: { label: string; do
 }
 
 function WritingModal({ title, children, onClose, onSubmit }: { title: string; children: ReactNode; onClose: () => void; onSubmit: (event: FormEvent) => void }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const shell = shellRef.current;
+    shell?.querySelector<HTMLElement>("button, input, textarea, select")?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key !== "Tab" || !shell) return;
+      const focusable = [...shell.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)")];
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); trigger?.focus(); };
+  }, []);
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
+      <div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" onMouseDown={(event) => event.stopPropagation()}>
         <form className="writing-modal" onSubmit={onSubmit}>
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>

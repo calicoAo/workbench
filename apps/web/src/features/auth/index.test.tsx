@@ -26,7 +26,7 @@ describe("AuthGate ownership", () => {
   });
 
   it("validates a persisted session before mounting the workspace", async () => {
-    const request = vi.fn(async () => ({ id: 7, username: "owner", displayName: "Owner" })) as unknown as Request;
+    const request = vi.fn(async () => ({ id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" })) as unknown as Request;
     render(<AuthGate request={request} tokenStorage={tokenStorage("token")} onError={vi.fn()}>{({ user }) => <p>workspace:{user.displayName}</p>}</AuthGate>);
 
     expect(screen.getByText("正在同步登录状态")).toBeTruthy();
@@ -36,9 +36,10 @@ describe("AuthGate ownership", () => {
 
   it("owns login persistence and logout session reset", async () => {
     const storage = tokenStorage();
-    const request = vi.fn(async () => ({ token: "new-token", user: { id: 7, username: "owner", displayName: "Owner" } })) as unknown as Request;
+    const onSessionClear = vi.fn();
+    const request = vi.fn(async () => ({ token: "new-token", user: { id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" } })) as unknown as Request;
     render(
-      <AuthGate request={request} tokenStorage={storage} onError={vi.fn()}>
+      <AuthGate request={request} tokenStorage={storage} onError={vi.fn()} onSessionClear={onSessionClear}>
         {({ user, logout }) => <div><p>workspace:{user.displayName}</p><button type="button" onClick={logout}>退出测试</button></div>}
       </AuthGate>
     );
@@ -53,6 +54,7 @@ describe("AuthGate ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "退出测试" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "登录工作台" })).toBeTruthy());
     expect(storage.clear).toHaveBeenCalledOnce();
+    expect(onSessionClear).toHaveBeenCalledTimes(2);
   });
 
   it("clears an invalid persisted session", async () => {

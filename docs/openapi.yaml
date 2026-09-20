@@ -136,6 +136,83 @@ paths:
       responses:
         "200":
           description: Saved daily accepted tasks
+  /task-days/continuations:
+    get:
+      summary: List actionable Assignment continuation candidates
+      description: Pure read. Legacy unresolved rows are excluded; deferred rows appear only when their target date is due.
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Actionable Assignment and Task pairs
+  /task-days/accept:
+    post:
+      summary: Accept a Task for one business date
+      description: Retryable command. The same operationId and fingerprint replays the committed Assignment; changed parameters return 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptTaskForDateRequest"
+      responses:
+        "200":
+          description: Existing or newly accepted Assignment
+        "409":
+          description: operationId reuse conflict or Task cannot be accepted
+  /task-days/{id}/release:
+    put:
+      summary: Release one accepted Assignment without deleting historical time
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionedCommandRequest"
+      responses:
+        "200":
+          description: Assignment released
+        "409":
+          description: Version or operation identity conflict
+  /task-days/continuations/resolve:
+    post:
+      summary: Resolve one Task's continuation sources atomically
+      description: Supports carried-forward, deferred, dismissed, and rescheduled outcomes. Every source version is validated before any source is changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveContinuationRequest"
+      responses:
+        "200":
+          description: All source Assignments resolved and optional target artifacts committed
+        "409":
+          description: Any source version changed or was already resolved; no partial update is committed
+  /task-days/continuations/carry-over:
+    post:
+      summary: Carry continuation sources to one target Assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CarryContinuationRequest"
+      responses:
+        "200":
+          description: Sources closed and one target Assignment created or reused
   /stock-reviews:
     get:
       summary: Get stock review by date
@@ -221,8 +298,9 @@ paths:
         "200":
           description: Created time block
   /schedules/{id}:
-    delete:
-      summary: Hard delete timeline time block
+    put:
+      summary: Correct a Manual Actual record
+      description: Retryable correction. TIMER projections cannot be edited through this route.
       parameters:
         - in: path
           name: id
@@ -230,9 +308,39 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CorrectManualActualRequest"
       responses:
         "200":
-          description: Hard deleted time block
+          description: Manual Actual corrected once
+        "409":
+          description: Version, operation identity, overlap, or source-class conflict
+    delete:
+      summary: Delete a planned block or cancel a Manual Actual record
+      description: Manual Actual cancellation requires operationId and expectedVersion. TIMER projections can only be changed by their Session workflow.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        description: Required for Manual Actual; omitted for planned blocks.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionedCommandRequest"
+      responses:
+        "200":
+          description: Planned block deleted or Manual Actual cancelled
+        "409":
+          description: TIMER projection, version, or operation identity conflict
   /sleep-records:
     get:
       summary: Get sleep record by date
@@ -365,43 +473,6 @@ paths:
       responses:
         "200":
           description: Saved water record
-  /media-watch-records:
-    get:
-      summary: Get media watch record by date
-      parameters:
-        - in: query
-          name: date
-          required: true
-          schema:
-            type: string
-            format: date
-      responses:
-        "200":
-          description: Media watch record
-    post:
-      summary: Save media watch record
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SaveMediaWatchRecordRequest"
-      responses:
-        "200":
-          description: Saved media watch record
-  /media-watch-records/list:
-    get:
-      summary: List media watch records
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-      responses:
-        "200":
-          description: Media watch record list
   /quick-notes:
     get:
       summary: List quick notes and inspiration records
@@ -648,7 +719,7 @@ paths:
         "200":
           description: Updated task
     delete:
-      summary: Hard delete task
+      summary: Soft-remove a Task and close pending continuations
       parameters:
         - in: path
           name: id
@@ -656,9 +727,17 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionedCommandRequest"
       responses:
         "200":
-          description: Hard deleted task, timeline blocks, and timer sessions
+          description: Task soft-removed with historical facts preserved
+        "409":
+          description: Version or operation identity conflict
   /tasks/{id}/pinned:
     put:
       summary: Mark task as important
@@ -706,7 +785,8 @@ paths:
           description: Invalid status transition or an attempt to complete through the generic status endpoint
   /tasks/{id}/complete:
     put:
-      summary: Complete task and save actual timeline block
+      summary: Complete a Task without an active Session
+      description: Creates one completion event per real lifecycle transition and grants the first-completion reward at most once. A matching operationId retry replays the committed result.
       parameters:
         - in: path
           name: id
@@ -722,12 +802,53 @@ paths:
               $ref: "#/components/schemas/CompleteTaskRequest"
       responses:
         "200":
-          description: Completed task, saved one idempotent timeline block, and returned the lifecycle reward result
+          description: Task transition, completion event, continuation closure, reward, and receipt committed atomically
         "409":
-          description: The completion key was previously used for another completion or the task is already complete
+          description: Active Session, stale version, or operation identity conflict
+  /tasks/{id}/reopen:
+    put:
+      summary: Reopen a completed Task without resurrecting old continuations
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReopenTaskRequest"
+      responses:
+        "200":
+          description: Task reopened
+        "409":
+          description: Task is not complete, stale version, active Session, or operation identity conflict
+  /tasks/{id}/archive:
+    put:
+      summary: Archive a Task and close pending continuations
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionedCommandRequest"
+      responses:
+        "200":
+          description: Task archived
   /timer-sessions/start:
     post:
-      summary: Start task timer
+      summary: Start a previously accepted Task Session
+      description: Atomically claims the execution slot and creates a vNext Session and first Segment. Matching retries replay the same Session.
       requestBody:
         required: true
         content:
@@ -738,10 +859,83 @@ paths:
         "200":
           description: Started timer session
         "409":
-          description: Another timer is running
+          description: Another Session owns the slot, Task/Assignment version conflict, or operationId conflict
+  /timer-sessions/accept-and-start:
+    post:
+      summary: Accept a Task and start its Session atomically
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptAndStartTimerRequest"
+      responses:
+        "200":
+          description: Assignment, Task state, Session, Segment, slot, and receipt committed
+        "409":
+          description: Slot, Task version, or operation identity conflict
+  /timer-sessions/current:
+    get:
+      summary: Get the current vNext execution session
+      description: Pure read through user_execution_slots. Frozen legacy sessions are never eligible.
+      responses:
+        "200":
+          description: Current vNext Session with Segments, or null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+                        allOf:
+                          - $ref: "#/components/schemas/CurrentTimerSession"
+  /timer-sessions/actual-time:
+    get:
+      summary: Get normalized ActualTime entries
+      description: Includes closed TimerSegments and manual/eligible legacy Actual Schedules. TIMER Schedule projections are excluded.
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: timezone
+          required: true
+          schema:
+            type: string
+            example: Asia/Shanghai
+      responses:
+        "200":
+          description: ActualTime entries clipped to the requested timezone day
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [date, timezone, entries]
+                        properties:
+                          date:
+                            type: string
+                            format: date
+                          timezone:
+                            type: string
+                          entries:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/ActualTimeEntry"
   /timer-sessions/{id}/pause:
     put:
-      summary: Pause timer session, save elapsed block, and grant partial reward
+      summary: Pause a running vNext Session
+      description: Closes the open Segment and writes its TIMER projections in one transaction. The slot remains occupied and no final reward is granted.
       parameters:
         - in: path
           name: id
@@ -751,7 +945,7 @@ paths:
             format: int64
       responses:
         "200":
-          description: Paused timer session, saved elapsed block, and granted partial completion reward
+          description: Segment closed, projections written, Session paused, receipt committed
           content:
             application/json:
               schema:
@@ -759,7 +953,28 @@ paths:
         "404":
           description: Timer session does not belong to the authenticated user
         "409":
-          description: Timer session already has a different terminal result
+          description: Version, slot consistency, Session state, legacy model, or operation identity conflict
+  /timer-sessions/{id}/resume:
+    put:
+      summary: Resume a paused vNext Session with a new Segment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCommandRequest"
+      responses:
+        "200":
+          description: Exactly one new open Segment created
+        "409":
+          description: Version, slot consistency, Session state, legacy model, or operation identity conflict
   /timer-sessions/{id}/finish:
     put:
       summary: Finish a work session, optionally completing its task
@@ -772,14 +987,14 @@ paths:
             type: integer
             format: int64
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/FinishWorkSessionRequest"
       responses:
         "200":
-          description: Finished timer session, one timer-derived Actual projection, rewards, and optional Task completion result
+          description: Segments, all projections, rewards, slot release, and optional Task completion committed atomically
           content:
             application/json:
               schema:
@@ -787,7 +1002,28 @@ paths:
         "404":
           description: Timer session or associated task does not belong to the authenticated user
         "409":
-          description: Timer session already has a different terminal result or recorded time
+          description: Version, slot consistency, terminal state, Task version, legacy model, or operation identity conflict
+  /timer-sessions/{id}/cancel:
+    put:
+      summary: Cancel an active vNext Session and void its time facts
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCommandRequest"
+      responses:
+        "200":
+          description: Segments and projections voided, no reward granted, slot released
+        "409":
+          description: Finished, stale, inconsistent, legacy, or operation identity conflict
 components:
   securitySchemes:
     BearerAuth:
@@ -808,7 +1044,7 @@ components:
           nullable: true
     AuthUser:
       type: object
-      required: [id, username, displayName]
+      required: [id, username, displayName, timezone]
       properties:
         id:
           type: integer
@@ -817,6 +1053,9 @@ components:
           type: string
         displayName:
           type: string
+        timezone:
+          type: string
+          example: Asia/Shanghai
     AuthResponse:
       allOf:
         - $ref: "#/components/schemas/ApiResponse"
@@ -882,9 +1121,6 @@ components:
         waterRecord:
           nullable: true
           $ref: "#/components/schemas/WaterRecord"
-        mediaWatchRecord:
-          nullable: true
-          $ref: "#/components/schemas/MediaWatchRecord"
         tasks:
           type: array
           items:
@@ -958,6 +1194,119 @@ components:
         completionNote:
           type: string
           nullable: true
+        version:
+          type: integer
+          minimum: 1
+        completionSequence:
+          type: integer
+          minimum: 0
+    TaskDailyAssignment:
+      type: object
+      required: [id, taskId, taskDate, assignmentStatus, recordTimezone, continuationState, version]
+      properties:
+        id:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        taskDate:
+          type: string
+          format: date
+        assignmentStatus:
+          type: integer
+          enum: [0, 1]
+          description: 0 accepted, 1 released
+        recordTimezone:
+          type: string
+        continuationState:
+          type: integer
+          enum: [0, 1, 2, 3, 4, 5]
+          description: 0 legacy unresolved, 1 pending, 2 carried forward, 3 deferred, 4 dismissed, 5 rescheduled
+        continuationHandledAt:
+          type: string
+          format: date-time
+          nullable: true
+        continuationTargetDate:
+          type: string
+          format: date
+          nullable: true
+        continuationTargetTimezone:
+          type: string
+          nullable: true
+        continuationTargetAssignmentId:
+          type: integer
+          format: int64
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    TaskCompletionEvent:
+      type: object
+      required: [id, taskId, occurredAt, recordTimezone, businessDate, lifecycleVersion, source, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        occurredAt:
+          type: string
+          format: date-time
+        recordTimezone:
+          type: string
+        businessDate:
+          type: string
+          format: date
+        lifecycleVersion:
+          type: integer
+          minimum: 1
+        operationId:
+          type: string
+          nullable: true
+        source:
+          type: integer
+          enum: [0, 1]
+          description: 0 legacy completion, 1 vNext command
+        createdAt:
+          type: string
+          format: date-time
+    MutationReceipt:
+      type: object
+      required: [id, operationId, commandType, contractVersion, requestFingerprint, requestSnapshot, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operationId:
+          type: string
+        commandType:
+          type: string
+        contractVersion:
+          type: integer
+          minimum: 1
+        requestFingerprint:
+          type: string
+          minLength: 64
+          maxLength: 64
+        requestSnapshot:
+          type: object
+          additionalProperties: true
+        resultReference:
+          type: string
+          nullable: true
+        resultMetadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        committedAt:
+          type: string
+          format: date-time
+          nullable: true
     TaskCategory:
       type: object
       properties:
@@ -993,6 +1342,113 @@ components:
         status:
           type: integer
           enum: [0, 1, 2, 3]
+        sessionModel:
+          type: integer
+          enum: [0, 1]
+          description: 0 frozen legacy, 1 vNext Segment-backed workflow
+        recordTimezone:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    TimerSegment:
+      type: object
+      required: [id, timerSessionId, taskId, status, startedAt, businessDate, recordTimezone, projectAttributionStatus, categoryAttributionStatus, version]
+      properties:
+        id:
+          type: integer
+          format: int64
+        timerSessionId:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+        status:
+          type: integer
+          enum: [0, 1, 2]
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        businessDate:
+          type: string
+          format: date
+        recordTimezone:
+          type: string
+        projectIdAtOccurrence:
+          type: integer
+          format: int64
+          nullable: true
+        projectAttributionStatus:
+          type: integer
+          enum: [0, 1, 2]
+          description: 0 unknown, 1 explicitly no project, 2 attributed
+        categoryIdAtOccurrence:
+          type: integer
+          format: int64
+          nullable: true
+        categoryAttributionStatus:
+          type: integer
+          enum: [0, 1, 2]
+          description: 0 unknown, 1 explicitly uncategorized, 2 attributed
+        version:
+          type: integer
+          minimum: 1
+    CurrentTimerSession:
+      allOf:
+        - $ref: "#/components/schemas/TimerSession"
+        - type: object
+          required: [segments]
+          properties:
+            segments:
+              type: array
+              items:
+                $ref: "#/components/schemas/TimerSegment"
+    ActualTimeEntry:
+      type: object
+      required: [source, sourceId, startedAt, endedAt, durationSeconds, recordTimezone, businessDate, projectAttributionStatus, categoryAttributionStatus]
+      properties:
+        source:
+          type: string
+          enum: [TIMER_SEGMENT, MANUAL_ACTUAL, LEGACY_ACTUAL]
+        sourceId:
+          type: integer
+          format: int64
+        taskId:
+          type: integer
+          format: int64
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: integer
+        recordTimezone:
+          type: string
+        businessDate:
+          type: string
+          format: date
+        projectIdAtOccurrence:
+          type: integer
+          format: int64
+          nullable: true
+        projectAttributionStatus:
+          type: integer
+          enum: [0, 1, 2]
+        categoryIdAtOccurrence:
+          type: integer
+          format: int64
+          nullable: true
+        categoryAttributionStatus:
+          type: integer
+          enum: [0, 1, 2]
     RewardGrant:
       type: object
       required: [xp, coins, reason]
@@ -1010,21 +1466,36 @@ components:
           properties:
             data:
               type: object
-              required: [id, status, durationMinutes, scheduleId, taskCompleted, rewards]
+              required: [id, status, version]
               properties:
                 id:
                   type: integer
                   format: int64
                 status:
                   type: integer
-                  enum: [1, 2]
-                durationMinutes:
+                  enum: [0, 1, 2, 3]
+                version:
                   type: integer
-                scheduleId:
+                  minimum: 1
+                durationSeconds:
+                  type: number
+                segmentId:
                   type: integer
                   format: int64
+                closedSegmentId:
+                  type: integer
+                  format: int64
+                projectionIds:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
                 taskCompleted:
                   type: boolean
+                completionEventId:
+                  type: integer
+                  format: int64
+                  nullable: true
                 rewards:
                   type: array
                   items:
@@ -1060,6 +1531,35 @@ components:
           type: string
           nullable: true
           description: Stable workflow source identity when the schedule is a generated projection.
+        recordTimezone:
+          type: string
+        actualStartedAt:
+          type: string
+          format: date-time
+          nullable: true
+        actualEndedAt:
+          type: string
+          format: date-time
+          nullable: true
+        actualTimeClass:
+          type: integer
+          enum: [0, 1, 2, 3]
+          description: 0 not actual, 1 manual actual, 2 eligible legacy actual, 3 TIMER display projection
+        includeInActualTime:
+          type: boolean
+          description: Whether a Manual/legacy Actual contributes to ActualTime. TIMER projections are always excluded as projections.
+        timerSessionId:
+          type: integer
+          format: int64
+          nullable: true
+        timerSegmentId:
+          type: integer
+          format: int64
+          nullable: true
+        sliceDate:
+          type: string
+          format: date
+          nullable: true
         color:
           type: string
     SleepRecord:
@@ -1130,24 +1630,6 @@ components:
           format: date-time
           nullable: true
         drinkTimes:
-          type: string
-          nullable: true
-    MediaWatchRecord:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        watchDate:
-          type: string
-          format: date
-        title:
-          type: string
-          nullable: true
-        episode:
-          type: string
-          nullable: true
-        note:
           type: string
           nullable: true
     QuickNote:
@@ -1388,52 +1870,85 @@ components:
           description: Use the explicit task completion endpoint for DONE (2).
     CompleteTaskRequest:
       type: object
-      required: [completionKey, scheduleDate, startTime, endTime]
+      required: [operationId, expectedVersion]
       properties:
-        completionKey:
+        operationId:
           type: string
-          minLength: 1
-          maxLength: 96
-          description: Stable identity reused when retrying the same completion command.
-        scheduleDate:
-          type: string
-          format: date
-        startTime:
-          type: string
-          example: "09:00"
-        endTime:
-          type: string
-          example: "10:00"
+          format: uuid
+        expectedVersion:
+          type: integer
+          minimum: 1
         completionNote:
           type: string
           maxLength: 1000
+    VersionedCommandRequest:
+      type: object
+      required: [operationId, expectedVersion]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        expectedVersion:
+          type: integer
+          minimum: 1
+    ReopenTaskRequest:
+      allOf:
+        - $ref: "#/components/schemas/VersionedCommandRequest"
+        - type: object
+          properties:
+            progressPercent:
+              type: integer
+              minimum: 0
+              maximum: 99
     StartTimerRequest:
       type: object
-      required: [taskId]
+      required: [operationId, taskId, expectedTaskVersion]
       properties:
+        operationId:
+          type: string
+          format: uuid
         taskId:
           type: integer
           format: int64
-    FinishWorkSessionRequest:
-      type: object
-      properties:
-        scheduleDate:
+        expectedTaskVersion:
+          type: integer
+          minimum: 1
+        taskDate:
           type: string
           format: date
-        startTime:
+        recordTimezone:
           type: string
-          example: "09:00"
-        endTime:
-          type: string
-          example: "10:00"
-        completeTask:
-          type: boolean
-          default: false
-          description: Explicitly complete the associated Task in the same transaction.
+    AcceptAndStartTimerRequest:
+      allOf:
+        - $ref: "#/components/schemas/StartTimerRequest"
+        - type: object
+          required: [taskDate]
+    SessionCommandRequest:
+      $ref: "#/components/schemas/VersionedCommandRequest"
+    FinishWorkSessionRequest:
+      allOf:
+        - $ref: "#/components/schemas/SessionCommandRequest"
+        - type: object
+          properties:
+            completeTask:
+              type: boolean
+              default: false
+              description: Explicitly complete the associated Task in the same transaction. Defaults to false.
+            expectedTaskVersion:
+              type: integer
+              minimum: 1
+              description: Required when completeTask is true.
+            completionNote:
+              type: string
+              maxLength: 1000
     CreateScheduleRequest:
       type: object
       required: [scheduleDate, startTime, endTime, kind]
       properties:
+        operationId:
+          type: string
+          format: uuid
+          description: Required when kind is Manual Actual (1).
         scheduleDate:
           type: string
           format: date
@@ -1447,6 +1962,10 @@ components:
           type: integer
           format: int64
           nullable: true
+        expectedTaskVersion:
+          type: integer
+          minimum: 1
+          description: Required when completeTask is true.
         categoryId:
           type: integer
           format: int64
@@ -1462,6 +1981,121 @@ components:
         note:
           type: string
           maxLength: 500
+        recordTimezone:
+          type: string
+        includeInActualTime:
+          type: boolean
+          default: true
+        completeTask:
+          type: boolean
+          default: false
+        completionNote:
+          type: string
+          maxLength: 1000
+    CorrectManualActualRequest:
+      type: object
+      required: [operationId, expectedVersion, scheduleDate, startTime, endTime, recordTimezone, includeInActualTime]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        expectedVersion:
+          type: integer
+          minimum: 1
+        scheduleDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: "09:00"
+        endTime:
+          type: string
+          example: "10:00"
+        recordTimezone:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+        note:
+          type: string
+          maxLength: 500
+        includeInActualTime:
+          type: boolean
+    AcceptTaskForDateRequest:
+      type: object
+      required: [operationId, taskId, taskDate, recordTimezone]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        taskId:
+          type: integer
+          format: int64
+        taskDate:
+          type: string
+          format: date
+        recordTimezone:
+          type: string
+    ContinuationSourceVersion:
+      type: object
+      required: [id, expectedVersion]
+      properties:
+        id:
+          type: integer
+          format: int64
+        expectedVersion:
+          type: integer
+          minimum: 1
+    ResolveContinuationRequest:
+      type: object
+      required: [operationId, sources, resolution]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ContinuationSourceVersion"
+        resolution:
+          type: integer
+          enum: [2, 3, 4, 5]
+          description: 2 carried forward, 3 deferred, 4 dismissed, 5 rescheduled
+        targetDate:
+          type: string
+          format: date
+        targetTimezone:
+          type: string
+        startTime:
+          type: string
+          example: "09:00"
+        endTime:
+          type: string
+          example: "10:00"
+        reason:
+          type: string
+          maxLength: 255
+    CarryContinuationRequest:
+      type: object
+      required: [operationId, sources, targetDate, targetTimezone]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ContinuationSourceVersion"
+        targetDate:
+          type: string
+          format: date
+        targetTimezone:
+          type: string
+        reason:
+          type: string
+          maxLength: 255
     SaveSleepRecordRequest:
       type: object
       required: [sleepDate, sleepStart, wakeTime]
@@ -1524,25 +2158,6 @@ components:
           type: integer
           minimum: 1
           maximum: 12
-    SaveMediaWatchRecordRequest:
-      type: object
-      required: [watchDate]
-      properties:
-        watchDate:
-          type: string
-          format: date
-        title:
-          type: string
-          maxLength: 200
-          nullable: true
-        episode:
-          type: string
-          maxLength: 100
-          nullable: true
-        note:
-          type: string
-          maxLength: 500
-          nullable: true
     CreateQuickNoteRequest:
       type: object
       required: [noteDate, content]

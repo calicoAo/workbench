@@ -3,12 +3,12 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { schedules, taskCategories, taskDailyAssignments, tasks, timerSessions } from "../db/schema.js";
+import { schedules, taskCategories, tasks } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue } from "../enums.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
-import { completeTaskWithActualTime } from "../task-completion.js";
+import { archiveTask, completeTask, removeTask, reopenTask } from "../task-completion.js";
 
 
 const createTaskSchema = z.object({
@@ -27,16 +27,17 @@ const createTaskSchema = z.object({
 });
 
 const updateStatusSchema = z.object({
-  status: z.union([z.literal(0), z.literal(1), z.literal(3)])
+  status: z.union([z.literal(0), z.literal(1)])
 });
 
 const completeTaskSchema = z.object({
-  completionKey: z.string().trim().min(1).max(96),
-  scheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  operationId: z.string().uuid(),
+  expectedVersion: z.number().int().positive(),
   completionNote: z.string().max(1000).optional()
 });
+
+const versionedCommandSchema = z.object({ operationId: z.string().uuid(), expectedVersion: z.number().int().positive() });
+const reopenTaskSchema = versionedCommandSchema.extend({ progressPercent: z.number().int().min(0).max(99).default(0) });
 
 const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
@@ -155,8 +156,7 @@ export const tasksRoute = new Hono()
     const progressPercent = body.progressPercent ?? task.progressPercent;
     await Promise.all([
       db.update(tasks).set({ title, description, categoryId, dueDate, dueAt, difficulty, progressPercent, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
-      db.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)), isNull(schedules.deletedAt))),
-      db.update(timerSessions).set({ categoryId, updatedAt: now }).where(and(eq(timerSessions.taskId, id), eq(timerSessions.userId, getCurrentUserId(c)), isNull(timerSessions.deletedAt)))
+      db.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)), eq(schedules.kind, ScheduleKind.PLANNED), isNull(schedules.deletedAt)))
     ]);
 
     log.info({ userId: getCurrentUserId(c), taskId: id, categoryId, titleChanged: body.title !== undefined }, "[task_updated]");
@@ -164,18 +164,8 @@ export const tasksRoute = new Hono()
   })
   .delete("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
-    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
-    if (!task) {
-      throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
-    }
-
-    await Promise.all([
-      db.delete(taskDailyAssignments).where(and(eq(taskDailyAssignments.taskId, id), eq(taskDailyAssignments.userId, getCurrentUserId(c)))),
-      db.delete(schedules).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)))),
-      db.delete(timerSessions).where(and(eq(timerSessions.taskId, id), eq(timerSessions.userId, getCurrentUserId(c)))),
-      db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c))))
-    ]);
-
+    const body = versionedCommandSchema.parse(await c.req.json());
+    await removeTask({ userId: getCurrentUserId(c), taskId: id, ...body });
     log.info({ userId: getCurrentUserId(c), taskId: id }, "[task_deleted]");
     return ok(c, { id });
   })
@@ -189,6 +179,7 @@ export const tasksRoute = new Hono()
     }
 
     const current = task.status as TaskStatusValue;
+    if (current === TaskStatus.DONE) throw new BusinessError(ErrorCode.CONFLICT, "use the reopen command", 409);
     if (current !== body.status && !canTransitTaskStatus(current, body.status)) {
       throw new BusinessError(ErrorCode.PARAM_ERROR, "invalid task status transition");
     }
@@ -208,23 +199,18 @@ export const tasksRoute = new Hono()
   .put("/:id/complete", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
     const body = completeTaskSchema.parse(await c.req.json());
-    if (body.endTime <= body.startTime) {
-      throw new BusinessError(ErrorCode.PARAM_ERROR, "end time must be later than start time", 400);
-    }
-
     const userId = getCurrentUserId(c);
-    const result = await completeTaskWithActualTime({
-      userId,
-      taskId: id,
-      completionKey: body.completionKey,
-      scheduleDate: body.scheduleDate,
-      startTime: body.startTime,
-      endTime: body.endTime,
-      completionNote: body.completionNote
-    });
-
-    log.info({ userId, taskId: id, scheduleId: result.scheduleId }, "[task_completed]");
+    const result = await completeTask({ userId, taskId: id, ...body });
+    log.info({ userId, taskId: id, completionEventId: result.completionEventId }, "[task_completed]");
     return ok(c, result);
+  })
+  .put("/:id/reopen", async (c) => {
+    const id = z.coerce.number().int().positive().parse(c.req.param("id"));
+    return ok(c, await reopenTask({ userId: getCurrentUserId(c), taskId: id, ...reopenTaskSchema.parse(await c.req.json()) }));
+  })
+  .put("/:id/archive", async (c) => {
+    const id = z.coerce.number().int().positive().parse(c.req.param("id"));
+    return ok(c, await archiveTask({ userId: getCurrentUserId(c), taskId: id, ...versionedCommandSchema.parse(await c.req.json()) }));
   })
   .put("/:id/pinned", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));

@@ -1,163 +1,119 @@
-import { X } from "lucide-react";
-import { createPortal } from "react-dom";
-import { type FormEvent, type ReactNode, useState } from "react";
-import { type RewardGrant } from "../rewards";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CirclePause, CirclePlay, ExternalLink, Square, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
+import { ApiError, type Request } from "../../app/api";
+import { queryKeys } from "../../app/query";
 
-type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
-type Task = { id: number; title: string };
-type StopResult = { rewards: RewardGrant[] };
+export const TIMER_STATUS = { RUNNING: 0, PAUSED: 1, FINISHED: 2, CANCELLED: 3 } as const;
 
-export type TimerSession = { id: number; taskId: number; startTime: string; durationMinutes: number; status: number };
-export type TimerActions = {
-  start: (taskId: number) => Promise<void>;
-  pause: (timerId: number) => Promise<void>;
-  finish: (timer: TimerSession) => void;
+export type TimerSegment = { id: number; timerSessionId: number; taskId: number; status: number; startedAt: string; endedAt: string | null; businessDate: string };
+export type CurrentSession = {
+  id: number; taskId: number; startTime: string; durationMinutes: number; status: number; version: number;
+  recordTimezone: string; segments: TimerSegment[];
+};
+export type TimerCommandResult = { id: number; status: number; version: number; durationSeconds?: number; rewards?: Array<{ xp: number; coins: number; reason: string }> };
+export type TimerCommands = {
+  pending: string | null;
+  start: (task: { id: number; version: number }, accepted: boolean) => Promise<boolean>;
+  pause: (session: CurrentSession) => Promise<boolean>;
+  resume: (session: CurrentSession) => Promise<boolean>;
+  finish: (session: CurrentSession) => Promise<boolean>;
+  completeAndFinish: (session: CurrentSession, taskVersion: number, completionNote?: string) => Promise<boolean>;
+  cancel: (session: CurrentSession) => Promise<boolean>;
 };
 
-export function TimerFeature({ request, tasks, runningTimers, onError, onChanged, onReward, children }: {
-  request: Request;
-  tasks: Task[];
-  runningTimers: TimerSession[];
-  onError: (message: string, title?: string) => void;
-  onChanged: () => void | Promise<void>;
-  onReward: (task: Task | undefined, rewards: RewardGrant[], mode: "done" | "partial") => void;
-  children: (actions: TimerActions) => ReactNode;
-}) {
-  const [finishing, setFinishing] = useState<TimerSession | null>(null);
-  const [scheduleDate, setScheduleDate] = useState(todayString());
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
+export function useCurrentSession(request: Request, userId: number) {
+  return useQuery({ queryKey: queryKeys.currentSession(userId), queryFn: () => request<CurrentSession | null>("/api/timer-sessions/current"), refetchInterval: 30_000 });
+}
 
-  async function start(taskId: number) {
+export async function retryableOperation<T>(request: Request, path: string, method: "POST" | "PUT", body: Record<string, unknown>, options: { operationId?: string; retries?: number } = {}) {
+  const operationId = options.operationId ?? crypto.randomUUID();
+  const payload = { ...body, operationId };
+  const retries = options.retries ?? 1;
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      await request("/api/timer-sessions/start", { method: "POST", body: JSON.stringify({ taskId }) });
-      await onChanged();
+      return await request<T>(path, { method, body: JSON.stringify(payload) });
     } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
+      if (attempt >= retries || !(error instanceof ApiError) || !error.retryable) throw error;
     }
   }
+}
 
-  async function pause(timerId: number) {
+export function useTimerCommands({ request, userId, date, timezone, onError }: { request: Request; userId: number; date: string; timezone: string; onError: (message: string, title?: string) => void }): TimerCommands {
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState<string | null>(null);
+  const refreshAffected = useCallback(async (taskId?: number) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentSession(userId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks(userId) }),
+      taskId ? queryClient.invalidateQueries({ queryKey: queryKeys.task(userId, taskId) }) : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.assignments(userId, date) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.timeline(userId, date) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.today(userId, date) })
+    ]);
+  }, [date, queryClient, userId]);
+  const command = useCallback(async (name: string, taskId: number | undefined, action: () => Promise<unknown>) => {
+    setPending(name);
     try {
-      const timer = runningTimers.find((item) => item.id === timerId);
-      const result = await request<StopResult>(`/api/timer-sessions/${timerId}/pause`, { method: "PUT" });
-      await onChanged();
-      onReward(tasks.find((task) => task.id === timer?.taskId), result.rewards ?? [], "partial");
+      await action();
+      await refreshAffected(taskId);
+      return true;
     } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
+      if (error instanceof ApiError && error.conflict) {
+        onError(`${error.message}。状态已重新同步，请确认后重试。`, "状态冲突");
+        await refreshAffected(taskId);
+      } else onError(error instanceof Error ? error.message : "操作失败", "操作没有成功");
+      return false;
+    } finally {
+      setPending(null);
     }
-  }
-
-  function openFinish(timer: TimerSession) {
-    setFinishing(timer);
-    setScheduleDate(localDateInput(timer.startTime));
-    setStartTime(timeText(timer.startTime));
-    setEndTime(timeInputFromDate(new Date()));
-  }
-
-  async function finish(event: FormEvent) {
-    event.preventDefault();
-    if (!finishing) return;
-    if (endTime <= startTime) {
-      onError("结束时间需要晚于开始时间");
-      return;
-    }
-    try {
-      const task = tasks.find((item) => item.id === finishing.taskId);
-      const result = await request<StopResult>(`/api/timer-sessions/${finishing.id}/finish`, {
-        method: "PUT",
-        body: JSON.stringify({ scheduleDate, startTime, endTime, completeTask: true })
-      });
-      setFinishing(null);
-      await onChanged();
-      onReward(task, result.rewards ?? [], "done");
-    } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
-    }
-  }
-
-  return (
-    <>
-      {children({ start, pause, finish: openFinish })}
-      {finishing && (
-        <FinishTimerDialog
-          taskTitle={tasks.find((task) => task.id === finishing.taskId)?.title ?? "当前任务"}
-          scheduleDate={scheduleDate}
-          startTime={startTime}
-          endTime={endTime}
-          onDateChange={setScheduleDate}
-          onStartChange={setStartTime}
-          onEndChange={setEndTime}
-          onClose={() => setFinishing(null)}
-          onSubmit={finish}
-        />
-      )}
-    </>
-  );
+  }, [onError, refreshAffected]);
+  return useMemo(() => ({
+    pending,
+    start: (task, accepted) => command("start", task.id, () => retryableOperation(request, accepted ? "/api/timer-sessions/start" : "/api/timer-sessions/accept-and-start", "POST", { taskId: task.id, expectedTaskVersion: task.version, taskDate: date, recordTimezone: timezone })),
+    pause: (session) => command("pause", session.taskId, () => retryableOperation(request, `/api/timer-sessions/${session.id}/pause`, "PUT", { expectedVersion: session.version })),
+    resume: (session) => command("resume", session.taskId, () => retryableOperation(request, `/api/timer-sessions/${session.id}/resume`, "PUT", { expectedVersion: session.version })),
+    finish: (session) => command("finish", session.taskId, () => retryableOperation(request, `/api/timer-sessions/${session.id}/finish`, "PUT", { expectedVersion: session.version, completeTask: false })),
+    completeAndFinish: (session, taskVersion, completionNote) => command("complete-and-finish", session.taskId, () => retryableOperation(request, `/api/timer-sessions/${session.id}/finish`, "PUT", { expectedVersion: session.version, completeTask: true, expectedTaskVersion: taskVersion, completionNote })),
+    cancel: (session) => command("cancel", session.taskId, () => retryableOperation(request, `/api/timer-sessions/${session.id}/cancel`, "PUT", { expectedVersion: session.version }))
+  }), [command, date, pending, request, timezone]);
 }
 
-function FinishTimerDialog(props: {
-  taskTitle: string;
-  scheduleDate: string;
-  startTime: string;
-  endTime: string;
-  onDateChange: (value: string) => void;
-  onStartChange: (value: string) => void;
-  onEndChange: (value: string) => void;
-  onClose: () => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return createPortal(
-    <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
-      <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="time-modal" onSubmit={props.onSubmit}>
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div><p className="text-xs font-semibold text-mint-700">结束计时</p><h3 className="text-sm font-semibold">{props.taskTitle}</h3><p className="mt-1 text-[11px] text-soft">确认这段实际投入时间，会写入小时记录。</p></div>
-            <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}><X size={15} /></button>
-          </div>
-          <label className="text-[11px] text-soft">日期<input aria-label="计时日期" className="field mt-1" type="date" value={props.scheduleDate} onChange={(event) => props.onDateChange(event.target.value)} /></label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-soft">开始<input aria-label="计时开始" className="field mt-1" type="time" value={props.startTime} onChange={(event) => props.onStartChange(event.target.value)} /></label>
-            <label className="text-[11px] text-soft">结束<input aria-label="计时结束" className="field mt-1" type="time" value={props.endTime} onChange={(event) => props.onEndChange(event.target.value)} /></label>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>取消</button>
-            <button className="primary-button px-5" type="submit">写入时间轴</button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
-  );
+export function MiniTimer({ session, taskTitle, date, commands }: { session: CurrentSession; taskTitle: string; date: string; commands: TimerCommands }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (session.status !== TIMER_STATUS.RUNNING) return;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [session.status]);
+  const pending = commands.pending !== null;
+  return <aside className="mini-timer" aria-label="当前计时">
+    <span className={`mini-timer-state ${session.status === TIMER_STATUS.PAUSED ? "is-paused" : ""}`}>{session.status === TIMER_STATUS.PAUSED ? "已暂停" : "计时中"}</span>
+    <span className="mini-timer-copy"><strong>{taskTitle}</strong><time>{durationText(netSeconds(session))}</time></span>
+    <span className="mini-timer-actions">
+      {session.status === TIMER_STATUS.RUNNING ? <button type="button" aria-label="暂停计时" disabled={pending} onClick={() => void commands.pause(session)}><CirclePause size={18} /></button> : <button type="button" aria-label="继续计时" disabled={pending} onClick={() => void commands.resume(session)}><CirclePlay size={18} /></button>}
+      <button type="button" aria-label="结束计时" disabled={pending} onClick={() => void commands.finish(session)}><Square size={16} /></button>
+      <button type="button" aria-label="取消计时" disabled={pending} onClick={() => void commands.cancel(session)}><X size={17} /></button>
+      <Link aria-label="打开计时任务" to={`/tasks/${session.taskId}?date=${date}`}><ExternalLink size={17} /></Link>
+    </span>
+  </aside>;
 }
 
-function todayString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+export function netSeconds(session: CurrentSession, now = Date.now()) {
+  return session.segments.reduce((sum, segment) => {
+    const start = utcMillis(segment.startedAt);
+    const end = segment.endedAt ? utcMillis(segment.endedAt) : session.status === TIMER_STATUS.RUNNING ? now : start;
+    return sum + Math.max(0, Math.floor((end - start) / 1000));
+  }, 0);
 }
 
-function localDateInput(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return todayString();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function utcMillis(value: string) {
+  if (value.includes("T")) return new Date(value).getTime();
+  return new Date(`${value.replace(" ", "T")}Z`).getTime();
 }
 
-function timeText(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 5);
-  return date.toTimeString().slice(0, 5);
-}
-
-function timeInputFromDate(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "操作失败";
+function durationText(seconds: number) {
+  const hours = Math.floor(seconds / 3600), minutes = Math.floor((seconds % 3600) / 60), rest = seconds % 60;
+  return hours ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}` : `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }

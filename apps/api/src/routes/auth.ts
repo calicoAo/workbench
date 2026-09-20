@@ -2,11 +2,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId, hashPassword, signToken, verifyPassword } from "../auth.js";
-import { db } from "../db/index.js";
-import { taskCategories, users } from "../db/schema.js";
+import { db, type DatabaseClient } from "../db/index.js";
+import { taskCategories, userExecutionSlots, users } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { DEFAULT_TIMEZONE } from "../time.js";
 
 const registerSchema = z.object({
   username: z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
@@ -19,12 +20,12 @@ const loginSchema = z.object({
   password: z.string().min(1).max(100)
 });
 
-function publicUser(user: { id: number; username: string; displayName: string }) {
-  return { id: user.id, username: user.username, displayName: user.displayName };
+function publicUser(user: { id: number; username: string; displayName: string; timezone: string }) {
+  return { id: user.id, username: user.username, displayName: user.displayName, timezone: user.timezone };
 }
 
-async function seedDefaultCategories(userId: number, now: Date) {
-  await db.insert(taskCategories).values([
+async function seedDefaultCategories(client: DatabaseClient, userId: number, now: Date) {
+  await client.insert(taskCategories).values([
     { userId, name: "coding", color: "#5B8DEF", icon: "code", dimensionKey: "career", targetMinutes: 6000, sortOrder: 10, enabled: 1, createdAt: now, updatedAt: now },
     { userId, name: "Life", color: "#35C99A", icon: "sparkles", dimensionKey: "life", targetMinutes: 6000, sortOrder: 20, enabled: 1, createdAt: now, updatedAt: now },
     { userId, name: "Stock Review", color: "#F7C96B", icon: "trending-up", dimensionKey: "learning", targetMinutes: 6000, sortOrder: 30, enabled: 1, createdAt: now, updatedAt: now }
@@ -43,13 +44,18 @@ export const authRoute = new Hono()
     const user = {
       username: body.username,
       displayName: body.displayName || body.username,
+      timezone: DEFAULT_TIMEZONE,
       passwordHash: await hashPassword(body.password),
       createdAt: now,
       updatedAt: now
     };
-    const [result] = await db.insert(users).values(user);
-    const data = publicUser({ id: result.insertId, username: user.username, displayName: user.displayName });
-    await seedDefaultCategories(data.id, now);
+    const data = await db.transaction(async (tx) => {
+      const [result] = await tx.insert(users).values(user);
+      const registeredUser = publicUser({ id: result.insertId, username: user.username, displayName: user.displayName, timezone: user.timezone });
+      await tx.insert(userExecutionSlots).values({ userId: registeredUser.id, updatedAt: now });
+      await seedDefaultCategories(tx, registeredUser.id, now);
+      return registeredUser;
+    });
 
     log.info({ userId: data.id, username: data.username }, "[user_registered]");
     return ok(c, { token: signToken(data), user: data });

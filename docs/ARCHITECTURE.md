@@ -40,20 +40,21 @@ deploy/* -> production container and reverse-proxy composition
 | Module / feature | Owns | Does not own | Current public surface |
 | --- | --- | --- | --- |
 | `apps/web/src/main.tsx` | React bootstrap、根样式加载、挂载 `App` | feature state、业务规则、data fetching | 浏览器入口 |
-| Web application shell | 组合全局反馈、认证 gate 与 authenticated Workspace | Workspace snapshot、feature drafts、业务 mutation policy | `App` -> `ApplicationFeedback` -> `AuthGate` -> `WorkspaceShell` |
+| Web application shell | Router、authenticated AppShell、导航/日期 URL、route outlet、全局 quick action、全局 mini timer、认证边界组合 | Task/Timer/Timeline 业务状态、feature drafts、奖励计算 | `App` -> QueryClient/BrowserRouter -> `ApplicationFeedback` -> `AuthGate` -> `WorkspaceRouter` -> `AppShell` |
 | Web Authentication feature | token session validation、login/register drafts、auth mutation、logout/session reset | Workspace date/snapshot、global feedback rendering、feature records | `features/auth/index.tsx` exports `AuthGate`, `AuthSession`, and `AuthUser` |
-| Web Workspace / Dashboard shell | selected date、page mode、Dashboard remote snapshot、explicit date preparation、Dashboard reload、top-level feature composition | auth form/session lifecycle、feature drafts/mutations、global popup state | `app/workspace/index.tsx` exports `WorkspaceShell`; `app/workspace/header.tsx` owns header interaction/time display |
+| Web Router / server-state composition | route tree、按 URL date 执行显式日期准备、按 user/resource/date/id 隔离 Query snapshot、精确 invalidation、跨 route feature composition | feature draft、领域写语义、第二份 Session 真值 | `app/shell/index.tsx`, `app/query.ts`; `app/workspace/index.tsx` 仅保留兼容导出 |
+| Web API client | bearer header、HTTP/envelope decode、typed `ApiError`、409/retryable/requestId/field-error metadata | feature query key、领域 command payload、UI feedback policy | `app/api.ts` exports `api`, `ApiError`, `Request`, token storage |
 | Web application feedback | global notice/confirm/reward popup state and presentation; narrow callbacks injected into Auth/Workspace/features | feature validation, feature drafts, domain policy | `app/feedback.tsx` exports `ApplicationFeedback` and `FeedbackActions` |
 | Web Rewards feature | Rewards 页面 UI、成长摘要、奖励预估规则、远端 snapshot、奖励创建 draft、奖励项 mutations | session、顶层 navigation、其他 feature 的奖励触发 workflow | `features/rewards/index.ts` exports the feature UI and reward contracts |
 | Web Decision Tools feature | 决策与心理桥梁 UI、modal 状态、editable drafts、最近记录 snapshot、loading 和 mutations | session、顶层 navigation、Dashboard snapshot、全局奖励/错误展示 | `features/decision-tools/index.tsx` exports `DecisionToolsFeature` |
 | Web Writing / Reflection feature | 晨写、日记、股市复盘的 selected-date drafts、编辑 UI/modal、保存 mutations、写作 AI insight 状态与分析 workflow | session、顶层 navigation、跨 feature History archive 组合、媒体/睡眠等其他 daily records | `features/writing-reflection/index.tsx` exports the owner and its composition surfaces |
 | Web Tasks feature | Task 面板、排序、直接完成意图和 Task HTTP mutations；创建、今日接取、编辑、直接完成分别由 feature 内私有 workflow 拥有 | Timer terminal policy、Schedule CRUD、服务端完成 transition/reward policy、全局反馈展示 | `features/tasks/index.tsx` exports `TasksFeature` and `TasksPanel`；其余 workflow 文件均为私有实现 |
-| Web Media Watch feature | 影视陪伴的 selected-date draft、编辑 UI、保存 mutation、日期与 snapshot 初始化 lifecycle | session、顶层 navigation、跨 feature History archive 组合、其他 daily records | `features/media-watch/index.tsx` exports `MediaWatchFeature`, `MediaWatchEditor`, and the remote record contract |
 | Web Sleep feature | 睡眠摘要交互、selected-date draft、编辑 dialog、保存 mutation、日期与 snapshot 初始化 lifecycle | Dashboard/History 聚合、Timeline 投影、Water 派生节奏、其他 daily records | `features/sleep/index.tsx` exports `SleepFeature` and the remote record contract |
 | Web Calendar feature | selected-date Schedule 草稿、编辑 dialog、手工 planned/actual CRUD、时间轴布局与呈现 | Dashboard snapshot、跨 feature Sleep/Water 标记归一化、Timer/Task 完成策略 | `features/calendar/index.tsx` exports `CalendarFeature` and the timeline composition contracts |
 | Web Water feature | 饮水 snapshot 呈现、睡眠感知节奏推导、杯数 mutation、Calendar 时间点投影 | Sleep 记录、Calendar 布局、Dashboard 聚合、全局反馈展示 | `features/water/index.tsx` exports `WaterFeature`, `WaterRecord`, and `waterTimelineItems` |
 | Web Categories / Ability feature | 分类/技能 CRUD 草稿、维度元数据与能力统计派生 | Task lifecycle、Calendar CRUD、服务端累计规则、全局反馈展示 | `features/categories/index.tsx` exports `CategoriesFeature` and stable category/dimension contracts |
-| Web Timer feature | Timer start/pause/finish 客户端 workflow、finish draft、校验与 Task-facing narrow actions | 服务端 terminal/transaction/reward policy、Task UI、Dashboard snapshot | `features/timer/index.tsx` exports `TimerFeature` and Timer contracts |
+| Web Timer feature | canonical current-session query、R1B start/pause/resume/finish/cancel/complete-and-finish adapter、stable operation retry、MiniTimer | 服务端 terminal/transaction/reward policy、Task UI、Dashboard `activeTimer` | `features/timer/index.tsx` exports hooks, command contracts, MiniTimer and timer models |
+| Web R1C Tasks / Assignments / Timeline integration | Tasks 查询与 detail surface、按日 Assignment/continuation 查询、ActualTime typed mapping；Today 只读组合 | Today 写 owner、TIMER projection 二次计数、page-local Timer truth | `features/tasks` public index、`features/assignments/index.ts`、`features/timeline/index.ts`、`app/shell` Today route |
 | Web History feature | 归档标签和远端记录、详情弹窗、睡眠区间、时间/能力/周统计的只读组合 | 各记录的 canonical writes、Dashboard fetch、顶层 navigation | `features/history/index.tsx` exports `HistoryFeature` and History series contracts；`archive.tsx` 为私有实现 |
 | Authentication | 登录/注册 UI、token persistence、session validation；API 的 token/password/auth middleware | tasks、records 等业务状态 | `/api/auth/*`；API `auth.ts` helpers |
 | Dashboard / history read model | 指定日期的跨 feature 聚合、统计和展示组合 | 各 feature 的 canonical writes；长期业务规则 | `GET /api/dashboard`；Dashboard response contract |
@@ -62,7 +63,7 @@ deploy/* -> production container and reverse-proxy composition
 | Timer execution | timer session lifecycle；`finishWorkSession` / `pauseWorkSession` 拥有终结、Timer-derived Actual projection、Timer reward 与可选 Task completion 的外层事务 | Task completion policy、generic Schedule CRUD、Task Days | `/api/timer-sessions/*`；`work-session.ts` |
 | Calendar / schedules | planned block、手工 Actual block、时间轴 CRUD；保存 Execution workflow 产生的可追溯 projection | Timer 状态与 Task 完成决策 | `/api/schedules/*`；`schedules` mapping |
 | Task categories / abilities | 分类、能力维度、累计时间目标 | task lifecycle、全局设计 token | `/api/task-categories/*` |
-| Daily records | sleep、water、morning writing、journal、stock review、media watch 各自的记录和历史 | Dashboard 聚合、跨记录通用状态容器 | 各 resource 的 `/api/<resource>` routes |
+| Daily records | sleep、water、morning writing、journal、stock review 各自的记录和历史 | Dashboard 聚合、跨记录通用状态容器 | 各 resource 的 `/api/<resource>` routes |
 | Quick Notes (current API capability) | `quick_notes` 的正文、记录日期、可选标题／单标签、按用户查询与创建／删除 | Task lifecycle、Journal 正文、Timeline 时间事实；当前未发现 Web 调用入口 | `/api/quick-notes` GET/POST；`/api/quick-notes/:id` DELETE；route-local validation |
 | Rewards and growth | reward policy、幂等 event key、XP/coin 计算、growth summary、兑换 | 触发奖励的 feature workflow 本身 | `apps/api/src/rewards.ts` exported functions；`/api/rewards/*` |
 | AI insights | writing analysis、AI response validation、insight persistence | writing draft 的 canonical ownership | `/api/ai-insights/*` |
@@ -118,7 +119,7 @@ Rules:
 | Entry point | Allowed responsibilities | Must not accumulate |
 | --- | --- | --- |
 | `apps/web/src/main.tsx` | mount React, root providers, global styles | feature logic, requests, forms |
-| `apps/web/src/App.tsx` | compose `ApplicationFeedback`, `AuthGate`, and `WorkspaceShell` | session state, workspace state, feature behavior, popup state, direct data loading |
+| `apps/web/src/App.tsx` | compose QueryClientProvider、BrowserRouter、`ApplicationFeedback`、`AuthGate` and `WorkspaceRouter` | session state、route state、server snapshots、feature behavior、popup state、direct data loading |
 | `apps/api/src/index.ts` | process startup, port binding, startup logging | route behavior, SQL, domain policy |
 | `apps/api/src/app.ts` | middleware/error setup and route registration | feature SQL, validation schemas, workflow implementation |
 | `apps/api/src/routes/*.ts` | HTTP decoding, auth handoff, validation, response mapping; colocated simple CRUD；调用已建立的 workflow public contracts | unrelated feature internals; multi-owner workflow implementation |
@@ -131,17 +132,17 @@ Route files are transport entrypoints and may remain the complete owner of cohes
 For every mutable value, one canonical owner must be identifiable.
 
 - Server truth: MySQL is canonical for persisted business data. A Web response object is a snapshot, not an independent authority.
-- Session: localStorage persists the bearer token; validated in-memory user state owns the active browser session. Persistence must not bypass `/api/auth/me` validation.
+- Session: localStorage persists the bearer token; validated in-memory user state owns the active browser session. Persistence must not bypass `/api/auth/me` validation. Logout、invalid token 和新登录都清空 QueryClient，query keys 仍包含 user identity 作为第二层隔离。
 - Authentication UI: `AuthGate` owns login/register drafts, auth mutation state, token persistence, session validation, and logout reset; `App` only composes the gate.
-- Workspace state: `WorkspaceShell` owns selected date, page mode, Dashboard snapshot, explicit date preparation, reload lifecycle, and authenticated feature composition. `WorkspaceHeader` owns only its controls and clock tick. There is no mirrored App/Workspace state.
-- Dashboard data: the Dashboard request owns a replaceable remote snapshot for the selected date. Derived lists, maps, totals, filters, and chart series should be computed from that snapshot rather than stored as competing state.
+- Navigation/date state: Browser Router path 和 `date` query param 是 desktop/mobile 共用真值；refresh、deep link、back/forward 不依赖 component-local `pageMode`。`/` 只负责 replace redirect 到当天 `/today?date=...`。
+- Server snapshots: QueryClient 保存按 user/resource/date/id 隔离、可替换的远端快照；MySQL/API 仍是真值。Dashboard 是生活记录聚合 snapshot，Tasks、Assignments、ActualTime、current-session 使用各自 canonical query，不从 Dashboard `activeTimer` 建立并行状态。
+- Current Session: `features/timer` 的 `['current-session', userId]` query 是 Today、Task detail、Task cards、AppShell mini timer 的唯一客户端服务端状态源。本地只允许 elapsed render tick；pause gap 由 Segment snapshot 计算，mutation 成功或冲突后精确 invalidation/refetch。
 - Feature drafts: editable forms are distinct drafts. They should be owned by the lowest feature/modal/workflow coordinating them, initialized intentionally when editing begins, and not overwritten by unrelated background reloads.
 - Writing/reflection drafts initialize from the selected-date Dashboard snapshot only when that date's feature owner mounts. Same-date Dashboard refreshes do not synchronize back into active drafts; changing date deliberately remounts the owner from the new date snapshot.
-- Media Watch draft initializes once the selected date's Dashboard snapshot is ready. Same-date refreshes do not overwrite active input; a date change clears the old draft while waiting and initializes exactly once from the new snapshot.
 - Sleep draft initializes once the selected date's Dashboard snapshot is ready. Same-date refreshes do not overwrite an open editor; changing date closes the old editor, clears its draft, and waits for the new snapshot before editing is enabled.
 - Local UI state: open/close, hover, tab, drag, and local input state belongs to the lowest component or workflow that coordinates it.
 - Workflow state: state shared across several steps or sibling panels belongs to that workflow boundary, not automatically to `App` or a global store.
-- Navigation/date state: `pageMode` and `selectedDate` are currently in-memory application state. URL ownership is not required until deep links, refresh restoration, or browser history become product requirements.
+- Mutation identity: Web 的 retryable Timer command 在一次用户动作开始时生成一个 UUID，同一次自动 HTTP retry 复用；下一次 pause/resume/finish 等动作生成新 UUID。`expectedVersion` 始终作为独立 payload 字段。
 - Persisted client state: adding localStorage/IndexedDB persistence does not create a second semantic owner; hydration direction and schema/version behavior must be explicit.
 
 Prohibited by default:
@@ -159,41 +160,54 @@ Effects remain appropriate for authentication, network loading, timers, browser 
 - `daily-carryover.ts` owns explicit target-date preparation. Daily-assignment inheritance and planned-Schedule carryover are independent commit units so one may succeed when the other fails; each is retry-safe. Within the planned-Schedule unit, the projection and its handled-source marker commit atomically.
 - A carried planned Schedule uses `(userId, source=PLANNED_TASK, sourceId=daily-carryover:<targetDate>:<fromScheduleId>)` as its database-enforced identity. `schedule_carryovers` keeps the handled-source identity, while `task_daily_assignments` keeps its existing `(userId, taskId, taskDate)` identity.
 - `rewards.ts` owns reward calculation, growth updates, and idempotency. Feature workflows decide when a qualifying event occurred and call its public contract.
-- `task-completion.ts` owns the transition to Task `DONE`, `completedAt`, completion reflection, and lifecycle reward invocation. `completeTask` opens a transaction standalone and `completeTaskInClient` participates in an existing outer transaction.
-- `work-session.ts` owns pause/finish terminal transitions, Timer-derived Actual projections, Timer/partial rewards, and optional explicit Task completion. One outer transaction covers the combined invariant.
-- A Timer-derived Schedule uses `(userId, source=TIMER, sourceId=timerSessionId)` as its database-enforced projection identity. A direct completion with an Actual block uses a caller-stable `completionKey`; ordinary manual Schedules keep no workflow source identity.
-- Work-session retry identity is the session ID plus terminal transition and explicit Task-completion intent. A matching retry returns the committed result; a different command against a terminal session conflicts.
+- `task-completion.ts` owns complete, reopen, archive/removal finalization, completion history, pending-continuation closure, and first-completion reward invocation. `completeTask` opens a retryable transaction standalone and its transaction-aware capability participates in an existing outer workflow.
+- `work-session.ts` owns vNext start, accept-and-start, pause, resume, finish, cancel, Segment lifecycle, TIMER projections, Timer rewards, slot lifecycle, and optional explicit Task completion. One outer transaction covers every combined invariant; pause does not grant a final reward.
+- `task-assignments.ts` owns retryable accept/release and continuation resolution. CARRIED_FORWARD and RESCHEDULED create or reuse the target Assignment in the same transaction; RESCHEDULED also creates its planned Schedule before sources are marked resolved.
+- `manual-actual.ts` owns retryable Manual Actual record/correct/cancel and optional atomic Task completion. Manual Actual remains Schedule-owned time truth and never creates a TimerSegment or uses TIMER source identity.
+- `execution-read-model.ts` owns pure current-session and ActualTime reads. Current session is reached only through `user_execution_slots` and must be a vNext RUNNING/PAUSED Session. ActualTime contains closed TimerSegments plus manual/eligible legacy Actual Schedules; TIMER Schedule projections are excluded.
+- V19 freezes `(userId, timerSegmentId, sliceDate)` as the vNext TIMER projection identity. The existing `(userId, source, sourceId)` identity remains for workflow compatibility. Manual Actual uses `manual:<operationId>` as replayable source identity; direct Task completion does not create an Actual block.
+- `timer_segments` is the canonical time fact for vNext timers; Session duration is a legacy/derived cache and TIMER Schedules are display projections. `actual_time_class` explicitly distinguishes manual Actual, eligible legacy Actual, projection, and non-Actual rows.
+- `user_execution_slots` is the per-user serialization anchor. V19 creates an empty row for existing users and registration creates one for new users; GET routes never create slots. vNext start claims the slot, PAUSED retains it, and FINISHED/CANCELLED releases it in the owning transaction. Slot/Session mismatch is a repair-required conflict and is never auto-healed by a command.
+- `mutation_receipts` owns only `(userId, operationId)` identity, request fingerprint/snapshot, and replay metadata. Domain workflow owners retain state-machine and transaction ownership; no command bus is introduced.
+- Every retryable R1B command accepts a caller UUID operationId. The receipt is claimed before domain locks; the lock order is receipt → user slot → Task in stable ID order → Session/Segment → Assignment/continuation → Reward. A matching fingerprint returns stored result metadata before current versions/states are reinterpreted; a changed fingerprint returns 409.
 - A multi-table invariant must have one workflow owner and one database transaction. Independent `Promise.all` writes are not a transaction.
 - `db/schema.ts` is the runtime ORM mapping. Versioned SQL migrations are the authoritative history for changing deployed database shape.
 - `docs/openapi.yaml` is the repository's documented public HTTP surface. Changes to route paths, request/response fields, authentication, or error semantics must update it in the same change.
+- Media Watch has no application owner or HTTP surface. Its historical `media_watch_records` migration and Drizzle mapping remain only to preserve deployed data until the separately reviewed physical cleanup; runtime code must not query or mutate that table.
 - Web types currently mirror API contracts manually. Until a generated/shared contract is justified, API implementation, OpenAPI, and Web types must be reviewed together.
 - All user-owned queries and writes must scope by authenticated `userId` unless an endpoint is explicitly public.
-- Business dates use `YYYY-MM-DD`; application display and date/time conversion follow Asia/Shanghai semantics unless a contract explicitly states otherwise.
+- Business dates use `YYYY-MM-DD`. `user.timezone` defaults to Asia/Shanghai for new records, while each persisted `recordTimezone`/`businessDate` snapshot remains stable when preferences or process timezone change. Absolute time facts use UTC semantics.
 
 ## Public Module Surfaces
 
 Current intentional surfaces:
 
-- `apps/web`: browser bundle entry via `main.tsx`; `App` is a composition-only surface. `app/api.ts`, `ApplicationFeedback`, `AuthGate`, and `WorkspaceShell` are the explicit application-level surfaces; feature internals remain private behind their existing feature exports.
+- `apps/web`: browser bundle entry via `main.tsx`; `App` 仅组合 QueryClient、BrowserRouter、ApplicationFeedback、AuthGate 与 WorkspaceRouter。`app/api.ts`、`app/query.ts`、`app/shell/index.tsx` 是 application-level surfaces；feature internals 仍隐藏在各自 public exports 后。
 - `apps/web/src/features/rewards/index.ts`: the Rewards feature public surface. It exports `RewardsFeature`, the header growth summary, the task reward estimate contract, and reward types required by application composition and task/reward presentation; implementation details remain internal.
 - `apps/web/src/features/decision-tools/index.tsx`: the Decision Tools feature public surface. It exports `DecisionToolsFeature`; application composition injects authenticated HTTP access, selected date, global error/reward presentation, and Dashboard refresh without owning the feature's drafts or mutations.
 - `apps/web/src/features/writing-reflection/index.tsx`: the Writing / Reflection public surface. It exports the feature owner plus header-shortcut and history-editor composition surfaces, along with the remote record types required by Dashboard and cross-feature archive composition. Drafts, save behavior, AI analysis policy, dialogs, and same-date refresh behavior remain internal.
 - `apps/web/src/features/tasks/index.tsx`: the Web Tasks public surface. It exports the workflow owner and its panel composition surface. Application composition injects Dashboard snapshots, authenticated HTTP access, refresh/feedback capabilities, and narrow Timer callbacks; feature-private modules own create, daily-selection, edit, and direct-completion lifecycles, while their models and dialog primitives are not cross-feature surfaces.
-- `apps/web/src/features/media-watch/index.tsx`: the Media Watch public surface. It exports the selected-date draft owner, its editor composition surface, and the remote record type needed by Dashboard and History. Application composition injects snapshot readiness, authenticated HTTP access, and refresh/error capabilities; draft transitions and save behavior remain internal.
 - `apps/web/src/features/sleep/index.tsx`: the Sleep public surface. It exports the complete summary/editor workflow and the remote record type needed by Dashboard, Timeline, Water derivation, and History. Application composition injects the matching-date snapshot, authenticated HTTP access, and refresh/error capabilities; draft, dialog, and save behavior remain internal.
 - `apps/web/src/features/calendar/index.tsx`: the Calendar public surface. It exports the Schedule workflow owner plus the `Schedule` and `TimelineItem` contracts needed for cross-feature composition. Application composition injects normalized timeline items, Dashboard snapshots, authenticated HTTP access, and refresh/error capabilities; Schedule drafts, mutations, dialog state, and timeline layout remain internal.
 - `apps/web/src/features/water/index.tsx`: the Water public surface. It exports the complete hydration display/mutation owner, the remote record contract, and a pure Calendar-marker projection. Application composition injects the matching Water and Sleep snapshots plus authenticated HTTP, refresh, and error capabilities; rhythm policy, cup interaction, mutation behavior, and drink-time parsing remain internal.
 - `apps/web/src/features/auth/index.tsx`: the Authentication public surface. `AuthGate` owns session validation, login/register drafts, auth mutations, token persistence, and logout reset; it exposes only the authenticated session capability to the Workspace shell.
-- `apps/web/src/app/workspace/index.tsx`: the authenticated Workspace / Dashboard public surface. `WorkspaceShell` owns selected date, page mode, Dashboard snapshot, explicit carryover preparation, reload lifecycle, and top-level feature composition. Its internal Dashboard region remains private.
-- `apps/web/src/app/workspace/header.tsx`: the Workspace header surface. It owns page/date controls, account interaction, and its own clock tick; it does not own Dashboard data or feature mutations.
+- `apps/web/src/app/shell/index.tsx`: authenticated route composition 和 AppShell public surface；拥有 route/date parsing、Outlet、navigation、global mini timer placement 和跨 feature composition，不拥有领域 truth 或 drafts。
+- `apps/web/src/app/workspace/index.tsx`: legacy import compatibility export only。`app/workspace/header.tsx` 不再是导航真值，不得作为新 route/pageMode 模式扩展。
 - `apps/web/src/app/feedback.tsx`: the application feedback surface. `ApplicationFeedback` owns notice, confirmation, and reward popup lifecycles and injects narrow callbacks; feature-specific policy remains with the caller.
 - `apps/web/src/features/categories/index.tsx`: the Categories / Ability public surface. It exports the CRUD owner plus category/dimension contracts and pure dimension helpers required by Tasks, Calendar, and History; editor state and mutation behavior remain internal.
-- `apps/web/src/features/timer/index.tsx`: the Timer client public surface. It exports the Timer workflow owner and session/action contracts. Tasks receives only start/pause/finish actions through composition; the finish draft, request payload construction, validation, and result handling remain internal.
+- `apps/web/src/features/timer/index.tsx`: current-session query、R1B Timer command adapter、stable operation retry 和 MiniTimer public surface。其他页面不得声明独立 current timer state。
+- `apps/web/src/features/tasks/integration.tsx`、`features/assignments/index.ts`、`features/timeline/index.ts`: R1C typed query/read-model surfaces。App composition 只从 Tasks feature public index 消费 Task surface；独立 Assignments/Timeline feature 不跨入其他 feature internals。
 - `apps/web/src/features/history/index.tsx`: the History public surface. It exports the complete read-only History composition and series contracts needed by the Dashboard snapshot. Archive fetching, tab state, record normalization, detail state, charts, and derived statistics remain internal.
 - `apps/api/src/app.ts`: exports the configured Hono `app` to the process entrypoint and tests.
 - `apps/api/src/routes/*.ts`: each file exports only the route object needed by `app.ts`; all other declarations are internal by default.
-- `apps/api/src/task-completion.ts`: `completeTask` is the Task completion contract; its transaction-aware form exists for an owning outer workflow, and `completeTaskWithActualTime` preserves the current direct-completion HTTP behavior without moving generic Schedule CRUD into Tasks.
-- `apps/api/src/work-session.ts`: `finishWorkSession` and `pauseWorkSession` are the Execution finalization contracts. Routes must not reproduce their writes.
+- `apps/api/src/mutation-receipt.ts`: `runMutation` is shared retry identity infrastructure. It owns receipt claim/fingerprint/replay only and is not a command bus.
+- `apps/api/src/execution-slot.ts`: slot row locking and consistency guards are the shared Execution serialization capability.
+- `apps/api/src/task-completion.ts`: complete/reopen/archive/remove are Task lifecycle contracts; transaction-aware completion exists for work-session and Manual Actual composition.
+- `apps/api/src/work-session.ts`: start/accept-and-start/pause/resume/finish/cancel are the vNext Execution contracts. Routes must not reproduce their writes.
+- `apps/api/src/task-assignments.ts`: accept/release/resolve/carry-over are Assignment and continuation contracts.
+- `apps/api/src/manual-actual.ts`: record/correct/cancel are Manual Actual contracts, including the optional atomic Task-completion composition.
+- `apps/api/src/execution-read-model.ts`: `currentSessionForUser` and `actualTimeForUser` are the canonical pure Execution read contracts. They do not create slots, infer legacy links, or write projections.
+- `apps/api/src/time.ts`: timezone validation and business-day boundary conversion are shared infrastructure for persisted timezone semantics, including DST boundaries.
 - `apps/api/src/daily-carryover.ts`: `applyDailyCarryover` is the explicit date-preparation contract. Dashboard and resource routes must not reproduce its writes.
 - `apps/api/src/rewards.ts`: exported reward/growth functions are an intentional cross-feature service surface.
 - API infrastructure files expose narrowly named helpers used by routes and startup code.
@@ -225,7 +239,7 @@ Do not create `shared`, `common`, `utils`, wrappers, repositories, or generic se
 
 ## Testing Boundaries
 
-The repository has focused MySQL integration tests for Task completion, work-session finalization, Daily carryover idempotency/rollback, and Dashboard read purity under `apps/api/tests/workflows.test.ts`. They require a dedicated `TEST_DATABASE_URL` whose database name ends in `_test` and the complete migration schema; missing configuration or an unavailable database fails the tests. Fixtures clean workflow data but do not recreate tables. The Web workspace uses a minimal Vitest + React Testing Library + jsdom harness for feature behavior; its suites protect Writing / Reflection, Media Watch, Sleep, Calendar, Water, Categories / Ability, Timer, and History ownership plus the Tasks create/daily-selection/direct-completion lifecycle. `npm run lint` still performs TypeScript checking rather than ESLint-style rules.
+The repository has focused MySQL integration tests for Daily carryover and GET purity under `apps/api/tests/workflows.test.ts`. `r1a-domain-semantics.test.ts` independently migrates a fresh database and a production-like V18 fixture through the current forward migrations. `r1b-transaction-workflows.test.ts` verifies operation replay/rollback, concurrent slot claims, Session/Segment lifecycle, atomic completion, Assignment/continuation resolution, Manual Actual, timezone snapshots, and frozen legacy behavior against real MySQL. All pin process timezone to `TZ=UTC` where applicable and require a dedicated `TEST_DATABASE_URL` whose database name ends in `_test`; missing configuration or an unavailable database fails rather than skips. The Web workspace uses Vitest + React Testing Library + jsdom. `npm run lint` still performs TypeScript checking rather than ESLint-style rules.
 
 `.github/workflows/ci.yml` owns CI verification only: an isolated MySQL 8 service starts with an empty `personal_workbench_test` database, Flyway applies and validates all versioned SQL migrations, then `npm run test:workflows:ci` executes the focused database suite and the Web workspace runs its feature behavior tests. The CI reporter fails on skipped/TODO/cancelled/failed database tests or a missing/empty summary. Typecheck, lint and build run only after the focused suites pass. `.github/workflows/deploy.yml` owns the GitHub trigger, tested commit selection, and SSH transfer for production delivery; `deploy/release.sh` owns server-side backup, build, Flyway migration, Compose restart, health check, and failed-service rollback. Deployment does not own application behavior or database policy; Flyway remains the canonical migration executor.
 
@@ -281,7 +295,6 @@ File length, hook count, component count, directory names, or mandatory service/
 | --- | --- | --- | --- |
 | Some multi-table writes still use separate calls or `Promise.all` rather than one transaction | Task completion and Timer pause/finish now have explicit transaction owners; unrelated historical multi-write paths remain | task create/update/delete, categories, selected records/rewards | When touching each remaining workflow, decide its invariant and transaction owner rather than copying completion architecture mechanically |
 | API, OpenAPI, and Web response types are manually synchronized | No generated/shared contract has yet justified added tooling | HTTP boundary | Contract drift recurs or a generator can be adopted with lower cost than manual sync |
-| Page mode and selected date are not URL state | Current product is a single-page personal tool and does not require deep links | Web navigation | Deep linking, refresh restoration, or browser history becomes a requirement |
 | Route modules directly access Drizzle | Simple CRUD remains cohesive and the extra layer would be ceremonial | API resource routes | Queries are reused, storage changes independently, or business logic needs isolated tests |
 | Hard and soft deletion semantics are mixed | Historical implementation is inconsistent | selected API resources | A feature's retention/recovery policy is changed; decide deliberately rather than copying nearby code |
 | Quick Note creation and its reward grant are separate writes; DELETE hard-deletes despite the legacy deletedAt field | Current route inserts a note then calls grantReward; retrying creation can create a new note/reward ID, and hard deletion is not recoverable | `routes/quick-notes.ts` | B29 establishes an idempotent create transaction and deliberate soft-delete/recovery contract; do not copy the current exception |
@@ -332,6 +345,12 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 - Decision: `task-completion.ts` owns the Task completion transition and lifecycle reward. `work-session.ts` owns Timer terminal transitions and their Actual projection/reward, and may compose Task completion only through its public transaction-aware contract. Matching terminal retries replay the stored result; transaction row locks serialize concurrent requests.
 - Consequences: Generic Task status mutation cannot set `DONE`; Timer finish carries explicit Task-completion intent; workflow projections have stable database identities. Route-centric ownership remains the default for cohesive CRUD.
 
+### 2026-09-20 - Activate R1B retryable transaction workflows
+
+- Context: V19 established identities and time semantics but did not implement operation replay, slot serialization, Segment lifecycle commands, continuation resolution, or Manual Actual correction. Manual overlap annotations also lacked a persistent aggregate-exclusion marker.
+- Decision: Keep the established route-centric architecture and add narrow workflow owners: `mutation-receipt.ts` for identity only, `execution-slot.ts` for serialization guards, `work-session.ts` for Execution, `task-completion.ts` for Task lifecycle, `task-assignments.ts` for Assignment/continuation, and `manual-actual.ts` for Manual Actual. V20 is the minimal forward R1A contract correction adding `schedules.include_in_actual_time`; V1-V19 remain unchanged.
+- Consequences: R1B mutations use operationId replay and the fixed lock order, multi-table workflows commit or roll back as one unit, TIMER projections remain derived, and frozen legacy Sessions remain outside slot/Segment commands. R1C must integrate these public HTTP contracts before the R1D user journey can begin.
+
 ### 2026-09-18 - Establish Decision Tools as a Web feature boundary
 
 - Context: Decision and psychological-bridge modal state, editable drafts, record loading, validation, mutations, and result/loading state were historically owned by `App.tsx`. Dashboard refresh after a mutation could be composed without making the root the feature owner.
@@ -355,6 +374,12 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 - Context: `App.tsx` copied the selected-date Media Watch record into editable fields after every Dashboard load. An unrelated same-date refresh could replace unsaved title, progress, or notes.
 - Decision: `features/media-watch` owns the selected-date draft, editor, and save mutation. Dashboard remains a remote initialization snapshot: the owner waits for a matching-date snapshot, initializes once, ignores later same-date snapshots, and deliberately resets while changing dates. History archive loading remains application composition rather than becoming part of the editor workflow.
 - Consequences: Background Dashboard refresh cannot overwrite an active Media Watch draft. Failed saves preserve input and successful saves normalize from the API response, without introducing a generic daily-record abstraction or coupling Media Watch to Sleep.
+
+### 2026-09-19 - Retire the Media Watch application capability
+
+- Context: R0 safety closure removes Media Watch from the active product surface, while the deployed `media_watch_records` table and its migration history must remain intact until the separately reviewed physical cleanup.
+- Decision: Remove the Media Watch API route, Dashboard aggregate field, Web editor/archive entry, reward trigger, and OpenAPI contract. Keep only the historical migration and the Drizzle table mapping; neither is an active application surface. This decision supersedes the runtime ownership established by the preceding Media Watch decision.
+- Consequences: Current application code has no Media Watch read or write path and no UI entry. Existing rows remain untouched and recoverable for R0.5; removing the table or mapping requires a later explicit migration decision.
 
 ### 2026-09-19 - Establish Sleep workflow ownership
 
@@ -392,6 +417,12 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 - Decision: `ApplicationFeedback` owns global notice/confirm/reward presentation; `AuthGate` owns token validation, login/register drafts, auth mutations, and logout; `WorkspaceShell` owns selected date, page mode, Dashboard snapshot, explicit carryover-before-read orchestration, reload, and authenticated feature composition. `WorkspaceHeader` owns only header interaction and its clock tick. `App.tsx` composes these owners and nothing else.
 - Consequences: Session and Workspace state each have one canonical owner. Dashboard preparation remains an explicit command followed by a read, while ordinary refresh remains read-only. No router, global store, event bus, or generic application controller was introduced; the Workspace dashboard region remains private and is split only where it owns a meaningful composition contract.
 
+### 2026-09-20 - Activate the R1C Router and server-state shell
+
+- Context: R1C requires direct task links, refresh restoration, browser history, cross-route Timer controls, R1B versioned commands, and user/date cache isolation. The earlier in-memory `pageMode`/Dashboard ownership was intentionally scoped only until these product requirements became real.
+- Decision: Browser Router path plus `date` query parameter now own navigation. A single QueryClient owns replaceable server snapshots with user/resource/date/id keys and is cleared on session transitions. `features/timer` owns the one current-session query and R1B command adapter; AppShell places MiniTimer but does not own Timer state. Tasks, Assignments and Timeline expose focused read adapters, while Today remains a composition boundary without a write store. The minimal API client normalizes transport/envelope errors and retry metadata without becoming a generated SDK.
+- Consequences: Deep links, refresh, and back/forward share one truth across desktop/mobile. Timer mutation success and 409 conflict invalidate only affected snapshots; one user action retains one operationId across automatic retry. Writing/Reflection drafts remain feature-local and remount only for user/date changes or the initial loading-to-ready snapshot, not same-date refetch. `app/workspace` is a compatibility export and the prior no-router consequence is superseded.
+
 ## Current Deepen Priorities
 
 `WEB-ROOT-OWNERSHIP-DEEPEN` 的当前实现 backlog 已于 2026-09-19 完成。`APP-SHELL-PURIFICATION` 的当前实现 backlog 已于 2026-09-19 完成。以下是后续变更的持续守护项，不是尚未完成的 feature 迁移切片：
@@ -401,9 +432,9 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 3. Add focused tests when a remaining state transition, Dashboard aggregation rule, or critical HTTP contract is changed; avoid speculative test scaffolding disconnected from behavior.
 4. Resolve delete/retention semantics per business capability and reassess URL/shared contracts only when product needs provide evidence.
 
-## vNext Planning Record — Not Yet Implemented
+## vNext Staged Architecture Record
 
-2026-09-17：新增 [vNext PRD](PRD_VNEXT.md)、[功能设计](FUNCTIONAL_DESIGN_VNEXT.md)、[开发计划](DEVELOPMENT_PLAN_VNEXT.md) 与 [Finance PRD](PERSONAL_WORKBENCH_FINANCE_PRD.md)。它们记录后续产品要求；本文上方的当前架构事实仍以现有代码为准。本次文档交付不表示新路由、共享 package、事务或数据模型已经实现。
+2026-09-17：新增 [vNext PRD](PRD_VNEXT.md)、[功能设计](FUNCTIONAL_DESIGN_VNEXT.md)、[开发计划](DEVELOPMENT_PLAN_VNEXT.md) 与 [Finance PRD](PERSONAL_WORKBENCH_FINANCE_PRD.md)。此表按工作包记录分阶段激活状态；本文上方的当前架构事实与实际源码仍是当前 contract。
 
 后续实施采用以下有意决策，并在对应工作包落地时更新本文当前事实与 Known Exceptions：
 
@@ -412,7 +443,7 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 | 悬赏仍是 Task，接取仍是 TaskDailyAssignment | 保留现有领域与用户选择的主流程；不创建竞争性的 Bounty 真值 | B06 |
 | 页面、日期与可分享筛选迁为 URL state | vNext 明确要求深链、刷新恢复与历史导航，满足现有例外的重新评估条件 | B02、B06 |
 | 共享 contracts package 从 Task／时间输入与 DTO 开始 | Web/API 已有重复契约，新页面与 Bridge 将增加消费者；仅共享 schema/type，不共享数据库或业务服务 | B05；扩展 npm workspaces 时复审依赖与构建 |
-| Execution workflow 统一计时、任务完成、时间投影与奖励事务 | Task completion 与当前 Timer terminal workflow 的 owner/事务/幂等 projection 已于 2026-09-18 激活；结束意图已在 API 显式化。TimerSegment、resume、跨日裁切和 legacy 统计迁移仍未实现 | B07 partial；后续仍须处理 legacy 来源与重复统计 |
+| Execution workflow 统一计时、任务完成、时间投影与奖励事务 | Segment/slot、operation receipt、Task lifecycle、continuation、Manual Actual、projection slice identity 和 ActualTime 已由窄 workflow owner 实现；legacy Session 冻结 | R1A schema/read 与 R1B command 已激活；R1C 接入 |
 | 全部业务 GET 纯读，日结转为幂等命令 | Dashboard carryover 与成长初始化副作用已移除；显式命令 owner 于 2026-09-19 激活 | B04 已激活 |
 | Projects、Habits、Finance、Integrations 按独立领域递增加入 | 保持现实事实 owner、权限与账本隔离；Today/Search/Insights 只做组合或派生 | B13 起分域实施 |
 | 保留 route-centric 简单 CRUD 与现有 Rewards feature public surface | 不机械采用建议书的整套 domains/service/repository 目录；仅提取有真实事务或复用契约的工作流 | 全阶段 |
@@ -421,13 +452,13 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 
 ### 2026-09-18 — Planning revision: capture, personal growth, and staged delivery
 
-本次核验补入了已有 Quick Notes API ownership，同时记录其前端入口缺失与创建／奖励非原子现状；重复 V17 已通过把 workflow projection identity 顺延为 V18 解决。以下是 **待实施** 决策，不表示已更改运行时契约：
+本次核验补入了已有 Quick Notes API ownership，同时记录其前端入口缺失与创建／奖励非原子现状；重复 V17 已通过把 workflow projection identity 顺延为 V18 解决。下表保留阶段性决策及其当前激活状态：
 
 | Decision | Canonical owner / boundary | Activation |
 | --- | --- | --- |
 | 随手记作为独立捕捉能力，产品入口归 Journal | `quick_notes` 是原文真值；拟设 Web Quick Notes feature 拥有草稿／列表／mutations，经 public surface 被 Quick Add 和 Journal 组合。转 Task 为明确应用事务，引用日记只操作公开草稿入口 | R1.5 / B29；不把状态加回 App 或 Writing / Reflection 内部 |
-| 源时间事实权威，统计仅一个 ActualTime 读模型 | TimerSegment 是计时真值，Session 时长派生；手动／legacy Actual 是其自身来源真值，TIMER Schedule 为可重建投影。Execution 对外提供规范化查询，组合 Calendar 的手动记录公开能力；统计排除重复投影，不新增可写通用账本 | R1A/B / B07a/b；现有 session 级唯一身份需先扩展为片段／日期切片身份 |
-| 历史日期归属稳定保存 | 绝对发生时刻＋记录 timezone＋businessDate；日期实体保留用户选定业务日期；偏好时区变化不自动重写历史 | R1A/B 起分域扩展，旧记录迁移留依据 |
+| 源时间事实权威，统计仅一个 ActualTime 读模型 | TimerSegment 是计时真值，Session 时长派生；手动／legacy Actual 是其自身来源真值，TIMER Schedule 为可重建投影。Execution 对外提供规范化查询，统计排除 TIMER projection 与显式 exclusion | R1A schema/query 与 R1B 写命令已激活 |
+| 历史日期归属稳定保存 | 绝对发生时刻＋记录 timezone＋businessDate；日期实体保留用户选定业务日期；偏好时区变化不自动重写历史 | R1A 执行链字段与 migration 已激活；其余领域按阶段扩展 |
 | 个人成长页与 N 维配置 | Growth 拥有维度／目标版本、个人展示与派生统计，复用 Category 作为技能基础；Rewards 保持 XP／金币唯一 owner，Tasks 仍只引用 Category | R2D / B30；固定 dimensionKey 枚举届时兼容迁移 |
 | 周月总结共享唯一正文 owner | Journal / Period Review 拥有正文、已确认事实快照与修订；Growth 页只组合公开读取／编辑入口。AI 只产生可选草稿，不覆盖正文；旧 weekly_summaries 需核验后归并 | R2D / B15 |
 | Release 依赖围绕执行切片 | R0 纯读与安全基线 → R1A 语义 → R1B 原子命令 → R1C 骨架 → R1D 主链；R1.5 归位；R2 成长与组织；R3 Finance；R4 Bridge | 以修订开发计划为序，原 B 编号保留用于追踪 |
@@ -436,16 +467,16 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 
 ### 2026-09-18 — v1.4 planning: close semantics before parallel implementation
 
-以下均为待实施决策，当前 route／workflow 仍以本文 Current public surface 和实际源码为准；本次不宣称 slot、Segment、completion events 或 receipts 已落地。
+V19 已激活 R1A schema 与只读契约；V20 仅补充 Manual Actual 的显式聚合包含标记。R1B 命令事务、锁序与 replay 已激活，legacy Session 仍冻结且不进入 slot/Segment 命令。
 
 | Decision | Ownership / constraint | Activation |
 | --- | --- | --- |
-| Assignment 续接决定独立于接取状态 | Tasks 在 Assignment 保存 continuationState（PENDING/CARRIED_FORWARD/DEFERRED/DISMISSED/RESCHEDULED）、处理时间、目标日期／时区／Assignment、版本；批量来源决定与目标写入一个事务 | R1A 固定 schema；R1B B04b/B06a 实现，GET 不解析成隐式写入 |
-| 独立用户执行槽为串行化锚点 | Execution 拥有 `user_execution_slots`，userId 主键、activeSessionId 可空；注册／迁移建行，命令必要时按主键幂等补建再 FOR UPDATE；pause 占槽，finish/cancel 同事务释放 | R1A/B；旧适配也必须经过同一锚点，不只查 Session status |
-| 统一用户时区快照模型 | user.timezone 默认 Asia/Shanghai；Session.recordTimezone、日期实体 timezone context、Review.periodTimezone 固定各自归属。新偏好不改历史；Review 时区固定边界，UTC 时间区间与日期型记录分别按契约纳入 | R1A 起分域实施；替代“所有业务日期永久上海”的任何目标设计表述，当前旧实现转换规则待迁移 |
-| 时间发生时固定项目／类别 | Segment／Manual Actual 保存 projectIdAtOccurrence、categoryIdAtOccurrence；新片段才采新归属，运行中改归属先暂停；legacy 无证据不按当前 Task 回填 | R1A 加可空字段／依据；R2 Projects 消费，ActualTime 聚合沿用源快照 |
-| 完成事件独立于当前 Task 和奖励资格 | Task completion owner 每次真实 DONE transition 追加 TaskCompletionEvent；reopen 保留事件、清当前 completedAt；首次奖励仍 taskId 一次，周期统计先筛事件再对 taskId 去重 | R1B；迁旧 completedAt 不虚构不可恢复历史、不补发奖励 |
-| 一次动作一个 operationId | API 基础设施提供 transaction-aware mutation_receipts，唯一 userId/operationId，包含 commandType、requestFingerprint、有效默认参数与结果引用；业务 owner 控制外层事务 | R1B 公共底座，随手记／Finance／Bridge 复用；旧 session 终结身份仅保留为业务约束 |
+| Assignment 续接决定独立于接取状态 | Tasks 在 Assignment 保存 continuationState（LEGACY_UNRESOLVED/PENDING/CARRIED_FORWARD/DEFERRED/DISMISSED/RESCHEDULED）、处理时间、目标日期／时区／Assignment、版本；纯读候选排除 legacy unresolved | R1A schema/query 与 R1B 批量决定命令已激活 |
+| 独立用户执行槽为串行化锚点 | Execution 拥有 `user_execution_slots`，userId 主键、activeSessionId 可空；迁移和注册建空 slot，legacy PAUSED 不占 slot，GET 只读 | R1A schema/query 与 R1B start/pause/resume/finish/cancel 锁序已激活 |
+| 统一用户时区快照模型 | user.timezone 默认 Asia/Shanghai；Session、Assignment、Schedule、Journal、QuickNote 和 CompletionEvent 固定 recordTimezone，真实区间存 UTC 语义绝对时间 | R1A schema/conversion 已激活；设置 UI 与剩余写命令在后续阶段接入 |
+| 时间发生时固定项目／类别 | Segment／Manual Actual 保存 project/category occurrence ID 与 UNKNOWN/NONE/ATTRIBUTED 状态；legacy 无证据保持 UNKNOWN，无 Projects FK | R1A schema/read 已激活；R2 Projects 消费 |
+| 完成事件独立于当前 Task 和奖励资格 | TaskCompletionEvent 保存 lifecycle identity；每次真实 non-DONE → DONE 新增事件，reopen 不删除历史，首次奖励仍由 taskId 唯一事件键限制 | R1A schema/backfill 与 R1B reopen/complete 已激活 |
+| 一次动作一个 operationId | mutation_receipts 唯一 userId/operationId，保存 commandType、版本、fingerprint、参数快照与结果元数据；业务 owner 控制事务 | R1A schema 与 R1B transaction-aware replay 已激活 |
 
 执行类锁顺序按功能设计 3.2 固定为 receipt → user slot → Task → Session/Segment → Assignment/continuation → Reward；跨领域 composition 只能调用公开事务能力，不能不同 route 自行再写一套锁序。回执重放先检查权限、先于新的 version 校验，回放成功结果不重执行业务；不同合法 resume 是不同 operationId。
 

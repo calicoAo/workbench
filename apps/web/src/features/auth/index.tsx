@@ -1,17 +1,18 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Request } from "../../app/api";
 
-export type AuthUser = { id: number; username: string; displayName: string };
+export type AuthUser = { id: number; username: string; displayName: string; timezone: string };
 export type AuthSession = { user: AuthUser; logout: () => void };
 
 type AuthPayload = { token: string; user: AuthUser };
 type AuthMode = "login" | "register";
 type TokenStorage = { read: () => string | null; write: (token: string) => void; clear: () => void };
 
-export function AuthGate({ request, tokenStorage, onError, children }: {
+export function AuthGate({ request, tokenStorage, onError, onSessionClear, children }: {
   request: Request;
   tokenStorage: TokenStorage;
   onError: (message: string, title?: string) => void;
+  onSessionClear?: () => void;
   children: (session: AuthSession) => ReactNode;
 }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -30,10 +31,11 @@ export function AuthGate({ request, tokenStorage, onError, children }: {
       .then(setUser)
       .catch(() => {
         tokenStorage.clear();
+        onSessionClear?.();
         setUser(null);
       })
       .finally(() => setLoading(false));
-  }, [request, tokenStorage]);
+  }, [onSessionClear, request, tokenStorage]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -47,6 +49,7 @@ export function AuthGate({ request, tokenStorage, onError, children }: {
         })
       });
       tokenStorage.write(payload.token);
+      onSessionClear?.();
       setUser(payload.user);
       setPassword("");
     } catch (error) {
@@ -56,6 +59,7 @@ export function AuthGate({ request, tokenStorage, onError, children }: {
 
   function logout() {
     tokenStorage.clear();
+    onSessionClear?.();
     setUser(null);
   }
 

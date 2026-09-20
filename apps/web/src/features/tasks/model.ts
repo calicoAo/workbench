@@ -14,6 +14,7 @@ export type Task = {
   sortOrder: number;
   dueAt: string | null;
   progressPercent: number;
+  version: number;
   createdAt: string;
   completedAt: string | null;
   completionNote: string | null;
@@ -36,7 +37,7 @@ export type Schedule = {
 };
 
 export type Confirm = (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
-export type CompleteResult = { id: number; status: number; scheduleId: number; reward: RewardGrant | null };
+export type CompleteResult = { id: number; status: number; version: number; reward: RewardGrant | null };
 
 export const DIFFICULTIES = [
   { value: "1", label: "轻松" },

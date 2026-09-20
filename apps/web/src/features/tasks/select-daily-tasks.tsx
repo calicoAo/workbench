@@ -48,7 +48,7 @@ export function SelectDailyTasksWorkflow({ children, request, selectedDate, task
   function remove(task: Task) {
     onConfirm("删除任务", "删除这个任务吗？关联的时间轴记录也会一起删除。", async () => {
       await perform(onError, async () => {
-        await request(`/api/tasks/${task.id}`, { method: "DELETE" });
+        await request(`/api/tasks/${task.id}`, { method: "DELETE", body: JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: task.version }) });
         setSelectedIds((ids) => ids.filter((id) => id !== task.id));
         await onChanged();
       });

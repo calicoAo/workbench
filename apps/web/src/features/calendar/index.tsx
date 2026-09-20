@@ -59,6 +59,7 @@ export function CalendarFeature({
       await request("/api/schedules", {
         method: "POST",
         body: JSON.stringify({
+          operationId: Number(currentState.draft.kind) === 1 ? crypto.randomUUID() : undefined,
           scheduleDate: selectedDate,
           startTime: currentState.draft.start,
           endTime: currentState.draft.end,
@@ -78,7 +79,9 @@ export function CalendarFeature({
 
   async function deleteSchedule(id: number) {
     try {
-      await request(`/api/schedules/${id}`, { method: "DELETE" });
+      const schedule = scheduleItems.find((item) => item.id === id);
+      const body = schedule?.kind === 1 ? JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: schedule.version ?? 1 }) : undefined;
+      await request(`/api/schedules/${id}`, body ? { method: "DELETE", body } : { method: "DELETE" });
       await onChanged();
     } catch (error) {
       onError(errorMessage(error), "操作没有成功");

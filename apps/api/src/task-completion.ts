@@ -1,25 +1,24 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db, type DatabaseClient } from "./db/index.js";
-import { schedules, tasks } from "./db/schema.js";
-import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue } from "./enums.js";
+import { type DatabaseClient } from "./db/index.js";
+import { taskCompletionEvents, tasks, users } from "./db/schema.js";
+import { CompletionEventSource, TaskStatus, canTransitTaskStatus, type TaskStatusValue } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
-import { grantTaskDoneRewardInClient, rewardGrantByEventKeyInClient } from "./rewards.js";
+import { lockExecutionSlot, requireEmptySlot } from "./execution-slot.js";
+import { runMutation } from "./mutation-receipt.js";
+import { grantTaskDoneRewardInClient } from "./rewards.js";
+import { closePendingContinuationsInClient } from "./task-assignments.js";
+import { businessDateAt, formatUtcDateTime } from "./time.js";
 
 export type CompleteTaskCommand = {
   userId: number;
+  operationId: string;
   taskId: number;
+  expectedVersion: number;
   completionNote?: string;
   completedAt?: Date;
 };
 
-export type CompleteTaskWithActualTimeCommand = CompleteTaskCommand & {
-  completionKey: string;
-  scheduleDate: string;
-  startTime: string;
-  endTime: string;
-};
-
-async function lockTask(client: DatabaseClient, userId: number, taskId: number) {
+export async function lockTaskInClient(client: DatabaseClient, userId: number, taskId: number) {
   const [task] = await client
     .select()
     .from(tasks)
@@ -29,85 +28,117 @@ async function lockTask(client: DatabaseClient, userId: number, taskId: number) 
   return task;
 }
 
-async function applyTaskCompletion(client: DatabaseClient, command: CompleteTaskCommand, task: Awaited<ReturnType<typeof lockTask>>) {
+export async function completeLockedTaskInClient(client: DatabaseClient, command: {
+  userId: number;
+  operationId: string;
+  completedAt: Date;
+  recordTimezone: string;
+  completionNote?: string;
+}, task: Awaited<ReturnType<typeof lockTaskInClient>>) {
   const current = task.status as TaskStatusValue;
-  if (current === TaskStatus.DONE) {
-    return { id: task.id, status: TaskStatus.DONE, completed: false, reward: null };
-  }
-  if (!canTransitTaskStatus(current, TaskStatus.DONE)) {
-    throw new BusinessError(ErrorCode.PARAM_ERROR, "invalid task status transition");
-  }
+  if (current === TaskStatus.DONE) return { id: task.id, status: TaskStatus.DONE, completed: false, completionEventId: null, reward: null };
+  if (!canTransitTaskStatus(current, TaskStatus.DONE)) throw new BusinessError(ErrorCode.CONFLICT, "task cannot be completed", 409);
 
-  const completedAt = command.completedAt ?? new Date();
-  await client
-    .update(tasks)
-    .set({
-      status: TaskStatus.DONE,
-      completedAt,
-      completionNote: command.completionNote?.trim() || task.completionNote,
-      updatedAt: completedAt
-    })
-    .where(and(eq(tasks.id, task.id), eq(tasks.userId, command.userId), isNull(tasks.deletedAt)));
-
-  const reward = await grantTaskDoneRewardInClient(client, command.userId, task);
-  return { id: task.id, status: TaskStatus.DONE, completed: true, reward };
-}
-
-export async function completeTask(command: CompleteTaskCommand) {
-  return db.transaction((tx) => completeTaskInClient(tx, command));
-}
-
-export async function completeTaskInClient(client: DatabaseClient, command: CompleteTaskCommand) {
-  const task = await lockTask(client, command.userId, command.taskId);
-  return applyTaskCompletion(client, command, task);
-}
-
-export async function completeTaskWithActualTime(command: CompleteTaskWithActualTimeCommand) {
-  return db.transaction(async (tx) => {
-    const task = await lockTask(tx, command.userId, command.taskId);
-    const sourceId = `task-completion:${command.completionKey}`;
-    const [existingSchedule] = await tx
-      .select()
-      .from(schedules)
-      .where(and(eq(schedules.userId, command.userId), eq(schedules.source, ScheduleSource.MANUAL), eq(schedules.sourceId, sourceId)));
-
-    if (existingSchedule) {
-      const requestedNote = command.completionNote?.trim() || null;
-      const sameCommand =
-        existingSchedule.taskId === task.id &&
-        existingSchedule.scheduleDate === command.scheduleDate &&
-        existingSchedule.startTime.slice(0, 5) === command.startTime &&
-        existingSchedule.endTime.slice(0, 5) === command.endTime &&
-        existingSchedule.note === requestedNote;
-      if (task.status !== TaskStatus.DONE || !sameCommand) {
-        throw new BusinessError(ErrorCode.CONFLICT, "completion key is already used", 409);
-      }
-      const reward = await rewardGrantByEventKeyInClient(tx, `task_done:${command.userId}:${task.id}`);
-      return { id: task.id, status: TaskStatus.DONE, scheduleId: existingSchedule.id, reward };
-    }
-    if (task.status === TaskStatus.DONE) {
-      throw new BusinessError(ErrorCode.CONFLICT, "task is already completed", 409);
-    }
-
-    const completion = await applyTaskCompletion(tx, command, task);
-    const now = command.completedAt ?? new Date();
-    const [scheduleResult] = await tx.insert(schedules).values({
-      userId: command.userId,
-      taskId: task.id,
-      categoryId: task.categoryId,
-      scheduleDate: command.scheduleDate,
-      startTime: `${command.startTime}:00`,
-      endTime: `${command.endTime}:00`,
-      title: task.title,
-      note: command.completionNote?.trim() || undefined,
-      completed: 1,
-      kind: ScheduleKind.ACTUAL,
-      source: ScheduleSource.MANUAL,
-      sourceId,
-      createdAt: now,
-      updatedAt: now
-    });
-
-    return { id: task.id, status: TaskStatus.DONE, scheduleId: scheduleResult.insertId, reward: completion.reward };
+  const lifecycleVersion = task.completionSequence + 1;
+  const now = command.completedAt;
+  await client.update(tasks).set({
+    status: TaskStatus.DONE,
+    progressPercent: 100,
+    completedAt: now,
+    completionSequence: lifecycleVersion,
+    completionNote: command.completionNote?.trim() || task.completionNote,
+    version: task.version + 1,
+    updatedAt: now
+  }).where(eq(tasks.id, task.id));
+  const [eventResult] = await client.insert(taskCompletionEvents).values({
+    userId: command.userId,
+    taskId: task.id,
+    occurredAt: formatUtcDateTime(now),
+    recordTimezone: command.recordTimezone,
+    businessDate: businessDateAt(now, command.recordTimezone),
+    lifecycleVersion,
+    operationId: command.operationId,
+    source: CompletionEventSource.VNEXT_COMMAND,
+    createdAt: new Date()
   });
+  await closePendingContinuationsInClient(client, command.userId, task.id, "task_completed", now);
+  const reward = await grantTaskDoneRewardInClient(client, command.userId, task);
+  return { id: task.id, status: TaskStatus.DONE, completed: true, completionEventId: eventResult.insertId, reward };
+}
+
+export function completeTask(command: CompleteTaskCommand) {
+  const completedAt = command.completedAt ?? new Date();
+  return runMutation({
+    userId: command.userId,
+    operationId: command.operationId,
+    commandType: "COMPLETE_TASK",
+    request: {
+      taskId: command.taskId,
+      expectedVersion: command.expectedVersion,
+      completionNote: command.completionNote?.trim() || null,
+      completedAt: command.completedAt?.toISOString() ?? null
+    }
+  }, async (tx) => {
+    const slot = await lockExecutionSlot(tx, command.userId);
+    requireEmptySlot(slot);
+    const task = await lockTaskInClient(tx, command.userId, command.taskId);
+    if (task.version !== command.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+    const [user] = await tx.select({ timezone: users.timezone }).from(users).where(eq(users.id, command.userId));
+    if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
+    return completeLockedTaskInClient(tx, { ...command, completedAt, recordTimezone: user.timezone }, task);
+  });
+}
+
+export function reopenTask(command: { userId: number; operationId: string; taskId: number; expectedVersion: number; progressPercent?: number }) {
+  return runMutation({
+    userId: command.userId,
+    operationId: command.operationId,
+    commandType: "REOPEN_TASK",
+    request: { taskId: command.taskId, expectedVersion: command.expectedVersion, progressPercent: command.progressPercent ?? 0 }
+  }, async (tx) => {
+    const slot = await lockExecutionSlot(tx, command.userId);
+    requireEmptySlot(slot);
+    const task = await lockTaskInClient(tx, command.userId, command.taskId);
+    if (task.version !== command.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+    if (task.status !== TaskStatus.DONE) throw new BusinessError(ErrorCode.CONFLICT, "task is not complete", 409);
+    await tx.update(tasks).set({ status: TaskStatus.TODO, progressPercent: command.progressPercent ?? 0, completedAt: null, version: task.version + 1, updatedAt: new Date() }).where(eq(tasks.id, task.id));
+    return { id: task.id, status: TaskStatus.TODO, version: task.version + 1 };
+  });
+}
+
+async function finalizeTask(command: { userId: number; operationId: string; taskId: number; expectedVersion: number }, remove: boolean) {
+  return runMutation({
+    userId: command.userId,
+    operationId: command.operationId,
+    commandType: remove ? "REMOVE_TASK" : "ARCHIVE_TASK",
+    request: { taskId: command.taskId, expectedVersion: command.expectedVersion }
+  }, async (tx) => {
+    const slot = await lockExecutionSlot(tx, command.userId);
+    requireEmptySlot(slot);
+    const task = await lockTaskInClient(tx, command.userId, command.taskId);
+    if (task.version !== command.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+    const now = new Date();
+    await closePendingContinuationsInClient(tx, command.userId, task.id, remove ? "task_removed" : "task_archived", now);
+    await tx.update(tasks).set({ status: remove ? task.status : TaskStatus.ARCHIVED, deletedAt: remove ? now : null, version: task.version + 1, updatedAt: now }).where(eq(tasks.id, task.id));
+    return { id: task.id, status: remove ? task.status : TaskStatus.ARCHIVED, deleted: remove, version: task.version + 1 };
+  });
+}
+
+export function archiveTask(command: { userId: number; operationId: string; taskId: number; expectedVersion: number }) {
+  return finalizeTask(command, false);
+}
+
+export function removeTask(command: { userId: number; operationId: string; taskId: number; expectedVersion: number }) {
+  return finalizeTask(command, true);
+}
+
+export async function completeTaskInClient(client: DatabaseClient, command: {
+  userId: number;
+  operationId: string;
+  taskId: number;
+  completedAt: Date;
+  recordTimezone: string;
+  completionNote?: string;
+}, lockedTask?: Awaited<ReturnType<typeof lockTaskInClient>>) {
+  return completeLockedTaskInClient(client, command, lockedTask ?? await lockTaskInClient(client, command.userId, command.taskId));
 }

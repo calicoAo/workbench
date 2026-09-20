@@ -15,17 +15,13 @@ if (!testDatabaseUrl) {
   process.env.DATABASE_URL = testDatabaseUrl;
   process.env.JWT_SECRET = process.env.JWT_SECRET ?? "workflow-tests-only-secret";
 
-  const [{ pool }, taskCompletion, workSession, enums, dailyCarryover, appModule, auth] = await Promise.all([
+  const [{ pool }, enums, dailyCarryover, appModule, auth] = await Promise.all([
     import("../src/db/index.js"),
-    import("../src/task-completion.js"),
-    import("../src/work-session.js"),
     import("../src/enums.js"),
     import("../src/daily-carryover.js"),
     import("../src/app.js"),
     import("../src/auth.js")
   ]);
-  const { completeTask, completeTaskWithActualTime } = taskCompletion;
-  const { finishWorkSession, pauseWorkSession } = workSession;
   const { applyDailyCarryover } = dailyCarryover;
   const { app } = appModule;
   const { signToken } = auth;
@@ -97,11 +93,88 @@ if (!testDatabaseUrl) {
     };
   }
 
+  async function getRewards(userId = 1) {
+    const response = await app.request("/api/rewards", { headers: authHeaders(userId) });
+    assert.equal(response.status, 200);
+    return (await response.json()) as {
+      data: { growth: { level: number; xpTotal: number; coins: number; xpInLevel: number; xpForNextLevel: number } };
+    };
+  }
+
+  const readTables = [
+    "ai_insights",
+    "decision_records",
+    "journals",
+    "media_watch_records",
+    "morning_writings",
+    "psychological_bridges",
+    "quick_notes",
+    "reward_events",
+    "reward_items",
+    "reward_redemptions",
+    "schedule_carryovers",
+    "schedules",
+    "sleep_records",
+    "stock_reviews",
+    "task_categories",
+    "task_daily_assignments",
+    "task_completion_events",
+    "tasks",
+    "timer_segments",
+    "timer_sessions",
+    "mutation_receipts",
+    "user_execution_slots",
+    "user_growth",
+    "users",
+    "weekly_summaries",
+    "water_records"
+  ] as const;
+
+  const updatedAtTables = [
+    { table: "ai_insights", key: "id" },
+    { table: "decision_records", key: "id" },
+    { table: "journals", key: "id" },
+    { table: "media_watch_records", key: "id" },
+    { table: "morning_writings", key: "id" },
+    { table: "psychological_bridges", key: "id" },
+    { table: "quick_notes", key: "id" },
+    { table: "reward_items", key: "id" },
+    { table: "schedules", key: "id" },
+    { table: "sleep_records", key: "id" },
+    { table: "stock_reviews", key: "id" },
+    { table: "task_categories", key: "id" },
+    { table: "task_daily_assignments", key: "id" },
+    { table: "tasks", key: "id" },
+    { table: "timer_segments", key: "id" },
+    { table: "timer_sessions", key: "id" },
+    { table: "user_execution_slots", key: "user_id" },
+    { table: "user_growth", key: "user_id" },
+    { table: "users", key: "id" },
+    { table: "weekly_summaries", key: "id" },
+    { table: "water_records", key: "id" }
+  ] as const;
+
+  async function readPuritySnapshot() {
+    const counts = Object.fromEntries(
+      await Promise.all(readTables.map(async (table) => [table, await scalar(`SELECT COUNT(*) FROM ${table}`)] as const))
+    );
+    const updatedAt = Object.fromEntries(
+      await Promise.all(
+        updatedAtTables.map(async ({ table, key }) => [
+          table,
+          await rows<{ rowKey: string; updatedAt: Date }>(`SELECT CAST(${key} AS CHAR) AS rowKey, updated_at AS updatedAt FROM ${table} ORDER BY ${key}`)
+        ] as const)
+      )
+    );
+    return { counts, updatedAt };
+  }
+
   // Test the real migration schema; never replace it with fixture DDL.
   beforeEach(async () => {
     await pool.query("DROP TRIGGER IF EXISTS fail_reward_insert");
     await pool.query("DROP TRIGGER IF EXISTS fail_carryover_marker_insert");
-    for (const table of ["reward_events", "user_growth", "schedule_carryovers", "task_daily_assignments", "schedules", "timer_sessions", "tasks"]) {
+    await pool.query("UPDATE user_execution_slots SET active_session_id = NULL WHERE user_id = 1");
+    for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedule_carryovers", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks"]) {
       await pool.query(`DELETE FROM ${table}`);
     }
   });
@@ -109,140 +182,6 @@ if (!testDatabaseUrl) {
     await pool.query("DROP TRIGGER IF EXISTS fail_reward_insert");
     await pool.query("DROP TRIGGER IF EXISTS fail_carryover_marker_insert");
     await pool.end();
-  });
-
-  test("Task completion persists reflection and is idempotent across retry and reopen", async () => {
-    const taskId = await insertTask();
-    const command = {
-      userId: 1,
-      taskId,
-      completionKey: "task-command-1",
-      scheduleDate: "2026-09-18",
-      startTime: "09:00",
-      endTime: "10:00",
-      completionNote: "Kept the invariant small"
-    };
-
-    const first = await completeTaskWithActualTime(command);
-    const retry = await completeTaskWithActualTime(command);
-    assert.equal(first.scheduleId, retry.scheduleId);
-    await assert.rejects(
-      () => completeTaskWithActualTime({ ...command, endTime: "10:30" }),
-      /completion key is already used/
-    );
-    const [completed] = await rows<{ status: number; completion_note: string }>("SELECT status, completion_note FROM tasks WHERE id = ?", [taskId]);
-    assert.equal(completed.status, TaskStatus.DONE);
-    assert.equal(completed.completion_note, command.completionNote);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE task_id = ?", [taskId]), 1);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key = ?", [`task_done:1:${taskId}`]), 1);
-
-    await pool.query("UPDATE tasks SET status = ?, completed_at = NULL WHERE id = ?", [TaskStatus.TODO, taskId]);
-    const reopened = await completeTaskWithActualTime({ ...command, completionKey: "task-command-2", startTime: "10:00", endTime: "10:30" });
-    assert.equal(reopened.reward, null);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE task_id = ?", [taskId]), 2);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key = ?", [`task_done:1:${taskId}`]), 1);
-  });
-
-  test("Task update rolls back when reward persistence fails", async () => {
-    const taskId = await insertTask();
-    await pool.query("CREATE TRIGGER fail_reward_insert BEFORE INSERT ON reward_events FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced reward failure'");
-    await assert.rejects(() => completeTask({ userId: 1, taskId, completionNote: "must roll back" }), /forced reward failure/);
-    const [task] = await rows<{ status: number; completed_at: Date | null; completion_note: string | null }>(
-      "SELECT status, completed_at, completion_note FROM tasks WHERE id = ?",
-      [taskId]
-    );
-    assert.equal(task.status, TaskStatus.TODO);
-    assert.equal(task.completed_at, null);
-    assert.equal(task.completion_note, null);
-    assert.equal(await scalar("SELECT COUNT(*) FROM user_growth"), 0);
-  });
-
-  test("Timer finish with explicit Task completion commits one combined result and replays it", async () => {
-    const taskId = await insertTask();
-    const sessionId = await insertTimer(taskId);
-    const command = { userId: 1, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: true };
-    const first = await finishWorkSession(command);
-    const retry = await finishWorkSession(command);
-    assert.deepEqual(retry, first);
-    assert.equal(first.taskCompleted, true);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE source = 1 AND source_id = ?", [String(sessionId)]), 1);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key IN (?, ?)", [`timer:1:${sessionId}`, `task_done:1:${taskId}`]), 2);
-    const [session] = await rows<{ status: number; completion_requested: number; task_completed: number }>(
-      "SELECT status, completion_requested, task_completed FROM timer_sessions WHERE id = ?",
-      [sessionId]
-    );
-    assert.equal(session.status, TimerStatus.FINISHED);
-    assert.equal(session.completion_requested, 1);
-    assert.equal(session.task_completed, 1);
-    const [task] = await rows<{ status: number }>("SELECT status FROM tasks WHERE id = ?", [taskId]);
-    assert.equal(task.status, TaskStatus.DONE);
-  });
-
-  test("Concurrent Timer finish establishes one projection and one timer reward", async () => {
-    const taskId = await insertTask();
-    const sessionId = await insertTimer(taskId);
-    const command = { userId: 1, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: false };
-    const [left, right] = await Promise.all([finishWorkSession(command), finishWorkSession(command)]);
-    assert.equal(left.scheduleId, right.scheduleId);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE source = 1 AND source_id = ?", [String(sessionId)]), 1);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key = ?", [`timer:1:${sessionId}`]), 1);
-    const [session] = await rows<{ status: number }>("SELECT status FROM timer_sessions WHERE id = ?", [sessionId]);
-    assert.equal(session.status, TimerStatus.FINISHED);
-    const [task] = await rows<{ status: number }>("SELECT status FROM tasks WHERE id = ?", [taskId]);
-    assert.equal(task.status, TaskStatus.TODO);
-  });
-
-  test("Combined Timer finish rolls back Timer, projection, rewards, and Task when Task reward persistence fails", async () => {
-    const taskId = await insertTask();
-    const sessionId = await insertTimer(taskId);
-    await pool.query(`CREATE TRIGGER fail_reward_insert BEFORE INSERT ON reward_events FOR EACH ROW
-      BEGIN
-        IF NEW.source_type = 'task' THEN
-          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced task reward failure';
-        END IF;
-      END`);
-    await assert.rejects(
-      () => finishWorkSession({ userId: 1, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: true }),
-      /forced task reward failure/
-    );
-    const [session] = await rows<{ status: number }>("SELECT status FROM timer_sessions WHERE id = ?", [sessionId]);
-    const [task] = await rows<{ status: number; completed_at: Date | null }>("SELECT status, completed_at FROM tasks WHERE id = ?", [taskId]);
-    assert.equal(session.status, TimerStatus.RUNNING);
-    assert.equal(task.status, TaskStatus.TODO);
-    assert.equal(task.completed_at, null);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules"), 0);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events"), 0);
-    assert.equal(await scalar("SELECT COUNT(*) FROM user_growth"), 0);
-  });
-
-  test("Concurrent pause is deterministic and does not duplicate projection or partial reward", async () => {
-    const taskId = await insertTask();
-    const sessionId = await insertTimer(taskId);
-    const now = new Date("2026-09-18T02:00:00.000Z");
-    const [left, right] = await Promise.all([pauseWorkSession({ userId: 1, sessionId, now }), pauseWorkSession({ userId: 1, sessionId, now })]);
-    assert.equal(left.scheduleId, right.scheduleId);
-    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE source = 1 AND source_id = ?", [String(sessionId)]), 1);
-    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key = ?", [`task_partial:1:${sessionId}`]), 1);
-    const [session] = await rows<{ status: number }>("SELECT status FROM timer_sessions WHERE id = ?", [sessionId]);
-    assert.equal(session.status, TimerStatus.PAUSED);
-  });
-
-  test("Terminal command conflicts are explicit and user ownership is enforced", async () => {
-    const taskId = await insertTask(1);
-    const sessionId = await insertTimer(taskId, 1);
-    await assert.rejects(
-      () => completeTaskWithActualTime({ userId: 2, taskId, completionKey: "foreign", scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00" }),
-      /task not found/
-    );
-    await assert.rejects(
-      () => finishWorkSession({ userId: 2, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: false }),
-      /timer session not found/
-    );
-    await finishWorkSession({ userId: 1, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: false });
-    await assert.rejects(
-      () => finishWorkSession({ userId: 1, sessionId, scheduleDate: "2026-09-18", startTime: "09:00", endTime: "10:00", completeTask: true }),
-      /different terminal result/
-    );
   });
 
   test("Dashboard GET is observational and does not initialize carryover or growth", async () => {
@@ -261,6 +200,35 @@ if (!testDatabaseUrl) {
     assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE schedule_date = '2026-09-18'"), 0);
     assert.equal(await scalar("SELECT COUNT(*) FROM schedule_carryovers WHERE carry_date = '2026-09-18'"), 0);
     assert.equal(await scalar("SELECT COUNT(*) FROM user_growth"), 0);
+  });
+
+  test("Rewards and Dashboard GETs preserve business row counts and update timestamps", async () => {
+    const taskId = await insertTask();
+    await insertDailyAssignment(taskId, "2026-09-17");
+    await insertPlannedSchedule(taskId, "2026-09-17");
+
+    const emptyGrowthSnapshot = await readPuritySnapshot();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const rewards = await getRewards();
+      const dashboard = await getDashboard("2026-09-18");
+      assert.deepEqual(rewards.data.growth, { level: 1, xpTotal: 0, coins: 0, xpInLevel: 0, xpForNextLevel: 50 });
+      assert.deepEqual(dashboard.data.growth, rewards.data.growth);
+    }
+    assert.deepEqual(await readPuritySnapshot(), emptyGrowthSnapshot);
+
+    const growthTimestamp = new Date("2026-09-18T01:30:00.000Z");
+    await pool.query(
+      "INSERT INTO user_growth (user_id, level, xp_total, coins, created_at, updated_at) VALUES (1, 2, 75, 9, ?, ?)",
+      [growthTimestamp, growthTimestamp]
+    );
+    const existingGrowthSnapshot = await readPuritySnapshot();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const rewards = await getRewards();
+      const dashboard = await getDashboard("2026-09-18");
+      assert.deepEqual(rewards.data.growth, { level: 2, xpTotal: 75, coins: 9, xpInLevel: 25, xpForNextLevel: 200 });
+      assert.deepEqual(dashboard.data.growth, rewards.data.growth);
+    }
+    assert.deepEqual(await readPuritySnapshot(), existingGrowthSnapshot);
   });
 
   test("Daily carryover endpoint is retry-safe and Dashboard returns the prepared state", async () => {

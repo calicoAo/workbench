@@ -25,6 +25,49 @@ export const TimerStatus = {
   CANCELLED: 3
 } as const;
 
+export const AssignmentStatus = {
+  ACCEPTED: 0,
+  RELEASED: 1
+} as const;
+
+export const ContinuationState = {
+  LEGACY_UNRESOLVED: 0,
+  PENDING: 1,
+  CARRIED_FORWARD: 2,
+  DEFERRED: 3,
+  DISMISSED: 4,
+  RESCHEDULED: 5
+} as const;
+
+export const TimerSessionModel = {
+  LEGACY: 0,
+  VNEXT: 1
+} as const;
+
+export const TimerSegmentStatus = {
+  OPEN: 0,
+  CLOSED: 1,
+  VOIDED: 2
+} as const;
+
+export const AttributionStatus = {
+  UNKNOWN: 0,
+  NONE: 1,
+  ATTRIBUTED: 2
+} as const;
+
+export const ActualTimeClass = {
+  NOT_ACTUAL: 0,
+  MANUAL_ACTUAL: 1,
+  LEGACY_ACTUAL: 2,
+  TIMER_PROJECTION: 3
+} as const;
+
+export const CompletionEventSource = {
+  LEGACY_COMPLETION: 0,
+  VNEXT_COMMAND: 1
+} as const;
+
 export const ScheduleKind = {
   PLANNED: 0,
   ACTUAL: 1

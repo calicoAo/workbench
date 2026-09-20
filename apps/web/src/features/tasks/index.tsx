@@ -9,6 +9,8 @@ import { type Confirm, type Request, type Schedule, type Task, type TimerSession
 import { SelectDailyTasksWorkflow } from "./select-daily-tasks";
 import { CategoryOptions, CategoryTag, CloseButton, EmptyText, ModalPortal } from "./task-ui";
 
+export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskSnapshot } from "./integration";
+
 type TaskCategoryFilter = "all" | "none" | DimensionKey;
 type ContextValue = { panel: ReactNode };
 

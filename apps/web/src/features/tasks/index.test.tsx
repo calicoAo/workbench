@@ -30,6 +30,7 @@ const task = {
   sortOrder: 1,
   dueAt: null,
   progressPercent: 0,
+  version: 1,
   createdAt: "2026-09-18T08:00:00+08:00",
   completedAt: null,
   completionNote: null
@@ -178,16 +179,15 @@ describe("TasksFeature ownership", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "完成任务 A" }));
     fireEvent.change(screen.getByLabelText("完成感想"), { target: { value: "完成得很扎实" } });
-    fireEvent.click(screen.getByRole("button", { name: "完成并写入时间轴" }));
+    fireEvent.click(screen.getByRole("button", { name: "完成任务" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(requestMock.mock.calls[0][0]).toBe("/api/tasks/1/complete");
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
-      scheduleDate: "2026-09-18",
-      startTime: "09:00",
-      endTime: "10:00",
+      expectedVersion: 1,
       completionNote: "完成得很扎实"
     });
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(onReward).toHaveBeenCalledWith(task, { xp: 12, coins: 3 });
     expect(onPauseTimer).not.toHaveBeenCalled();
     expect(onFinishTimer).not.toHaveBeenCalled();
