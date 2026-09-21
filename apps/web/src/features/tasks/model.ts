@@ -13,9 +13,12 @@ export type Task = {
   pinned: number;
   sortOrder: number;
   dueAt: string | null;
+  dueDate?: string | null;
+  estimatedMinutes?: number | null;
   progressPercent: number;
   version: number;
   createdAt: string;
+  updatedAt?: string;
   completedAt: string | null;
   completionNote: string | null;
 };

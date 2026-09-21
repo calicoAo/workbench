@@ -21,6 +21,9 @@ import { taskDaysRoute } from "./routes/task-days.js";
 import { tasksRoute } from "./routes/tasks.js";
 import { timerSessionsRoute } from "./routes/timer-sessions.js";
 import { waterRecordsRoute } from "./routes/water-records.js";
+import { settingsRoute } from "./routes/settings.js";
+import { searchRoute } from "./routes/search.js";
+import { exportsRoute } from "./routes/exports.js";
 
 export const app = new Hono();
 
@@ -46,3 +49,6 @@ app.route("/api/task-days", taskDaysRoute);
 app.route("/api/tasks", tasksRoute);
 app.route("/api/timer-sessions", timerSessionsRoute);
 app.route("/api/water-records", waterRecordsRoute);
+app.route("/api/settings", settingsRoute);
+app.route("/api/search", searchRoute);
+app.route("/api/exports", exportsRoute);

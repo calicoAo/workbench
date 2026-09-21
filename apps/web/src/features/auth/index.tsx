@@ -2,7 +2,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Request } from "../../app/api";
 
 export type AuthUser = { id: number; username: string; displayName: string; timezone: string };
-export type AuthSession = { user: AuthUser; logout: () => void };
+export type AuthSession = { user: AuthUser; logout: () => void; updateUser?: (user: AuthUser) => void };
 
 type AuthPayload = { token: string; user: AuthUser };
 type AuthMode = "login" | "register";
@@ -64,7 +64,7 @@ export function AuthGate({ request, tokenStorage, onError, onSessionClear, child
   }
 
   if (loading) return <AuthLoading />;
-  if (user) return children({ user, logout });
+  if (user) return children({ user, logout, updateUser: setUser });
   return (
     <AuthPage
       mode={mode}

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "./db/index.js";
-import { schedules, timerSegments, timerSessions, userExecutionSlots } from "./db/schema.js";
-import { ActualTimeClass, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
+import { schedules, taskDailyAssignments, tasks, timerSegments, timerSessions, userExecutionSlots } from "./db/schema.js";
+import { ActualTimeClass, AssignmentStatus, ScheduleKind, ScheduleLifecycle, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
 import { businessDayBoundsUtc, parseUtcDateTime } from "./time.js";
 
 export async function currentSessionForUser(userId: number) {
@@ -99,4 +99,38 @@ export async function actualTimeForUser(userId: number, businessDate: string, qu
       return entry ? [entry] : [];
     })
   ].sort((left, right) => left.startedAt.getTime() - right.startedAt.getTime());
+}
+
+export async function dailyExecutionForUser(userId: number, businessDate: string, queryTimezone: string) {
+  const [entries, plannedRows, assignmentRows] = await Promise.all([
+    actualTimeForUser(userId, businessDate, queryTimezone),
+    db.select({ startTime: schedules.startTime, endTime: schedules.endTime }).from(schedules).where(and(
+      eq(schedules.userId, userId),
+      eq(schedules.scheduleDate, businessDate),
+      eq(schedules.kind, ScheduleKind.PLANNED),
+      inArray(schedules.lifecycleState, [ScheduleLifecycle.PENDING, ScheduleLifecycle.EXECUTED]),
+      isNull(schedules.deletedAt)
+    )),
+    db.select({ status: tasks.status }).from(taskDailyAssignments).innerJoin(tasks, eq(taskDailyAssignments.taskId, tasks.id)).where(and(
+      eq(taskDailyAssignments.userId, userId),
+      eq(taskDailyAssignments.taskDate, businessDate),
+      eq(taskDailyAssignments.assignmentStatus, AssignmentStatus.ACCEPTED),
+      isNull(tasks.deletedAt)
+    ))
+  ]);
+  return {
+    entries,
+    summary: {
+      completedAssignments: assignmentRows.filter((row) => row.status === 2).length,
+      totalAssignments: assignmentRows.length,
+      focusedSeconds: entries.filter((entry) => entry.source === "TIMER_SEGMENT").reduce((sum, entry) => sum + entry.durationSeconds, 0),
+      actualSeconds: entries.reduce((sum, entry) => sum + entry.durationSeconds, 0),
+      plannedSeconds: plannedRows.reduce((sum, row) => sum + Math.max(0, timeSeconds(row.endTime) - timeSeconds(row.startTime)), 0)
+    }
+  };
+}
+
+function timeSeconds(value: string) {
+  const [hours, minutes, seconds = 0] = value.split(":").map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
 }

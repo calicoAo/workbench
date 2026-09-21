@@ -1,26 +1,32 @@
 ﻿import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { schedules, taskCategories, tasks } from "../db/schema.js";
+import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
-import { canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, type TaskStatusValue } from "../enums.js";
+import { ActualTimeClass, canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus, type TaskStatusValue } from "../enums.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { archiveTask, completeTask, removeTask, reopenTask } from "../task-completion.js";
+import { publishTask } from "../task-publishing.js";
+import { isValidTimezone, localDateTimeToUtc } from "../time.js";
 
 
 const createTaskSchema = z.object({
+  operationId: z.string().uuid().optional(),
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
-  categoryId: z.number().int().positive(),
+  categoryId: z.number().int().positive().optional(),
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(2),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable().optional(),
   progressPercent: z.number().int().min(0).max(100).optional(),
   estimatedMinutes: z.number().int().positive().optional(),
+  acceptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  recordTimezone: z.string().refine(isValidTimezone).optional(),
   plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   plannedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   plannedEndTime: z.string().regex(/^\d{2}:\d{2}$/).optional()
@@ -44,10 +50,12 @@ const updateTaskSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
   dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable().optional(),
+  priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  estimatedMinutes: z.number().int().positive().nullable().optional(),
   progressPercent: z.number().int().min(0).max(100).optional()
-}).refine((value) => value.title !== undefined || value.description !== undefined || value.categoryId !== undefined || value.dueAt !== undefined || value.difficulty !== undefined || value.progressPercent !== undefined, {
-  message: "title, description, categoryId, dueAt, difficulty or progressPercent is required"
+}).refine((value) => Object.values(value).some((item) => item !== undefined), {
+  message: "at least one editable field is required"
 });
 
 const updatePinnedSchema = z.object({
@@ -72,8 +80,51 @@ export const tasksRoute = new Hono()
 
     return ok(c, rows);
   })
+  .get("/:id", async (c) => {
+    const id = z.coerce.number().int().positive().parse(c.req.param("id"));
+    const userId = getCurrentUserId(c);
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+    if (!task) throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
+    const [assignments, plannedSchedules, segments, actualSchedules, sourceRows] = await Promise.all([
+      db.select().from(taskDailyAssignments).where(and(eq(taskDailyAssignments.userId, userId), eq(taskDailyAssignments.taskId, id))).orderBy(desc(taskDailyAssignments.taskDate)),
+      db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), eq(schedules.kind, ScheduleKind.PLANNED))).orderBy(desc(schedules.scheduleDate)),
+      db.select().from(timerSegments).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))).orderBy(desc(timerSegments.startedAt)),
+      db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), inArray(schedules.actualTimeClass, [ActualTimeClass.MANUAL_ACTUAL, ActualTimeClass.LEGACY_ACTUAL]), isNull(schedules.deletedAt))).orderBy(desc(schedules.actualStartedAt)),
+      db.select({ noteId: quickNoteTaskLinks.quickNoteId }).from(quickNoteTaskLinks).where(and(eq(quickNoteTaskLinks.userId, userId), eq(quickNoteTaskLinks.taskId, id)))
+    ]);
+    return ok(c, {
+      task,
+      source: sourceRows[0] ? { type: "QUICK_NOTE", id: sourceRows[0].noteId } : null,
+      assignments,
+      plannedSchedules,
+      actualEntries: [
+        ...segments.filter((row) => row.endedAt).map((row) => ({ source: "TIMER_SEGMENT", sourceId: row.id, startedAt: row.startedAt, endedAt: row.endedAt, businessDate: row.businessDate, recordTimezone: row.recordTimezone })),
+        ...actualSchedules.map((row) => ({ source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL", sourceId: row.id, startedAt: row.actualStartedAt, endedAt: row.actualEndedAt, businessDate: row.scheduleDate, recordTimezone: row.recordTimezone }))
+      ].sort((left, right) => String(right.startedAt).localeCompare(String(left.startedAt)))
+    });
+  })
   .post("/", async (c) => {
     const body = createTaskSchema.parse(await c.req.json());
+    if (body.acceptDate && (!body.operationId || !body.recordTimezone)) {
+      throw new BusinessError(ErrorCode.PARAM_ERROR, "operationId and recordTimezone are required when accepting the published task");
+    }
+    if (body.operationId && body.recordTimezone) {
+      const dueAt = body.dueAt ? localDateTimeToUtc(body.dueAt.slice(0, 10), body.dueAt.slice(11), body.recordTimezone) : undefined;
+      return ok(c, await publishTask({
+        userId: getCurrentUserId(c),
+        operationId: body.operationId,
+        title: body.title,
+        description: body.description,
+        categoryId: body.categoryId,
+        priority: body.priority,
+        difficulty: body.difficulty,
+        dueAt,
+        estimatedMinutes: body.estimatedMinutes,
+        progressPercent: body.progressPercent ?? 0,
+        acceptDate: body.acceptDate,
+        recordTimezone: body.recordTimezone
+      }));
+    }
     if (body.plannedStartTime && body.plannedEndTime && body.plannedEndTime <= body.plannedStartTime) {
       throw new BusinessError(ErrorCode.PARAM_ERROR, "planned end time must be later than start time");
     }
@@ -151,16 +202,18 @@ export const tasksRoute = new Hono()
     const title = body.title ?? task.title;
     const description = body.description === undefined ? task.description : body.description?.trim() || null;
     const difficulty = body.difficulty ?? task.difficulty;
+    const priority = body.priority ?? task.priority;
+    const estimatedMinutes = body.estimatedMinutes === undefined ? task.estimatedMinutes : body.estimatedMinutes;
     const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? localDateTime(body.dueAt) : null;
     const dueDate = body.dueAt === undefined ? task.dueDate : body.dueAt ? body.dueAt.slice(0, 10) : null;
     const progressPercent = body.progressPercent ?? task.progressPercent;
     await Promise.all([
-      db.update(tasks).set({ title, description, categoryId, dueDate, dueAt, difficulty, progressPercent, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
+      db.update(tasks).set({ title, description, categoryId, dueDate, dueAt, priority, difficulty, estimatedMinutes, progressPercent, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
       db.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)), eq(schedules.kind, ScheduleKind.PLANNED), isNull(schedules.deletedAt)))
     ]);
 
     log.info({ userId: getCurrentUserId(c), taskId: id, categoryId, titleChanged: body.title !== undefined }, "[task_updated]");
-    return ok(c, { id, title, description, categoryId, dueAt, difficulty, progressPercent });
+    return ok(c, { id, title, description, categoryId, dueAt, priority, difficulty, estimatedMinutes, progressPercent });
   })
   .delete("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));

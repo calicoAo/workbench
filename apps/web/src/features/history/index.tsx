@@ -6,6 +6,8 @@ import { type SleepRecord } from "../sleep";
 import { WritingReflectionHistory } from "../writing-reflection";
 import { ArchiveBrowser } from "./archive";
 
+export { ArchiveBrowser } from "./archive";
+
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type SleepRange = "week" | "month";
 

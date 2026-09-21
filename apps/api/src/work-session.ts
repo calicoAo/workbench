@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { type DatabaseClient } from "./db/index.js";
 import { schedules, taskDailyAssignments, tasks, timerSegments, timerSessions, userExecutionSlots, users } from "./db/schema.js";
-import { ActualTimeClass, AssignmentStatus, AttributionStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
+import { ActualTimeClass, AssignmentStatus, AttributionStatus, ScheduleKind, ScheduleLifecycle, ScheduleSource, TaskStatus, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 import { lockExecutionSlot, requireEmptySlot, requireSlotSession } from "./execution-slot.js";
 import { runMutation } from "./mutation-receipt.js";
@@ -36,6 +36,7 @@ async function createProjection(client: DatabaseClient, session: typeof timerSes
       actualEndedAt: formatUtcDateTime(slice.end),
       title: segment.taskTitleSnapshot,
       completed: 1,
+      lifecycleState: ScheduleLifecycle.EXECUTED,
       kind: ScheduleKind.ACTUAL,
       source: ScheduleSource.TIMER,
       sourceId: `segment:${segment.id}:${slice.businessDate}`,
@@ -55,6 +56,7 @@ async function createProjection(client: DatabaseClient, session: typeof timerSes
       endTime: localTimeAt(slice.end, segment.recordTimezone),
       actualStartedAt: formatUtcDateTime(slice.start),
       actualEndedAt: formatUtcDateTime(slice.end),
+      lifecycleState: ScheduleLifecycle.EXECUTED,
       deletedAt: null,
       updatedAt: now
     } });
@@ -237,17 +239,17 @@ export function resumeWorkSession(command: SessionCommand) {
   });
 }
 
-export function finishWorkSession(command: SessionCommand & { completeTask?: boolean; expectedTaskVersion?: number; completionNote?: string }) {
+export function finishWorkSession(command: SessionCommand & { completeTask?: boolean; expectedTaskVersion?: number; completionNote?: string; progressPercent?: number; note?: string }) {
   return runMutation({
     userId: command.userId,
     operationId: command.operationId,
     commandType: command.completeTask ? "COMPLETE_TASK_AND_FINISH_SESSION" : "FINISH_SESSION",
-    request: { sessionId: command.sessionId, expectedVersion: command.expectedVersion, completeTask: command.completeTask ?? false, expectedTaskVersion: command.expectedTaskVersion ?? null, completionNote: command.completionNote?.trim() || null, now: command.now?.toISOString() ?? null }
+    request: { sessionId: command.sessionId, expectedVersion: command.expectedVersion, completeTask: command.completeTask ?? false, expectedTaskVersion: command.expectedTaskVersion ?? null, completionNote: command.completionNote?.trim() || null, progressPercent: command.progressPercent ?? null, note: command.note?.trim() || null, now: command.now?.toISOString() ?? null }
   }, async (tx) => {
     const now = operationTime(command);
     const { slot, session, task } = await lockedExecutionContext(tx, command);
     if (session.status !== TimerStatus.RUNNING && session.status !== TimerStatus.PAUSED) throw new BusinessError(ErrorCode.CONFLICT, "session is not active", 409);
-    if (command.completeTask && command.expectedTaskVersion !== task.version) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+    if ((command.completeTask || command.progressPercent !== undefined) && command.expectedTaskVersion !== task.version) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
     if (command.completeTask && task.status === TaskStatus.DONE) throw new BusinessError(ErrorCode.CONFLICT, "task is already complete", 409);
     if (session.status === TimerStatus.RUNNING) await closeOpenSegment(tx, session, task, now);
     const durationSeconds = await sessionDurationSeconds(tx, session.id);
@@ -257,6 +259,7 @@ export function finishWorkSession(command: SessionCommand & { completeTask?: boo
       status: TimerStatus.FINISHED,
       completionRequested: command.completeTask ? 1 : 0,
       taskCompleted: command.completeTask ? 1 : 0,
+      note: command.note?.trim() || null,
       version: session.version + 1,
       updatedAt: now
     }).where(eq(timerSessions.id, session.id));
@@ -274,6 +277,8 @@ export function finishWorkSession(command: SessionCommand & { completeTask?: boo
       }, task);
       completionEventId = completion.completionEventId;
       if (completion.reward) rewards.push(completion.reward);
+    } else if (command.progressPercent !== undefined) {
+      await tx.update(tasks).set({ progressPercent: command.progressPercent, version: task.version + 1, updatedAt: now }).where(eq(tasks.id, task.id));
     }
     const timerReward = await grantTimerRewardInClient(tx, command.userId, session.id, businessDateAt(now, session.recordTimezone), Math.floor(durationSeconds / 60));
     if (timerReward) rewards.push(timerReward);
@@ -283,7 +288,7 @@ export function finishWorkSession(command: SessionCommand & { completeTask?: boo
       .where(and(eq(schedules.userId, command.userId), eq(schedules.timerSessionId, session.id), eq(schedules.actualTimeClass, ActualTimeClass.TIMER_PROJECTION), isNull(schedules.deletedAt)))
       .orderBy(asc(schedules.id));
     const projectionIds = projectionRows.map((row) => row.id);
-    return { id: session.id, status: TimerStatus.FINISHED, version: session.version + 1, durationSeconds, projectionIds, taskCompleted: Boolean(command.completeTask), completionEventId, rewards };
+    return { id: session.id, status: TimerStatus.FINISHED, version: session.version + 1, durationSeconds, projectionIds, taskCompleted: Boolean(command.completeTask), taskVersion: command.completeTask || command.progressPercent !== undefined ? task.version + 1 : task.version, completionEventId, rewards };
   });
 }
 

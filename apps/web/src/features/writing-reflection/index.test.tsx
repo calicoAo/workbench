@@ -8,12 +8,13 @@ import {
   type WritingReflectionSnapshot,
   WritingReflectionFeature,
   WritingReflectionHistory,
-  WritingReflectionShortcuts
+  WritingReflectionShortcuts,
+  useJournalDraftBridge
 } from ".";
 
 type FeatureProps = ComponentProps<typeof WritingReflectionFeature>;
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); delete document.body.dataset.duplicate; });
 
 const emptySnapshot: WritingReflectionSnapshot = {
   morning: null,
@@ -50,6 +51,7 @@ function feature(
   return (
     <WritingReflectionFeature
       key={options.key}
+      userId={options.userId}
       request={options.request ?? (vi.fn(async () => ({})) as FeatureProps["request"])}
       selectedDate={options.selectedDate ?? "2026-09-18"}
       initialSnapshot={initialSnapshot}
@@ -152,5 +154,13 @@ describe("WritingReflectionFeature draft ownership", () => {
     view.rerender(<div>{feature(snapshot("新日期"), { key: "2026-09-19", selectedDate: "2026-09-19" })}</div>);
 
     expect(input("日记内容").value).toBe("日记 新日期");
+  });
+
+  it("appends a Note reference without replacing unsaved Journal text and detects duplicates", () => {
+    function Driver() { const bridge = useJournalDraftBridge(); return <><button onClick={() => bridge.stageJournalReference({ noteId: 44, targetDate: "2026-09-18", text: "Quoted text" })}>quote</button><button onClick={() => { const result = bridge.stageJournalReference({ noteId: 44, targetDate: "2026-09-18", text: "Quoted text" }); document.body.dataset.duplicate = result.status; }}>repeat</button><WritingReflectionHistory loading={false} /></>; }
+    render(feature(snapshot("A"), { userId: 9, children: <Driver /> }));
+    fireEvent.change(input("日记内容"), { target: { value: "Unsaved text" } }); fireEvent.click(screen.getByRole("button", { name: "quote" }));
+    expect(input("日记内容").value).toContain("Unsaved text"); expect(input("日记内容").value).toContain("[来自随手记 #44]\nQuoted text");
+    fireEvent.click(screen.getByRole("button", { name: "repeat" })); expect(document.body.dataset.duplicate).toBe("duplicate"); expect(input("日记内容").value.match(/Quoted text/g)).toHaveLength(1);
   });
 });

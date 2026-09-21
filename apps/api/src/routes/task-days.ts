@@ -17,7 +17,8 @@ const dateSchema = z.object({
 
 const updateDailyTasksSchema = z.object({
   taskDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  taskIds: z.array(z.number().int().positive()).max(30)
+  taskIds: z.array(z.number().int().positive()).max(30),
+  focusTaskIds: z.array(z.number().int().positive()).max(3).optional()
 });
 
 const operationId = z.string().uuid();
@@ -72,18 +73,18 @@ export const taskDaysRoute = new Hono()
   .get("/", async (c) => {
     const query = dateSchema.parse(c.req.query());
     const rows = await db
-      .select({ taskId: taskDailyAssignments.taskId })
+      .select({ id: taskDailyAssignments.id, taskId: taskDailyAssignments.taskId, version: taskDailyAssignments.version, sortOrder: taskDailyAssignments.sortOrder, focusRank: taskDailyAssignments.focusRank, assignmentStatus: taskDailyAssignments.assignmentStatus, recordTimezone: taskDailyAssignments.recordTimezone })
       .from(taskDailyAssignments)
       .where(and(eq(taskDailyAssignments.userId, getCurrentUserId(c)), eq(taskDailyAssignments.taskDate, query.date), eq(taskDailyAssignments.assignmentStatus, AssignmentStatus.ACCEPTED)))
       .orderBy(asc(taskDailyAssignments.sortOrder), asc(taskDailyAssignments.id));
-    return ok(c, { taskDate: query.date, taskIds: rows.map((row) => row.taskId) });
+    return ok(c, { taskDate: query.date, taskIds: rows.map((row) => row.taskId), assignments: rows });
   })
   .put("/", async (c) => {
     const body = updateDailyTasksSchema.parse(await c.req.json());
     const userId = getCurrentUserId(c);
     const [user] = await db.select({ timezone: users.timezone }).from(users).where(eq(users.id, userId));
     if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
-    const result = await replaceAssignmentsForDate({ userId, taskDate: body.taskDate, taskIds: body.taskIds, recordTimezone: user.timezone });
+    const result = await replaceAssignmentsForDate({ userId, taskDate: body.taskDate, taskIds: body.taskIds, focusTaskIds: body.focusTaskIds, recordTimezone: user.timezone });
 
     log.info({ userId, taskDate: body.taskDate, taskCount: result.taskIds.length }, "[daily_tasks_updated]");
     return ok(c, result);

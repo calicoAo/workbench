@@ -84,10 +84,11 @@ describe("R1C router and AppShell", () => {
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
   });
 
-  it("keeps one global current-session query while mini timer survives route navigation", async () => {
+  it("keeps one current-session query while route composition deduplicates Timer controls", async () => {
     const request = requestFor(true);
     renderShell("/today?date=2026-09-19", request);
-    expect(await screen.findByLabelText("当前计时")).toBeTruthy();
+    expect(await screen.findByLabelText("当前专注控制")).toBeTruthy();
+    expect(screen.queryByLabelText("当前计时")).toBeNull();
     fireEvent.click((await screen.findAllByRole("link", { name: "文字" }))[0]);
     expect(await screen.findByLabelText("当前计时")).toBeTruthy();
     const currentCalls = (request as ReturnType<typeof vi.fn>).mock.calls.filter(([path]) => path === "/api/timer-sessions/current");

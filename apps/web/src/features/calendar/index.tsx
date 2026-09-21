@@ -1,15 +1,16 @@
 import { CalendarDays, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Button, IconButton } from "../../shared/ui";
 import { DIMENSIONS, type Category } from "../categories";
 import { scheduleDurationMinutes, TimelineBoard, type Schedule, type TimelineItem } from "./timeline";
 
 export type { Schedule, TimelineItem } from "./timeline";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
-type Task = { id: number; title: string };
-type Draft = { categoryId: string; taskId: string; kind: string; title: string; note: string; start: string; end: string };
-type CalendarState = { date: string; editorOpen: boolean; draft: Draft };
+type Task = { id: number; title: string; version?: number };
+type Draft = { categoryId: string; taskId: string; kind: string; title: string; note: string; start: string; end: string; completeTask: boolean };
+type CalendarState = { date: string; editorOpen: boolean; editingId: number | null; overlapConflict: boolean; draft: Draft };
 
 export function CalendarFeature({
   request,
@@ -18,6 +19,9 @@ export function CalendarFeature({
   items,
   tasks,
   categories,
+  recordTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  initialKind,
+  actualSeconds,
   onError,
   onChanged
 }: {
@@ -27,13 +31,16 @@ export function CalendarFeature({
   items: TimelineItem[];
   tasks: Task[];
   categories: Category[];
+  recordTimezone?: string;
+  initialKind?: "plan" | "actual";
+  actualSeconds?: number;
   onError: (message: string, title?: string) => void;
   onChanged: () => void | Promise<void>;
 }) {
-  const [state, setState] = useState<CalendarState>(() => initialState(selectedDate));
+  const [state, setState] = useState<CalendarState>(() => initialState(selectedDate, initialKind));
   let currentState = state;
   if (state.date !== selectedDate) {
-    currentState = initialState(selectedDate);
+    currentState = initialState(selectedDate, initialKind);
     setState(currentState);
   }
 
@@ -55,33 +62,50 @@ export function CalendarFeature({
       onError("不关联任务时，需要写一下这段时间做了什么");
       return;
     }
+    await saveSchedule(true);
+  }
+
+  async function saveSchedule(includeInActualTime: boolean) {
+    const editing = currentState.editingId ? scheduleItems.find((item) => item.id === currentState.editingId) : null;
     try {
-      await request("/api/schedules", {
-        method: "POST",
+      const selectedTask = taskId ? tasks.find((task) => task.id === Number(taskId)) : null;
+      await request(editing ? `/api/schedules/${editing.id}` : "/api/schedules", {
+        method: editing ? "PUT" : "POST",
         body: JSON.stringify({
-          operationId: Number(currentState.draft.kind) === 1 ? crypto.randomUUID() : undefined,
+          operationId: crypto.randomUUID(),
+          expectedVersion: editing?.version,
           scheduleDate: selectedDate,
           startTime: currentState.draft.start,
           endTime: currentState.draft.end,
-          kind: Number(currentState.draft.kind),
+          kind: editing ? undefined : Number(currentState.draft.kind),
           taskId: taskId ? Number(taskId) : undefined,
+          expectedTaskVersion: currentState.draft.completeTask ? selectedTask?.version : undefined,
           categoryId: !taskId && categoryId ? Number(categoryId) : undefined,
           title: currentState.draft.title.trim() || undefined,
-          note: currentState.draft.note.trim() || undefined
+          note: currentState.draft.note.trim() || undefined,
+          recordTimezone,
+          includeInActualTime,
+          completeTask: Number(currentState.draft.kind) === 1 && currentState.draft.completeTask
         })
       });
-      setState((current) => ({ ...current, editorOpen: false, draft: { ...current.draft, title: "", note: "" } }));
+      setState((current) => ({ ...current, editorOpen: false, editingId: null, overlapConflict: false, draft: { ...current.draft, title: "", note: "", completeTask: false } }));
       await onChanged();
     } catch (error) {
+      if (Number(currentState.draft.kind) === 1 && errorMessage(error).toLowerCase().includes("overlap")) setState((current) => ({ ...current, overlapConflict: true }));
       onError(errorMessage(error), "操作没有成功");
     }
+  }
+
+  function editSchedule(item: TimelineItem) {
+    if (item.source === 1 || item.actualTimeClass === 2) { onError(item.source === 1 ? "计时记录只能通过原 Session 修正。" : "历史实际记录为只读。", "此记录不可直接编辑"); return; }
+    setState((current) => ({ ...current, editorOpen: true, editingId: item.id, overlapConflict: false, draft: { ...current.draft, taskId: item.taskId ? String(item.taskId) : "", categoryId: item.categoryId ? String(item.categoryId) : "", kind: String(item.kind), title: item.title, note: item.note ?? "", start: item.startTime.slice(0, 5), end: item.endTime.slice(0, 5), completeTask: false } }));
   }
 
   async function deleteSchedule(id: number) {
     try {
       const schedule = scheduleItems.find((item) => item.id === id);
-      const body = schedule?.kind === 1 ? JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: schedule.version ?? 1 }) : undefined;
-      await request(`/api/schedules/${id}`, body ? { method: "DELETE", body } : { method: "DELETE" });
+      const body = JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: schedule?.version ?? 1 });
+      await request(`/api/schedules/${id}`, { method: "DELETE", body });
       await onChanged();
     } catch (error) {
       onError(errorMessage(error), "操作没有成功");
@@ -91,19 +115,19 @@ export function CalendarFeature({
   return (
     <>
       <section className="glass-panel p-3 xl:h-full">
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="panel-header">
           <div className="flex items-center gap-2">
             <span className="text-mint-700"><CalendarDays size={16} /></span>
             <h2 className="section-title">小时记录</h2>
           </div>
-          <button className="primary-button h-8 gap-1 px-3 text-[11px]" type="button" onClick={() => setState((current) => ({ ...current, editorOpen: true }))}>
+          <Button variant="primary" size="sm" type="button" onClick={() => setState((current) => ({ ...current, editorOpen: true, editingId: null, overlapConflict: false }))}>
             <Plus size={14} />
             记录
-          </button>
+          </Button>
         </div>
 
         <div className="mb-2 grid grid-cols-2 gap-1.5">
-          <Metric label="已记录" value={formatDuration(actualMinutes)} />
+          <Metric label="已记录" value={actualSeconds === undefined ? formatDuration(actualMinutes) : formatSeconds(actualSeconds)} />
           <Metric label="安排" value={`${plannedCount}段`} />
         </div>
         <div className="mb-2 flex items-center gap-3 px-1 text-[10px] text-soft">
@@ -113,7 +137,7 @@ export function CalendarFeature({
 
         {loading && <EmptyText text="加载中..." />}
         {!loading && !items.length && <EmptyText text="这一天还没有时间记录。" />}
-        {!!items.length && <TimelineBoard items={items} onDelete={deleteSchedule} />}
+        {!!items.length && <TimelineBoard items={items} onDelete={deleteSchedule} onEdit={editSchedule} />}
       </section>
 
       {currentState.editorOpen && (
@@ -124,27 +148,52 @@ export function CalendarFeature({
           onChange={updateDraft}
           onClose={() => setState((current) => ({ ...current, editorOpen: false }))}
           onSubmit={createSchedule}
+          editing={Boolean(currentState.editingId)}
+          overlapConflict={currentState.overlapConflict}
+          onKeepExcluded={() => void saveSchedule(false)}
         />
       )}
     </>
   );
 }
 
-function TimeBlockDialog({ categories, tasks, draft, onChange, onClose, onSubmit }: {
+function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, onChange, onClose, onSubmit, onKeepExcluded }: {
   categories: Category[];
   tasks: Task[];
   draft: Draft;
   onChange: (patch: Partial<Draft>) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
+  editing: boolean;
+  overlapConflict: boolean;
+  onKeepExcluded: () => void;
 }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(shellRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])') ?? []);
+    focusable()[0]?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => { document.removeEventListener("keydown", handleKeyDown); trigger?.focus(); };
+  }, []);
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={shellRef} className="modal-shell" role="dialog" aria-modal="true" aria-label={editing ? "修正时间块" : "记录时间块"} onMouseDown={(event) => event.stopPropagation()}>
         <form className="time-modal" onSubmit={onSubmit}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">记录时间块</h3>
-            <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}><X size={15} /></button>
+            <h3 className="text-sm font-semibold">{editing ? "修正时间块" : "记录时间块"}</h3>
+            <IconButton size="sm" label="关闭" type="button" onClick={onClose}><X size={15} /></IconButton>
           </div>
 
           <div className="grid grid-cols-[1fr_96px] gap-2">
@@ -172,10 +221,13 @@ function TimeBlockDialog({ categories, tasks, draft, onChange, onClose, onSubmit
             <label className="text-[11px] text-soft">结束<input className="field mt-1" type="time" value={draft.end} onChange={(event) => onChange({ end: event.target.value })} /></label>
           </div>
           <input aria-label="时间块备注" className="field mt-2" placeholder="备注，可不填" value={draft.note} onChange={(event) => onChange({ note: event.target.value })} />
+          {draft.kind === "1" && draft.taskId ? <label className="manual-complete-option"><input type="checkbox" checked={draft.completeTask} onChange={(event) => onChange({ completeTask: event.target.checked })} />同时完成悬赏（同一事务）</label> : null}
+          {draft.kind === "1" ? <p className="manual-actual-note">补录投入 ≠ 完成 Task；默认只记录实际投入。</p> : null}
+          {overlapConflict ? <div className="overlap-conflict" role="alert"><strong>与已有投入重叠</strong><span>调整开始/结束时间，或保留为不计入汇总的附注。</span><button type="button" onClick={onKeepExcluded}>保留附注，不计入投入汇总</button></div> : null}
 
           <div className="mt-4 flex justify-end gap-2">
-            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={onClose}>取消</button>
-            <button className="primary-button px-5" type="submit">保存</button>
+            <Button variant="secondary" type="button" onClick={onClose}>取消</Button>
+            <Button variant="primary" type="submit">保存</Button>
           </div>
         </form>
       </div>
@@ -199,8 +251,8 @@ function EmptyText({ text }: { text: string }) {
   return <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{text}</p>;
 }
 
-function initialState(date: string): CalendarState {
-  return { date, editorOpen: false, draft: { categoryId: "", taskId: "", kind: "1", title: "", note: "", start: "09:00", end: "10:00" } };
+function initialState(date: string, initialKind?: "plan" | "actual"): CalendarState {
+  return { date, editorOpen: Boolean(initialKind), editingId: null, overlapConflict: false, draft: { categoryId: "", taskId: "", kind: initialKind === "plan" ? "0" : "1", title: "", note: "", start: "09:00", end: "10:00", completeTask: false } };
 }
 
 function formatDuration(minutes: number) {
@@ -208,6 +260,10 @@ function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+function formatSeconds(seconds: number) {
+  return formatDuration(Math.floor(seconds / 60));
 }
 
 function errorMessage(error: unknown) {

@@ -55,8 +55,6 @@ function feature(overrides: Partial<Props> = {}) {
       onChanged={overrides.onChanged ?? vi.fn()}
       onReward={overrides.onReward ?? vi.fn()}
       onStartTimer={overrides.onStartTimer ?? vi.fn()}
-      onPauseTimer={overrides.onPauseTimer ?? vi.fn()}
-      onFinishTimer={overrides.onFinishTimer ?? vi.fn()}
     >
       <TasksPanel />
     </TasksFeature>
@@ -140,7 +138,7 @@ describe("TasksFeature ownership", () => {
     const request = vi.fn(async () => { throw new Error("编辑失败"); }) as Props["request"];
     const onError = vi.fn();
     render(feature({ request, onError }));
-    fireEvent.click(screen.getByRole("button", { name: "编辑任务" }));
+    fireEvent.click(screen.getByRole("button", { name: "在更多菜单中编辑任务" }));
     fireEvent.change(screen.getByLabelText("编辑任务标题"), { target: { value: "保留编辑草稿" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -155,14 +153,10 @@ describe("TasksFeature ownership", () => {
     const request = requestMock as Props["request"];
     const onChanged = vi.fn(async () => undefined);
     const onReward = vi.fn();
-    const onPauseTimer = vi.fn();
-    const onFinishTimer = vi.fn();
     render(feature({
       request,
       onChanged,
       onReward,
-      onPauseTimer,
-      onFinishTimer,
       schedules: [{
         id: 4,
         taskId: task.id,
@@ -189,7 +183,5 @@ describe("TasksFeature ownership", () => {
     });
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(onReward).toHaveBeenCalledWith(task, { xp: 12, coins: 3 });
-    expect(onPauseTimer).not.toHaveBeenCalled();
-    expect(onFinishTimer).not.toHaveBeenCalled();
   });
 });

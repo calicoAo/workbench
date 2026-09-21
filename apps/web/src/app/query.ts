@@ -7,7 +7,9 @@ export const queryKeys = {
   task: (userId: number, taskId: number) => ["task", userId, taskId] as const,
   assignments: (userId: number, date: string) => ["assignments", userId, date] as const,
   continuations: (userId: number, date: string) => ["continuations", userId, date] as const,
-  timeline: (userId: number, date: string) => ["timeline", userId, date] as const
+  timeline: (userId: number, date: string) => ["timeline", userId, date] as const,
+  quickNotes: (userId: number, filters = "active") => ["quick-notes", userId, filters] as const,
+  quickNote: (userId: number, noteId: number) => ["quick-note", userId, noteId] as const
 };
 
 export function createAppQueryClient() {

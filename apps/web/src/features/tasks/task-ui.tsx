@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { DIMENSIONS, type Category, visibleDimensions } from "../categories";
+import { Badge, Button, IconButton } from "../../shared/ui";
 import { DIFFICULTIES } from "./model";
 
 export function CategoryOptions({ categories }: { categories: Category[] }) {
@@ -13,7 +14,7 @@ export function CategoryOptions({ categories }: { categories: Category[] }) {
 
 export function CategoryTag({ category }: { category: Category }) {
   const dimension = DIMENSIONS.find((item) => item.key === category.dimensionKey);
-  return <span className="category-tag" title={`${dimension?.label ?? "生活力"} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}><i style={{ backgroundColor: category.color }} /><span>{category.name}</span></span>;
+  return <Badge className="category-tag" title={`${dimension?.label ?? "生活力"} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}><i style={{ backgroundColor: category.color }} /><span>{category.name}</span></Badge>;
 }
 
 export function DifficultyOptions() {
@@ -44,11 +45,11 @@ export function ModalPortal({ children, onClose }: { children: ReactNode; onClos
 }
 
 export function CloseButton({ onClose }: { onClose: () => void }) {
-  return <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}><X size={15} /></button>;
+  return <IconButton size="sm" type="button" label="关闭" onClick={onClose}><X size={15} /></IconButton>;
 }
 
 export function ModalActions({ onClose, submitLabel }: { onClose: () => void; submitLabel: string }) {
-  return <div className="mt-4 flex justify-end gap-2"><button className="icon-button w-auto px-4" type="button" onClick={onClose}>取消</button><button className="primary-button px-5" type="submit">{submitLabel}</button></div>;
+  return <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" type="button" onClick={onClose}>取消</Button><Button variant="primary" type="submit">{submitLabel}</Button></div>;
 }
 
 export function EmptyText({ text }: { text: string }) {

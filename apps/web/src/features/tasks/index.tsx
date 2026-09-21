@@ -1,5 +1,6 @@
-import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
-import { CheckCircle2, Gift, GripVertical, Pause, Pencil, Play, Plus, Square, Star, X } from "lucide-react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Ellipsis, Gift, GripVertical, Pencil, Play, Plus, Star, X } from "lucide-react";
+import { Badge, Button, FilterChip, IconButton } from "../../shared/ui";
 import { DIMENSIONS, type Category, type DimensionKey, visibleDimensions } from "../categories";
 import { estimatePlannedTaskReward, type RewardEvent, type RewardGrant } from "../rewards";
 import { CompleteTaskWorkflow } from "./complete-task";
@@ -9,10 +10,18 @@ import { type Confirm, type Request, type Schedule, type Task, type TimerSession
 import { SelectDailyTasksWorkflow } from "./select-daily-tasks";
 import { CategoryOptions, CategoryTag, CloseButton, EmptyText, ModalPortal } from "./task-ui";
 
-export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskSnapshot } from "./integration";
+export { BountyBoard } from "./bounty-board";
+export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskDetailPayload, type TaskSnapshot } from "./integration";
 
 type TaskCategoryFilter = "all" | "none" | DimensionKey;
-type ContextValue = { panel: ReactNode };
+type ContextValue = {
+  panel: ReactNode;
+  openCreate: () => void;
+  openSelector: () => void;
+  openEditor: (task: Task) => void;
+  complete: (task: Task) => void | Promise<void>;
+  archive: (task: Task) => void;
+};
 
 const TasksContext = createContext<ContextValue | null>(null);
 
@@ -25,15 +34,15 @@ export function TasksFeature({
   categories,
   schedules,
   dailyTaskIds,
+  focusTaskIds,
+  timezone,
   runningTimers,
   taskRewardEvents,
   onError,
   onConfirm,
   onChanged,
   onReward,
-  onStartTimer,
-  onPauseTimer,
-  onFinishTimer
+  onStartTimer
 }: {
   children: ReactNode;
   request: Request;
@@ -43,6 +52,8 @@ export function TasksFeature({
   categories: Category[];
   schedules: Schedule[];
   dailyTaskIds: number[];
+  focusTaskIds?: number[];
+  timezone?: string;
   runningTimers: TimerSession[];
   taskRewardEvents: RewardEvent[];
   onError: (message: string, title?: string) => void;
@@ -50,8 +61,6 @@ export function TasksFeature({
   onChanged: () => void | Promise<void>;
   onReward: (task: Pick<Task, "id" | "title">, reward: RewardGrant | null) => void;
   onStartTimer: (taskId: number) => void | Promise<void>;
-  onPauseTimer: (timerId: number) => void | Promise<void>;
-  onFinishTimer: (timer: TimerSession) => void;
 }) {
   const [completedOpen, setCompletedOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<TaskCategoryFilter>("all");
@@ -107,10 +116,6 @@ export function TasksFeature({
       const item = tasks.find((candidate) => candidate.id === taskId);
       return taskId !== task.id && item && item.status !== 2 && item.status !== 3;
     });
-    if (!remainingIds.length) {
-      onError("今天至少保留一个已接取任务。可以先接取新的任务，再取消这一个。");
-      return;
-    }
     onConfirm("取消今日任务", `把「${task.title}」放回任务池吗？任务本身不会被删除。`, async () => {
       await perform(onError, async () => {
         await request("/api/task-days", {
@@ -127,6 +132,15 @@ export function TasksFeature({
       await request(`/api/tasks/${task.id}`, { method: "PUT", body: JSON.stringify(body) });
       await onChanged();
     });
+  }
+
+  function archiveTask(task: Task) {
+    onConfirm("归档悬赏", `归档「${task.title}」吗？`, async () => {
+      await perform(onError, async () => {
+        await request(`/api/tasks/${task.id}/archive`, { method: "PUT", body: JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: task.version }) });
+        await onChanged();
+      });
+    }, "归档");
   }
 
   async function reorder(targetTaskId: number) {
@@ -153,23 +167,48 @@ export function TasksFeature({
   }
 
   function renderPanel(openCreate: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>) {
+    const focusSet = new Set(focusTaskIds ?? []);
+    const focusedTasks = pendingTasks.filter((task) => focusSet.has(task.id));
+    const otherTasks = pendingTasks.filter((task) => !focusSet.has(task.id));
+    const completedToday = filteredTasks.filter((task) => task.status === 2);
+    const renderRow = (task: Task) => <TaskRow
+      key={task.id}
+      task={task}
+      category={task.categoryId ? categoryById.get(task.categoryId) ?? null : null}
+      categories={categories}
+      plannedSchedule={taskPlans.get(task.id) ?? null}
+      activeTimer={activeTimersByTaskId.get(task.id) ?? null}
+      dragging={draggingTaskId === task.id}
+      dragOver={dragOverTaskId === task.id && draggingTaskId !== task.id}
+      onDone={() => void toggleDone(task)}
+      onPinned={() => void updatePinned(task)}
+      onCategoryChange={(nextCategoryId) => void updateCategory(task, nextCategoryId)}
+      onProgressChange={(progress) => void updateProgress(task, progress)}
+      onEdit={() => openEditor(task)}
+      onStart={() => void onStartTimer(task.id)}
+      onCancel={() => cancelDailyTask(task)}
+      onDragStart={() => setDraggingTaskId(task.id)}
+      onDragEnter={() => setDragOverTaskId(task.id)}
+      onDragEnd={clearDrag}
+      onDrop={() => void reorder(task.id)}
+    />;
     return (
     <section className="glass-panel p-3 xl:min-h-full">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="panel-header">
         <div className="flex items-center gap-2">
           <span className="text-mint-700"><CheckCircle2 size={17} /></span>
-          <h2 className="section-title">主要任务</h2>
+          <h2 className="section-title">今日悬赏</h2>
         </div>
         <div className="flex items-center gap-1">
-          <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="查看已完成任务" onClick={() => setCompletedOpen(true)}>
+          <Button variant="ghost" size="sm" type="button" aria-label="查看已完成任务" onClick={() => setCompletedOpen(true)}>
             <CheckCircle2 size={14} />已完成
-          </button>
-          <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label="接取今日任务" onClick={openSelector}>
+          </Button>
+          <Button variant="secondary" size="sm" type="button" aria-label="接取今日任务" onClick={openSelector}>
             <Gift size={14} />接取
-          </button>
-          <button className="primary-button h-8 gap-1 px-3 text-[11px]" type="button" onClick={openCreate}>
+          </Button>
+          <Button variant="primary" size="sm" type="button" onClick={openCreate}>
             <Plus size={14} />新增
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -189,33 +228,7 @@ export function TasksFeature({
         {!loading && !tasks.length && <EmptyText text="任务池还没有任务，先添加一个悬赏。" />}
         {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text="今天还没有接取任务，点击上方“接取悬赏”开始选择。" />}
         {!!dailyOrderedTasks.length && (
-          <TaskSection title="待完成" count={pendingTasks.length}>
-            {pendingTasks.length ? pendingTasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                category={task.categoryId ? categoryById.get(task.categoryId) ?? null : null}
-                categories={categories}
-                plannedSchedule={taskPlans.get(task.id) ?? null}
-                activeTimer={activeTimersByTaskId.get(task.id) ?? null}
-                dragging={draggingTaskId === task.id}
-                dragOver={dragOverTaskId === task.id && draggingTaskId !== task.id}
-                onDone={() => void toggleDone(task)}
-                onPinned={() => void updatePinned(task)}
-                onCategoryChange={(nextCategoryId) => void updateCategory(task, nextCategoryId)}
-                onProgressChange={(progress) => void updateProgress(task, progress)}
-                onEdit={() => openEditor(task)}
-                onStart={() => void onStartTimer(task.id)}
-                onPause={(timerId) => void onPauseTimer(timerId)}
-                onFinish={onFinishTimer}
-                onCancel={() => cancelDailyTask(task)}
-                onDragStart={() => setDraggingTaskId(task.id)}
-                onDragEnter={() => setDragOverTaskId(task.id)}
-                onDragEnd={clearDrag}
-                onDrop={() => void reorder(task.id)}
-              />
-            )) : <EmptyText text="今天的悬赏都完成了。" />}
-          </TaskSection>
+          <><TaskSection title="今日重点" count={focusedTasks.length}>{focusedTasks.length ? focusedTasks.map(renderRow) : <EmptyText text="还没有设置重点；可在接取面选择最多 3 项。" />}</TaskSection><TaskSection title="其他已接取" count={otherTasks.length}>{otherTasks.length ? otherTasks.map(renderRow) : <EmptyText text="暂无其他已接取悬赏。" />}</TaskSection>{completedToday.length ? <TaskSection title="已完成" count={completedToday.length}>{completedToday.map(renderRow)}</TaskSection> : null}</>
         )}
       </div>
     </section>
@@ -246,15 +259,15 @@ export function TasksFeature({
   }
 
   return (
-    <CreateTaskWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} onError={onError} onChanged={onChanged}>
+    <CreateTaskWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
       {(openCreate) => (
-        <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
+        <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} focusTaskIds={focusTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
           {(openSelector) => (
             <EditTaskWorkflow request={request} onError={onError} onChanged={onChanged}>
               {(openEditor) => (
                 <CompleteTaskWorkflow request={request} selectedDate={selectedDate} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
-                    <TasksContext.Provider value={{ panel: renderPanel(openCreate, openSelector, openEditor, toggleDone) }}>
+                    <TasksContext.Provider value={{ panel: renderPanel(openCreate, openSelector, openEditor, toggleDone), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
                       {children}
                       {completedOpen && <CompletedTasksModal tasks={completedTasks} categories={categories} rewardsByTaskId={rewardsByTaskId} onClose={() => setCompletedOpen(false)} />}
                     </TasksContext.Provider>
@@ -273,6 +286,12 @@ export function TasksPanel() {
   const value = useContext(TasksContext);
   if (!value) throw new Error("TasksPanel must be rendered inside TasksFeature");
   return value.panel;
+}
+
+export function useTaskSurfaces() {
+  const value = useContext(TasksContext);
+  if (!value) throw new Error("useTaskSurfaces must be used inside TasksFeature");
+  return value;
 }
 
 function CompletedTasksModal({ tasks, categories, rewardsByTaskId, onClose }: {
@@ -306,15 +325,15 @@ function TaskDimensionTabs({ dimensions, active, allCount, uncategorizedCount, d
 }) {
   return (
     <div className="task-tabs" aria-label="能力维度筛选">
-      <button className={`task-tab ${active === "all" ? "task-tab-active" : ""}`} type="button" onClick={() => onChange("all")}>全部 <span>{allCount}</span></button>
-      {dimensions.map((dimension) => <button className={`task-tab ${active === dimension.key ? "task-tab-active" : ""}`} type="button" key={dimension.key} onClick={() => onChange(dimension.key)}><i style={{ backgroundColor: dimension.color }} />{dimension.label}<span>{dimensionCounts.get(dimension.key) ?? 0}</span></button>)}
-      {uncategorizedCount ? <button className={`task-tab ${active === "none" ? "task-tab-active" : ""}`} type="button" onClick={() => onChange("none")}>未分类 <span>{uncategorizedCount}</span></button> : null}
+      <FilterChip active={active === "all"} count={allCount} onClick={() => onChange("all")}>全部</FilterChip>
+      {dimensions.map((dimension) => <FilterChip active={active === dimension.key} count={dimensionCounts.get(dimension.key) ?? 0} dotColor={dimension.color} key={dimension.key} onClick={() => onChange(dimension.key)}>{dimension.label}</FilterChip>)}
+      {uncategorizedCount ? <FilterChip active={active === "none"} count={uncategorizedCount} onClick={() => onChange("none")}>未分类</FilterChip> : null}
     </div>
   );
 }
 
 function TaskSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  return <section className="task-section"><div className="task-section-head"><span>{title}</span><span className="badge-gray">{count}</span></div><div className="space-y-2">{children}</div></section>;
+  return <section className="task-section"><div className="task-section-head"><span>{title}</span><Badge>{count}</Badge></div><div className="space-y-2">{children}</div></section>;
 }
 
 function TaskRow(props: {
@@ -322,10 +341,16 @@ function TaskRow(props: {
   activeTimer: TimerSession | null; dragging: boolean; dragOver: boolean; onDone: () => void;
   onPinned: () => void; onCategoryChange: (categoryId: number | null) => void;
   onProgressChange: (progress: number) => void; onEdit: () => void; onStart: () => void;
-  onPause: (timerId: number) => void; onFinish: (timer: TimerSession) => void; onCancel: () => void;
+  onCancel: () => void;
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void; onDrop: () => void;
 }) {
   const [editingProgress, setEditingProgress] = useState(false);
+  const [, setTimerTick] = useState(0);
+  useEffect(() => {
+    if (props.activeTimer?.status !== 0) return;
+    const timer = window.setInterval(() => setTimerTick((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [props.activeTimer?.status]);
   const estimatedReward = estimatePlannedTaskReward(props.task, props.plannedSchedule);
   const saveProgress = (value: string) => {
     setEditingProgress(false);
@@ -334,27 +359,35 @@ function TaskRow(props: {
   };
   return (
     <div className={`task-row ${props.activeTimer ? "task-row-active" : ""} ${props.dragging ? "task-row-dragging" : ""} ${props.dragOver ? "task-row-drop" : ""}`} onDragEnd={props.onDragEnd} onDragEnter={(event) => { event.preventDefault(); props.onDragEnter(); }} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => { event.preventDefault(); props.onDrop(); }}>
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title="拖拽排序"><GripVertical size={16} /></span>
-        <button className={`shrink-0 ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label="重要标记" onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
-        <div className="flex min-w-0 items-center gap-3">
-          <input aria-label={`完成${props.task.title}`} className="h-4 w-4 accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} />
-          <span className="min-w-0">
-            <span className="flex min-w-0 items-center gap-2"><span className={`task-title ${props.task.status === 2 ? "text-soft line-through" : ""}`}>{props.task.title}</span><span className="task-created-inline">创建 {formatDateTime(props.task.createdAt)}</span>{props.category ? <CategoryTag category={props.category} /> : null}<span className="difficulty-pill">{difficultyLabel(props.task.difficulty)}</span></span>
+      <div className="task-row-main">
+        <span className="task-row-leading">
+          <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title="拖拽排序"><GripVertical size={16} /></span>
+          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label="重要标记" onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
+          <label className="task-check-target"><input aria-label={`完成${props.task.title}`} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
+        </span>
+        <span className="task-row-copy">
+          <span className="task-row-heading"><span className={`task-title ${props.task.status === 2 ? "text-soft line-through" : ""}`}>{props.task.title}</span><span className="task-row-desktop-meta"><span className="task-created-inline">创建 {formatDateTime(props.task.createdAt)}</span>{props.category ? <CategoryTag category={props.category} /> : null}<Badge tone="warning">{difficultyLabel(props.task.difficulty)}</Badge></span></span>
+          <span className="task-row-mobile-meta"><strong>{props.activeTimer ? `${props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · ${elapsedText(props.activeTimer.startTime)}` : props.task.status === 2 ? "已完成" : "待执行"}</strong><span>{props.category?.name ?? "未分类"}</span></span>
+          <span className="task-row-detail-stack">
             <span className="task-meta">{props.plannedSchedule ? `${props.plannedSchedule.startTime.slice(0, 5)}-${props.plannedSchedule.endTime.slice(0, 5)} · 安排` : "未安排时段"}</span>
             {props.task.description?.trim() ? <span className="task-meta" title={props.task.description}>详情：{props.task.description}</span> : null}
             {estimatedReward ? <span className="task-reward-estimate">预计 +{estimatedReward.xp} XP +{estimatedReward.coins} 金币</span> : null}
             {props.task.dueAt ? <span className="task-meta">截止 {formatDateTime(props.task.dueAt)}</span> : null}
             <span className="task-progress-line"><button className="task-progress-track" type="button" aria-label="编辑任务完成百分比" title={`进度 ${props.task.progressPercent}%，点击编辑`} onClick={() => setEditingProgress(true)}><span className="task-progress-fill" style={{ width: `${props.task.progressPercent}%` }} /></button>{editingProgress ? <input className="field task-progress-input" type="number" min={0} max={100} defaultValue={props.task.progressPercent} autoFocus aria-label="任务完成百分比" onBlur={(event) => saveProgress(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") setEditingProgress(false); }} /> : null}</span>
           </span>
-        </div>
+        </span>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        {props.activeTimer ? <span className="timer-pill">{elapsedText(props.activeTimer.startTime)}</span> : null}
-        <button className="icon-button h-8 w-8" aria-label="编辑任务" title="编辑任务" onClick={props.onEdit}><Pencil size={14} /></button>
-        <select className="task-category-picker" aria-label="修改事件类型" value={props.task.categoryId ?? ""} onChange={(event) => props.onCategoryChange(event.target.value ? Number(event.target.value) : null)}><option value="">未分类</option><CategoryOptions categories={props.categories} /></select>
-        {props.activeTimer ? <><button className="icon-button" aria-label="暂停并记录阶段完成" onClick={() => props.onPause(props.activeTimer!.id)}><Pause size={17} /></button><button className="icon-button" aria-label="结束并计入时间轴" onClick={() => props.onFinish(props.activeTimer!)}><Square size={17} /></button></> : <button className="icon-button" aria-label="开始计时" onClick={props.onStart}><Play size={17} /></button>}
-        <button className="icon-button" aria-label="取消今日任务" onClick={props.onCancel}><X size={15} /></button>
+      <details className="task-row-more">
+        <summary aria-label="更多任务操作" title="更多任务操作"><Ellipsis size={19} /></summary>
+        <div>
+          <button type="button" aria-label="在更多菜单中编辑任务" onClick={props.onEdit}><Pencil size={15} />编辑任务</button>
+          <label>能力分类<select aria-label="移动端修改事件类型" value={props.task.categoryId ?? ""} onChange={(event) => props.onCategoryChange(event.target.value ? Number(event.target.value) : null)}><option value="">未分类</option><CategoryOptions categories={props.categories} /></select></label>
+          {props.task.status === 2 ? null : <button className="danger-command" type="button" onClick={props.onCancel}><X size={15} />取消今日</button>}
+        </div>
+      </details>
+      <div className="task-row-controls">
+        {props.activeTimer ? <Badge tone="success" className="task-row-execution-badge">{props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · {elapsedText(props.activeTimer.startTime)}</Badge> : null}
+        {props.task.status < 2 && !props.activeTimer ? <IconButton size="sm" className="task-row-primary-action" label="开始计时" onClick={props.onStart}><Play size={16} /></IconButton> : null}
       </div>
     </div>
   );

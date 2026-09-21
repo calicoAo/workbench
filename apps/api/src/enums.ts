@@ -78,3 +78,10 @@ export const ScheduleSource = {
   TIMER: 1,
   PLANNED_TASK: 2
 } as const;
+
+export const ScheduleLifecycle = {
+  PENDING: 0,
+  EXECUTED: 1,
+  CANCELLED: 2,
+  RESCHEDULED: 3
+} as const;

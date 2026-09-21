@@ -12,6 +12,9 @@
     "test:workflows:ci": "TZ=UTC node --test tests/require-all-tests.test.mjs && TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/require-all-tests.mjs --test-reporter-destination=stdout tests/workflows.test.ts",
     "test:r1a": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test tests/r1a-domain-semantics.test.ts",
     "test:r1b": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test tests/r1b-transaction-workflows.test.ts",
+    "test:r1d": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test tests/r1d-execution-vertical.test.ts",
+    "test:g5a": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r1a-domain-semantics.test.ts tests/r1_5-quick-notes.test.ts",
+    "test:g5b": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r1_5-g5b.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   },

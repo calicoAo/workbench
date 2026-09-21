@@ -286,6 +286,24 @@ paths:
         "200":
           description: Hard deleted category
   /schedules:
+    get:
+      summary: Read a one-to-seven day Calendar range with canonical daily execution summaries
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: timezone
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Schedule rows and per-day canonical summaries
     post:
       summary: Create a timeline time block
       requestBody:
@@ -299,8 +317,8 @@ paths:
           description: Created time block
   /schedules/{id}:
     put:
-      summary: Correct a Manual Actual record
-      description: Retryable correction. TIMER projections cannot be edited through this route.
+      summary: Update a Planned block or correct a Manual Actual record
+      description: Retryable source-aware update. TIMER projections and Legacy Actual rows cannot be edited through this route.
       parameters:
         - in: path
           name: id
@@ -330,8 +348,7 @@ paths:
             type: integer
             format: int64
       requestBody:
-        required: false
-        description: Required for Manual Actual; omitted for planned blocks.
+        required: true
         content:
           application/json:
             schema:
@@ -341,6 +358,23 @@ paths:
           description: Planned block deleted or Manual Actual cancelled
         "409":
           description: TIMER projection, version, or operation identity conflict
+  /schedules/{id}/reschedule:
+    post:
+      summary: Reschedule a Planned block by preserving the source and creating a replacement
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlannedScheduleRequest"
+      responses:
+        "200":
+          description: Source marked RESCHEDULED and replacement PENDING block created atomically
   /sleep-records:
     get:
       summary: Get sleep record by date
@@ -475,14 +509,38 @@ paths:
           description: Saved water record
   /quick-notes:
     get:
-      summary: List quick notes and inspiration records
+      summary: List quick notes with cursor pagination
       parameters:
         - in: query
-          name: date
-          required: false
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: from
           schema:
             type: string
             format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: tag
+          schema:
+            type: string
+            maxLength: 64
+        - in: query
+          name: keyword
+          schema:
+            type: string
+            maxLength: 120
+        - in: query
+          name: state
+          schema:
+            type: string
+            enum: [active, archived, deleted]
+            default: active
         - in: query
           name: limit
           schema:
@@ -492,7 +550,7 @@ paths:
             default: 20
       responses:
         "200":
-          description: Quick note list
+          description: Paginated Quick Note list
     post:
       summary: Create a quick note
       requestBody:
@@ -505,8 +563,8 @@ paths:
         "200":
           description: Created quick note
   /quick-notes/{id}:
-    delete:
-      summary: Hard delete a quick note
+    get:
+      summary: Get a Quick Note owned by the current user
       parameters:
         - in: path
           name: id
@@ -516,7 +574,171 @@ paths:
             format: int64
       responses:
         "200":
-          description: Deleted quick note
+          description: Quick Note detail
+    put:
+      summary: Edit a Quick Note with optimistic concurrency
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuickNoteRequest"
+      responses:
+        "200":
+          description: Updated Quick Note
+        "409":
+          description: expectedVersion conflict
+    delete:
+      summary: Soft delete a Quick Note
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuickNoteVersionRequest"
+      responses:
+        "200":
+          description: Soft-deleted Quick Note
+  /quick-notes/{id}/archive:
+    post:
+      summary: Archive a Quick Note
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuickNoteVersionRequest" }
+      responses:
+        "200": { description: Archived Quick Note }
+  /quick-notes/{id}/unarchive:
+    post:
+      summary: Return an archived Quick Note to the active library
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuickNoteVersionRequest" }
+      responses:
+        "200": { description: Active Quick Note }
+  /quick-notes/{id}/restore:
+    post:
+      summary: Restore a soft-deleted Quick Note
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuickNoteVersionRequest" }
+      responses:
+        "200": { description: Restored Quick Note }
+  /quick-notes/{id}/convert-to-task:
+    post:
+      summary: Atomically convert one Quick Note snapshot into its single directly linked Task
+      description: Uses operation receipts and the Tasks transaction-aware publish capability. The Task response never expands Quick Note body or tag.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConvertQuickNoteRequest" }
+      responses:
+        "200": { description: Task, optional Assignment, source relation, and receipt committed atomically }
+        "409": { description: Reused operationId with changed parameters or Quick Note already converted }
+  /settings:
+    get:
+      summary: Read profile, display preferences, continuation capability, and all current categories
+      responses:
+        "200": { description: Settings snapshot; missing preference rows use read-only defaults }
+    patch:
+      summary: Update profile and display preferences
+      description: Timezone changes affect defaults for future records only and never rewrite historical business dates or timezone snapshots.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string, maxLength: 64 }
+                timezone: { type: string, example: Asia/Shanghai }
+                reducedMotion: { type: boolean }
+                showRewards: { type: boolean }
+      responses:
+        "200": { description: Updated settings snapshot }
+  /search:
+    get:
+      summary: Search stable user-owned domains without a copied search index
+      description: Includes archived Tasks and Quick Notes, excludes soft-deleted records, and returns only result summaries and deep links.
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 120 }
+        - in: query
+          name: type
+          schema: { type: string, enum: [task, quick_note, journal, morning_writing, schedule] }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200": { description: Deterministically ordered cursor page }
+  /exports/{domain}:
+    get:
+      summary: Generate one user-triggered domain export from canonical records
+      parameters:
+        - in: path
+          name: domain
+          required: true
+          schema: { type: string, enum: [tasks, writing, calendar, rewards, life] }
+        - in: query
+          name: format
+          required: true
+          schema: { type: string, enum: [json, csv, markdown] }
+        - in: query
+          name: includeTrash
+          schema: { type: boolean, default: false }
+      responses:
+        "200": { description: File metadata, record count, and generated content; Markdown is writing-only }
   /rewards:
     get:
       summary: Get growth, reward items, recent rewards, and redemptions
@@ -700,6 +922,19 @@ paths:
         "200":
           description: Reordered tasks
   /tasks/{id}:
+    get:
+      summary: Read a Task detail aggregate
+      description: Returns the Task, Assignment history, Planned blocks, and canonical Timer/Manual/Legacy Actual history.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Task detail aggregate
+        "404":
+          description: Task not found for the authenticated user
     put:
       summary: Update task title, description, category, due time, difficulty, or progress
       parameters:
@@ -1200,6 +1435,17 @@ components:
         completionSequence:
           type: integer
           minimum: 0
+        estimatedMinutes:
+          type: integer
+          nullable: true
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
     TaskDailyAssignment:
       type: object
       required: [id, taskId, taskDate, assignmentStatus, recordTimezone, continuationState, version]
@@ -1213,6 +1459,11 @@ components:
         taskDate:
           type: string
           format: date
+        focusRank:
+          type: integer
+          minimum: 1
+          maximum: 3
+          nullable: true
         assignmentStatus:
           type: integer
           enum: [0, 1]
@@ -1634,6 +1885,7 @@ components:
           nullable: true
     QuickNote:
       type: object
+      required: [id, noteDate, recordTimezone, content, version, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -1641,6 +1893,8 @@ components:
         noteDate:
           type: string
           format: date
+        recordTimezone:
+          type: string
         title:
           type: string
           nullable: true
@@ -1649,6 +1903,17 @@ components:
         tag:
           type: string
           nullable: true
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
         createdAt:
           type: string
           format: date-time
@@ -1799,8 +2064,11 @@ components:
           type: integer
     CreateTaskRequest:
       type: object
-      required: [title, categoryId]
+      required: [title]
       properties:
+        operationId:
+          type: string
+          format: uuid
         title:
           type: string
           maxLength: 200
@@ -1810,6 +2078,7 @@ components:
         categoryId:
           type: integer
           format: int64
+          nullable: true
         priority:
           type: integer
           enum: [1, 2, 3]
@@ -1825,6 +2094,16 @@ components:
           nullable: true
         estimatedMinutes:
           type: integer
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        acceptDate:
+          type: string
+          format: date
+          description: When present, publish and accept execute in one receipt-backed transaction.
+        recordTimezone:
+          type: string
         plannedDate:
           type: string
           format: date
@@ -1848,6 +2127,12 @@ components:
         categoryId:
           type: integer
           format: int64
+          nullable: true
+        priority:
+          type: integer
+          enum: [1, 2, 3]
+        estimatedMinutes:
+          type: integer
           nullable: true
         difficulty:
           type: integer
@@ -1941,6 +2226,15 @@ components:
             completionNote:
               type: string
               maxLength: 1000
+            progressPercent:
+              type: integer
+              minimum: 0
+              maximum: 99
+              description: Optional Task progress update committed with finish; requires expectedTaskVersion.
+            note:
+              type: string
+              maxLength: 500
+              description: Optional Session note.
     CreateScheduleRequest:
       type: object
       required: [scheduleDate, startTime, endTime, kind]
@@ -2021,6 +2315,20 @@ components:
           maxLength: 500
         includeInActualTime:
           type: boolean
+    UpdatePlannedScheduleRequest:
+      type: object
+      required: [operationId, expectedVersion, scheduleDate, startTime, endTime, recordTimezone, title]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        scheduleDate: { type: string, format: date }
+        startTime: { type: string, example: "09:00" }
+        endTime: { type: string, example: "10:00" }
+        recordTimezone: { type: string }
+        taskId: { type: integer, format: int64, nullable: true }
+        categoryId: { type: integer, format: int64, nullable: true }
+        title: { type: string, maxLength: 200 }
+        note: { type: string, maxLength: 500 }
     AcceptTaskForDateRequest:
       type: object
       required: [operationId, taskId, taskDate, recordTimezone]
@@ -2160,8 +2468,11 @@ components:
           maximum: 12
     CreateQuickNoteRequest:
       type: object
-      required: [noteDate, content]
+      required: [operationId, content]
       properties:
+        operationId:
+          type: string
+          format: uuid
         noteDate:
           type: string
           format: date
@@ -2176,6 +2487,49 @@ components:
           type: string
           maxLength: 64
           nullable: true
+    UpdateQuickNoteRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+        noteDate:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 120
+          nullable: true
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        tag:
+          type: string
+          maxLength: 64
+          nullable: true
+    QuickNoteVersionRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+    ConvertQuickNoteRequest:
+      type: object
+      required: [operationId, title, description, difficulty, recordTimezone]
+      properties:
+        operationId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        categoryId: { type: integer, format: int64 }
+        priority: { type: integer, enum: [1, 2, 3], default: 2 }
+        difficulty: { type: integer, enum: [1, 2, 3, 4] }
+        estimatedMinutes: { type: integer, minimum: 1 }
+        dueAt: { type: string, example: 2026-09-20T18:00 }
+        acceptDate: { type: string, format: date }
+        recordTimezone: { type: string, example: Asia/Shanghai }
     CreateRewardItemRequest:
       type: object
       required: [name, cost]
@@ -2254,6 +2608,13 @@ components:
         taskIds:
           type: array
           maxItems: 30
+          items:
+            type: integer
+            format: int64
+        focusTaskIds:
+          type: array
+          maxItems: 3
+          description: Ordered Assignment focus selection; this does not mutate Task.pinned.
           items:
             type: integer
             format: int64

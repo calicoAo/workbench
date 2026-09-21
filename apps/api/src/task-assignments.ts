@@ -237,8 +237,9 @@ export async function closePendingContinuationsInClient(client: DatabaseClient, 
     ));
 }
 
-export function replaceAssignmentsForDate(command: { userId: number; taskDate: string; taskIds: number[]; recordTimezone: string }) {
+export function replaceAssignmentsForDate(command: { userId: number; taskDate: string; taskIds: number[]; focusTaskIds?: number[]; recordTimezone: string }) {
   const taskIds = [...new Set(command.taskIds)];
+  const focusTaskIds = command.focusTaskIds === undefined ? null : [...new Set(command.focusTaskIds)].filter((taskId) => taskIds.includes(taskId)).slice(0, 3);
   return db.transaction(async (tx) => {
     const existingIdentities = await tx
       .select({ taskId: taskDailyAssignments.taskId })
@@ -269,15 +270,22 @@ export function replaceAssignmentsForDate(command: { userId: number; taskDate: s
       .for("update");
     const byTaskId = new Map(existing.map((assignment) => [assignment.taskId, assignment]));
     const now = new Date();
+    if (focusTaskIds && existing.some((assignment) => assignment.focusRank !== null)) {
+      await tx.update(taskDailyAssignments).set({ focusRank: null }).where(and(eq(taskDailyAssignments.userId, command.userId), eq(taskDailyAssignments.taskDate, command.taskDate)));
+    }
 
     for (const assignment of existing) {
       const selectedIndex = taskIds.indexOf(assignment.taskId);
       const nextStatus = selectedIndex >= 0 ? AssignmentStatus.ACCEPTED : AssignmentStatus.RELEASED;
       const nextSortOrder = selectedIndex >= 0 ? selectedIndex + 1 : assignment.sortOrder;
-      if (assignment.assignmentStatus === nextStatus && assignment.sortOrder === nextSortOrder) continue;
+      const focusIndex = focusTaskIds?.indexOf(assignment.taskId) ?? -1;
+      const nextFocusRank = focusTaskIds === null ? assignment.focusRank : selectedIndex >= 0 && focusIndex >= 0 ? focusIndex + 1 : null;
+      const focusRewritten = focusTaskIds !== null && (assignment.focusRank !== null || nextFocusRank !== null);
+      if (!focusRewritten && assignment.assignmentStatus === nextStatus && assignment.sortOrder === nextSortOrder && assignment.focusRank === nextFocusRank) continue;
       await tx.update(taskDailyAssignments).set({
         assignmentStatus: nextStatus,
         sortOrder: nextSortOrder,
+        focusRank: nextFocusRank,
         version: assignment.version + 1,
         updatedAt: now
       }).where(eq(taskDailyAssignments.id, assignment.id));
@@ -292,12 +300,13 @@ export function replaceAssignmentsForDate(command: { userId: number; taskDate: s
         assignmentStatus: AssignmentStatus.ACCEPTED,
         recordTimezone: command.recordTimezone,
         sortOrder: index + 1,
+        focusRank: focusTaskIds && focusTaskIds.indexOf(taskId) >= 0 ? focusTaskIds.indexOf(taskId) + 1 : null,
         continuationState: ContinuationState.PENDING,
         version: 1,
         createdAt: now,
         updatedAt: now
       });
     }
-    return { taskDate: command.taskDate, taskIds };
+    return { taskDate: command.taskDate, taskIds, focusTaskIds: focusTaskIds ?? existing.filter((assignment) => assignment.focusRank !== null && taskIds.includes(assignment.taskId)).sort((left, right) => left.focusRank! - right.focusRank!).map((assignment) => assignment.taskId) };
   });
 }

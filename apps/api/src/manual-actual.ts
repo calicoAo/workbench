@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { type DatabaseClient } from "./db/index.js";
 import { schedules, tasks, timerSegments, users } from "./db/schema.js";
-import { ActualTimeClass, AttributionStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus } from "./enums.js";
+import { ActualTimeClass, AttributionStatus, ScheduleKind, ScheduleLifecycle, ScheduleSource, TaskStatus, TimerSegmentStatus } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 import { lockExecutionSlot, requireEmptySlot } from "./execution-slot.js";
 import { runMutation } from "./mutation-receipt.js";
@@ -87,6 +87,7 @@ export function recordManualActual(command: {
       title: command.title?.trim() || task!.title,
       note: command.note?.trim() || null,
       completed: 1,
+      lifecycleState: ScheduleLifecycle.EXECUTED,
       kind: ScheduleKind.ACTUAL,
       source: ScheduleSource.MANUAL,
       sourceId: `manual:${command.operationId}`,

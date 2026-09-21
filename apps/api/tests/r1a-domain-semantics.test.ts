@@ -80,6 +80,10 @@ async function seedProductionLikeFixture(connection: Connection) {
     `INSERT INTO reward_events (user_id, event_key, source_type, source_id, event_date, xp_delta, coin_delta, reason, created_at)
      VALUES (1, 'fixture:reward', 'fixture', '1', '2026-08-01', 1, 1, 'fixture', '2026-08-01 01:00:00')`
   );
+  await connection.query(
+    `INSERT INTO quick_notes (user_id, note_date, title, content, tag, created_at, updated_at)
+     VALUES (1, '2026-08-01', 'Fixture note', 'Preserve this note through forward migrations', 'fixture', '2026-08-02 01:00:00', '2026-08-02 01:00:00')`
+  );
 }
 
 before(async () => {
@@ -97,7 +101,7 @@ before(async () => {
   await applyMigrations(admin, freshDatabase);
   await applyMigrations(admin, fixtureDatabase, 18);
   await seedProductionLikeFixture(admin);
-  await applyMigrations(admin, fixtureDatabase, 20, 19);
+  await applyMigrations(admin, fixtureDatabase, 22, 19);
   await applyMigrations(admin, v20FixtureDatabase, 19);
   await admin.query(`USE \`${v20FixtureDatabase}\``);
   const [sessionResult] = await admin.query(
@@ -193,6 +197,7 @@ test("production-like migration preserves legacy identity and classifies without
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM user_execution_slots WHERE active_session_id IS NOT NULL"), 0);
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM schedules WHERE source = 1 AND source_id IS NULL AND timer_segment_id IS NULL AND actual_time_class = 2"), 11);
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM reward_events"), 1);
+  assert.equal(await scalar(admin, "SELECT COUNT(*) FROM quick_notes WHERE content = 'Preserve this note through forward migrations' AND version = 1 AND archived_at IS NULL AND deleted_at IS NULL"), 1);
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM schedules WHERE include_in_actual_time = 1"), 11);
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM task_completion_events WHERE source = 0"), 11);
   assert.equal(await scalar(admin, "SELECT COUNT(*) FROM task_completion_events"), 11);

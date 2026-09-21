@@ -31,6 +31,8 @@ export type AiInsight = {
   stressKeywords: string | null;
   suggestion: string | null;
   fullText: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 export type WritingReflectionSnapshot = {
   morning: MorningWritingRecord | null;
@@ -51,6 +53,7 @@ type ReviewDraft = {
   tags: string;
 };
 type ContextValue = {
+  userId: number;
   selectedDate: string;
   disabled: boolean;
   modal: WritingKind | null;
@@ -68,7 +71,11 @@ type ContextValue = {
   saveJournal: (event: FormEvent) => Promise<void>;
   saveReview: (event: FormEvent) => Promise<void>;
   analyze: (kind: InsightKind) => Promise<void>;
+  stageJournalReference: (input: JournalReferenceInput) => JournalReferenceResult;
 };
+
+export type JournalReferenceInput = { noteId: number; targetDate: string; text: string; force?: boolean };
+export type JournalReferenceResult = { status: "inserted" | "duplicate" };
 
 const WritingReflectionContext = createContext<ContextValue | null>(null);
 
@@ -90,6 +97,7 @@ const JOURNAL_STATE_OPTIONS = [
 
 export function WritingReflectionFeature({
   children,
+  userId = 0,
   request,
   selectedDate,
   initialSnapshot,
@@ -98,6 +106,7 @@ export function WritingReflectionFeature({
   onChanged
 }: {
   children: ReactNode;
+  userId?: number;
   request: Request;
   selectedDate: string;
   initialSnapshot: WritingReflectionSnapshot;
@@ -119,6 +128,32 @@ export function WritingReflectionFeature({
     journal: initialSnapshot.insights.find((item) => item.sourceType === "journal")
   }));
   const [aiLoading, setAiLoading] = useState<InsightKind | null>(null);
+  const pendingReferencesApplied = useRef(false);
+
+  useEffect(() => {
+    if (disabled || pendingReferencesApplied.current) return;
+    pendingReferencesApplied.current = true;
+    const pending = readPendingJournalReferences(userId, selectedDate);
+    if (!pending.length) return;
+    setJournal((current) => ({ ...current, content: appendJournalReferences(current.content, pending) }));
+    localStorage.removeItem(pendingReferenceKey(userId, selectedDate));
+  }, [disabled, selectedDate, userId]);
+
+  function stageJournalReference(input: JournalReferenceInput): JournalReferenceResult {
+    const registryKey = journalReferenceRegistryKey(userId, input.targetDate);
+    const known = readNumberSet(registryKey);
+    if (known.has(input.noteId) && !input.force) return { status: "duplicate" };
+    const reference = { noteId: input.noteId, text: input.text.trim() };
+    known.add(input.noteId);
+    localStorage.setItem(registryKey, JSON.stringify([...known]));
+    if (input.targetDate === selectedDate) {
+      setJournal((current) => ({ ...current, content: appendJournalReferences(current.content, [reference]) }));
+    } else {
+      const key = pendingReferenceKey(userId, input.targetDate);
+      localStorage.setItem(key, JSON.stringify([...readPendingJournalReferences(userId, input.targetDate), reference]));
+    }
+    return { status: "inserted" };
+  }
 
   async function saveMorning(event: FormEvent) {
     event.preventDefault();
@@ -193,6 +228,7 @@ export function WritingReflectionFeature({
   }
 
   const value: ContextValue = {
+    userId,
     selectedDate,
     disabled,
     modal,
@@ -209,7 +245,8 @@ export function WritingReflectionFeature({
     saveMorning,
     saveJournal,
     saveReview,
-    analyze
+    analyze,
+    stageJournalReference
   };
 
   return (
@@ -218,6 +255,28 @@ export function WritingReflectionFeature({
       <WritingDialogs />
     </WritingReflectionContext.Provider>
   );
+}
+
+export function useJournalDraftBridge() {
+  const feature = useWritingReflection();
+  return { stageJournalReference: feature.stageJournalReference };
+}
+
+function journalReferenceRegistryKey(userId: number, date: string) { return `personal-workbench:journal-reference-registry:v1:${userId}:${date}`; }
+function pendingReferenceKey(userId: number, date: string) { return `personal-workbench:journal-reference-pending:v1:${userId}:${date}`; }
+function readNumberSet(key: string) {
+  try { return new Set((JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[]).filter((value): value is number => Number.isInteger(value))); }
+  catch { localStorage.removeItem(key); return new Set<number>(); }
+}
+function readPendingJournalReferences(userId: number, date: string): Array<{ noteId: number; text: string }> {
+  try {
+    const value = JSON.parse(localStorage.getItem(pendingReferenceKey(userId, date)) ?? "[]") as Array<{ noteId: number; text: string }>;
+    return value.filter((item) => Number.isInteger(item.noteId) && typeof item.text === "string" && item.text.trim());
+  } catch { localStorage.removeItem(pendingReferenceKey(userId, date)); return []; }
+}
+function appendJournalReferences(content: string, references: Array<{ noteId: number; text: string }>) {
+  const addition = references.map((item) => `[来自随手记 #${item.noteId}]\n${item.text}`).join("\n\n");
+  return [content.trimEnd(), addition].filter(Boolean).join("\n\n");
 }
 
 export function WritingReflectionShortcuts() {
@@ -378,7 +437,7 @@ function InsightControls({ kind }: { kind: InsightKind }) {
       <div className="flex justify-end">
         <button className="icon-button w-auto gap-1 px-3 text-[11px]" type="button" aria-label={kind === "morning" ? "分析晨写内容" : "分析日记内容"} onClick={() => void feature.analyze(kind)} disabled={feature.disabled || feature.aiLoading === kind}>
           <Sparkles size={13} />
-          AI分析
+          {feature.aiLoading === kind ? "分析中..." : insight ? "重新生成" : "AI分析"}
         </button>
       </div>
       {insight && <AiInsightCard insight={insight} />}
@@ -475,6 +534,7 @@ function AiInsightCard({ insight }: { insight: AiInsight }) {
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-mint-700"><Sparkles size={13} />AI洞察</span>
         <span className="badge-gray">能量 {insight.energyScore ?? "-"}/5</span>
       </div>
+      <p className="mb-2 text-[10px] text-soft">来源：{insight.sourceType === "morning" ? "晨写" : "睡前日记"} · {insight.sourceDate}{insight.updatedAt || insight.createdAt ? ` · 生成于 ${formatInsightTime(insight.updatedAt ?? insight.createdAt!)}` : ""}</p>
       {insight.summary && <p className="text-[12px] leading-5 text-ink">{insight.summary}</p>}
       {!!tags.length && <div className="mt-2 flex flex-wrap gap-1">{tags.map((tag) => <span className="badge-gray" key={tag}>{tag}</span>)}</div>}
       <div className="mt-2 space-y-2 text-[12px] leading-6 text-soft">
@@ -484,6 +544,10 @@ function AiInsightCard({ insight }: { insight: AiInsight }) {
       </div>
     </article>
   );
+}
+
+function formatInsightTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function ScoreOptions({ items }: { items: readonly { value: string; label: string }[] }) {

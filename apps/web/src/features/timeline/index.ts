@@ -24,7 +24,8 @@ export type TimelineViewItem = {
 };
 
 type PlannedSchedule = { id: number; taskId: number | null; kind: number; title: string; scheduleDate?: string; startTime: string; endTime: string };
-type ActualTimePayload = { date: string; timezone: string; entries: ActualTimeEntry[] };
+export type ExecutionSummary = { completedAssignments: number; totalAssignments: number; focusedSeconds: number; actualSeconds: number; plannedSeconds: number };
+type ActualTimePayload = { date: string; timezone: string; entries: ActualTimeEntry[]; summary: ExecutionSummary };
 
 export function mapTimeline(plannedSchedules: PlannedSchedule[], actual: ActualTimeEntry[], date: string): TimelineViewItem[] {
   const planned = plannedSchedules.filter((item) => item.kind === 0).map((item) => ({
@@ -54,7 +55,7 @@ export function useTimeline(request: Request, userId: number, date: string, time
     enabled,
     queryFn: async () => {
       const payload = await request<ActualTimePayload>(`/api/timer-sessions/actual-time?date=${encodeURIComponent(date)}&timezone=${encodeURIComponent(timezone)}`);
-      return mapTimeline(plannedSchedules, payload.entries, date);
+      return { items: mapTimeline(plannedSchedules, payload.entries, date), summary: payload.summary };
     }
   });
 }

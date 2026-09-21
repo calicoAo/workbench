@@ -20,19 +20,21 @@ const createCategorySchema = z.object({
 });
 
 const updateCategorySchema = z.object({
-  name: z.string().min(1).max(64),
-  dimensionKey: dimensionKeySchema,
-  color: z.string().max(32),
+  name: z.string().min(1).max(64).optional(),
+  dimensionKey: dimensionKeySchema.optional(),
+  color: z.string().max(32).optional(),
   icon: z.string().max(64).optional(),
-  targetMinutes: z.number().int().positive()
-});
+  targetMinutes: z.number().int().positive().optional(),
+  enabled: z.boolean().optional()
+}).refine((value) => Object.values(value).some((item) => item !== undefined), { message: "at least one field is required" });
 
 export const taskCategoriesRoute = new Hono()
   .get("/", async (c) => {
+    const includeDisabled = c.req.query("includeDisabled") === "true";
     const rows = await db
       .select()
       .from(taskCategories)
-      .where(and(eq(taskCategories.userId, getCurrentUserId(c)), eq(taskCategories.enabled, 1), isNull(taskCategories.deletedAt)));
+      .where(and(eq(taskCategories.userId, getCurrentUserId(c)), ...(includeDisabled ? [] : [eq(taskCategories.enabled, 1)]), isNull(taskCategories.deletedAt)));
 
     return ok(c, rows);
   })
@@ -66,7 +68,15 @@ export const taskCategoriesRoute = new Hono()
 
     await db
       .update(taskCategories)
-      .set({ name: body.name, dimensionKey: body.dimensionKey, color: body.color, icon: body.icon, targetMinutes: body.targetMinutes, updatedAt: new Date() })
+      .set({
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.dimensionKey !== undefined ? { dimensionKey: body.dimensionKey } : {}),
+        ...(body.color !== undefined ? { color: body.color } : {}),
+        ...(body.icon !== undefined ? { icon: body.icon } : {}),
+        ...(body.targetMinutes !== undefined ? { targetMinutes: body.targetMinutes } : {}),
+        ...(body.enabled !== undefined ? { enabled: body.enabled ? 1 : 0 } : {}),
+        updatedAt: new Date()
+      })
       .where(and(eq(taskCategories.id, id), eq(taskCategories.userId, getCurrentUserId(c))));
 
     log.info({ userId: getCurrentUserId(c), categoryId: id }, "[category_updated]");
@@ -93,4 +103,3 @@ export const taskCategoriesRoute = new Hono()
     log.info({ userId: getCurrentUserId(c), categoryId: id }, "[category_deleted]");
     return ok(c, { id });
   });
-

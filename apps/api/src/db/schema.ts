@@ -58,6 +58,7 @@ export const taskDailyAssignments = mysqlTable("task_daily_assignments", {
   assignmentStatus: tinyint("assignment_status").notNull().default(0),
   recordTimezone: varchar("record_timezone", { length: 64 }).notNull().default("Asia/Shanghai"),
   sortOrder: int("sort_order").notNull(),
+  focusRank: tinyint("focus_rank", { unsigned: true }),
   continuationState: tinyint("continuation_state").notNull().default(0),
   continuationHandledAt: datetime("continuation_handled_at"),
   continuationTargetDate: date("continuation_target_date", { mode: "string" }),
@@ -126,9 +127,11 @@ export const schedules = mysqlTable("schedules", {
   title: varchar("title", { length: 200 }).notNull(),
   note: varchar("note", { length: 500 }),
   completed: tinyint("completed").notNull(),
+  lifecycleState: tinyint("lifecycle_state").notNull().default(0),
   kind: tinyint("kind").notNull(),
   source: tinyint("source").notNull(),
   sourceId: varchar("source_id", { length: 128 }),
+  rescheduledFromScheduleId: bigint("rescheduled_from_schedule_id", { mode: "number", unsigned: true }),
   actualTimeClass: tinyint("actual_time_class").notNull().default(0),
   includeInActualTime: tinyint("include_in_actual_time").notNull().default(1),
   timerSessionId: bigint("timer_session_id", { mode: "number", unsigned: true }),
@@ -244,9 +247,26 @@ export const quickNotes = mysqlTable("quick_notes", {
   title: varchar("title", { length: 120 }),
   content: text("content").notNull(),
   tag: varchar("tag", { length: 64 }),
+  archivedAt: datetime("archived_at"),
+  version: int("version", { unsigned: true }).notNull().default(1),
   createdAt: datetime("created_at").notNull(),
   updatedAt: datetime("updated_at").notNull(),
   deletedAt: datetime("deleted_at")
+});
+
+export const quickNoteTaskLinks = mysqlTable("quick_note_task_links", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  quickNoteId: bigint("quick_note_id", { mode: "number", unsigned: true }).notNull(),
+  taskId: bigint("task_id", { mode: "number", unsigned: true }).notNull(),
+  createdAt: datetime("created_at").notNull()
+});
+
+export const userSettings = mysqlTable("user_settings", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
+  reducedMotion: tinyint("reduced_motion").notNull().default(0),
+  showRewards: tinyint("show_rewards").notNull().default(1),
+  updatedAt: datetime("updated_at").notNull()
 });
 
 export const userGrowth = mysqlTable("user_growth", {

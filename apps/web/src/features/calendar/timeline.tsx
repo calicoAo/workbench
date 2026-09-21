@@ -1,9 +1,12 @@
-import { Droplets, Moon, Trash2 } from "lucide-react";
+import { Droplets, Moon, Pencil, Trash2 } from "lucide-react";
+import { IconButton } from "../../shared/ui";
 
 export type Schedule = {
   id: number;
   taskId: number | null;
   categoryId: number | null;
+  scheduleDate?: string;
+  recordTimezone?: string;
   startTime: string;
   endTime: string;
   title: string;
@@ -14,6 +17,7 @@ export type Schedule = {
   color: string;
   version?: number;
   actualTimeClass?: number;
+  lifecycleState?: number;
 };
 
 export type TimelineItem = Schedule & { marker?: "water" | "sleep" };
@@ -48,7 +52,7 @@ export function scheduleDurationMinutes(item: Pick<Schedule, "startTime" | "endT
   return seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
 }
 
-export function TimelineBoard({ items, onDelete }: { items: TimelineItem[]; onDelete: (id: number) => void }) {
+export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem[]; onDelete: (id: number) => void; onEdit?: (item: TimelineItem) => void }) {
   const dayStart = HOUR_START * 60;
   const dayEnd = HOUR_END * 60;
   const blockLayouts = layoutTimelineBlocks(items, dayStart, dayEnd);
@@ -91,11 +95,7 @@ export function TimelineBoard({ items, onDelete }: { items: TimelineItem[]; onDe
               </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
             </div>
-            {!sleepBlock && item.source !== 1 && (
-              <button className="timeline-delete" aria-label="删除时间记录" onClick={() => onDelete(item.id)}>
-                <Trash2 size={12} />
-              </button>
-            )}
+            {!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={`编辑${sourceText(item)}`} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}<IconButton size="sm" className="timeline-delete" label="删除时间记录" onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton></span> : null}
           </div>
         );
       })}
@@ -179,9 +179,10 @@ function layoutTimelineBlocks(items: TimelineItem[], dayStart: number, dayEnd: n
 
 function sourceText(item: TimelineItem) {
   if (item.marker === "sleep") return "睡眠";
-  if (item.kind === 0) return "安排";
+  if (item.kind === 0) return "计划";
   if (item.source === 1) return "计时";
-  return "实际";
+  if (item.actualTimeClass === 2) return "历史实际";
+  return "补录";
 }
 
 function timeToMinutes(value: string) {

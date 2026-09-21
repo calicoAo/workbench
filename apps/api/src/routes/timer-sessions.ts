@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
-import { actualTimeForUser, currentSessionForUser } from "../execution-read-model.js";
+import { currentSessionForUser, dailyExecutionForUser } from "../execution-read-model.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { isValidTimezone } from "../time.js";
@@ -19,8 +19,10 @@ const sessionSchema = z.object({ operationId, expectedVersion: z.number().int().
 const finishSchema = sessionSchema.extend({
   completeTask: z.boolean().default(false),
   expectedTaskVersion: z.number().int().positive().optional(),
-  completionNote: z.string().trim().max(1000).optional()
-}).refine((body) => !body.completeTask || body.expectedTaskVersion !== undefined, "expectedTaskVersion is required when completeTask is true");
+  completionNote: z.string().trim().max(1000).optional(),
+  progressPercent: z.number().int().min(0).max(99).optional(),
+  note: z.string().trim().max(500).optional()
+}).refine((body) => (!body.completeTask && body.progressPercent === undefined) || body.expectedTaskVersion !== undefined, "expectedTaskVersion is required when changing Task state");
 const actualTimeQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   timezone: z.string().min(1).max(64).refine(isValidTimezone, "invalid IANA timezone")
@@ -30,7 +32,7 @@ export const timerSessionsRoute = new Hono()
   .get("/current", async (c) => ok(c, await currentSessionForUser(getCurrentUserId(c))))
   .get("/actual-time", async (c) => {
     const query = actualTimeQuerySchema.parse(c.req.query());
-    return ok(c, { date: query.date, timezone: query.timezone, entries: await actualTimeForUser(getCurrentUserId(c), query.date, query.timezone) });
+    return ok(c, { date: query.date, timezone: query.timezone, ...await dailyExecutionForUser(getCurrentUserId(c), query.date, query.timezone) });
   })
   .post("/start", async (c) => {
     const body = startSchema.parse(await c.req.json());

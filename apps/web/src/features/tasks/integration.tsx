@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Archive, CirclePause, CirclePlay, Clock3, Pencil, Play } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
+import { Badge, Button } from "../../shared/ui";
 
 export type TaskSnapshot = {
   id: number;
@@ -15,9 +17,12 @@ export type TaskSnapshot = {
   pinned: number;
   sortOrder: number;
   dueAt: string | null;
+  dueDate?: string | null;
+  estimatedMinutes?: number | null;
   progressPercent: number;
   version: number;
   createdAt: string;
+  updatedAt?: string;
   completedAt: string | null;
   completionNote: string | null;
 };
@@ -32,21 +37,36 @@ export function useTasks(request: Request, userId: number) {
 export function useTask(request: Request, userId: number, taskId: number) {
   return useQuery({
     queryKey: queryKeys.task(userId, taskId),
-    queryFn: async () => (await request<TaskSnapshot[]>("/api/tasks")).find((task) => task.id === taskId) ?? null
+    enabled: Number.isInteger(taskId) && taskId > 0,
+    queryFn: async () => {
+      const payload = await request<TaskDetailPayload | TaskSnapshot[]>(`/api/tasks/${taskId}`);
+      if (!Array.isArray(payload) && payload?.task) return payload;
+      const rows = Array.isArray(payload) ? payload : await request<TaskSnapshot[]>("/api/tasks");
+      const task = rows.find((item) => item.id === taskId);
+      return task ? { task, assignments: [], plannedSchedules: [], actualEntries: [] } : null;
+    }
   });
 }
+
+export type TaskDetailPayload = {
+  task: TaskSnapshot;
+  source?: { type: "QUICK_NOTE"; id: number } | null;
+  assignments: Array<{ id: number; taskDate: string; assignmentStatus: number; focusRank: number | null }>;
+  plannedSchedules: Array<{ id: number; scheduleDate: string; startTime: string; endTime: string; lifecycleState: number; title: string }>;
+  actualEntries: Array<{ source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL"; sourceId: number; startedAt: string | null; endedAt: string | null; businessDate: string; recordTimezone: string }>;
+};
 
 export function TasksIntegrationPage({ tasks, date, loading }: { tasks: TaskSnapshot[]; date: string; loading: boolean }) {
   return (
     <section className="route-panel" aria-labelledby="tasks-heading">
-      <div className="route-panel-heading"><div><p className="route-eyebrow">任务事实</p><h1 id="tasks-heading">任务</h1></div><span className="badge-gray">{tasks.length} 项</span></div>
+      <div className="route-panel-heading"><div><p className="route-eyebrow">任务事实</p><h1 id="tasks-heading">任务</h1></div><Badge>{tasks.length} 项</Badge></div>
       {loading ? <p role="status" className="route-state">正在加载任务...</p> : null}
       {!loading && !tasks.length ? <p className="route-state">还没有任务。</p> : null}
       <div className="route-list">
         {tasks.map((task) => (
           <Link className="route-list-row" key={task.id} to={`/tasks/${task.id}?date=${date}`}>
             <span><strong>{task.title}</strong><small>{task.description || `进度 ${task.progressPercent}%`}</small></span>
-            <span className="badge-gray">{task.status === 2 ? "已完成" : task.status === 1 ? "进行中" : "待处理"}</span>
+            <Badge tone={task.status === 2 ? "success" : "neutral"}>{task.status === 2 ? "已完成" : task.status === 1 ? "进行中" : "待处理"}</Badge>
           </Link>
         ))}
       </div>
@@ -54,26 +74,41 @@ export function TasksIntegrationPage({ tasks, date, loading }: { tasks: TaskSnap
   );
 }
 
-export function TaskDetailPage({ task, assigned, active, date, pending, onStart, onCompleteAndFinish }: {
-  task: TaskSnapshot | null | undefined;
+export function TaskDetailPage({ detail, assigned, active, paused, date, pending, categoryName, onAccept, onStart, onPauseResume, finishAction, onComplete, onCompleteAndFinish, onEdit, onArchive }: {
+  detail: TaskDetailPayload | null | undefined;
   assigned: boolean;
   active: boolean;
+  paused: boolean;
   date: string;
   pending: boolean;
+  categoryName?: string;
+  onAccept: () => void;
   onStart: (task: TaskSnapshot, assigned: boolean) => void;
+  onPauseResume?: () => void;
+  finishAction?: ReactNode;
+  onComplete: (task: TaskSnapshot) => void;
   onCompleteAndFinish?: (task: TaskSnapshot) => void;
+  onEdit: (task: TaskSnapshot) => void;
+  onArchive: (task: TaskSnapshot) => void;
 }) {
-  if (task === undefined) return <p role="status" className="route-state">正在加载任务...</p>;
-  if (task === null) return <section className="route-panel"><h1>任务不存在</h1><Link to={`/tasks?date=${date}`}>返回任务列表</Link></section>;
+  if (detail === undefined) return <p role="status" className="route-state">正在加载任务...</p>;
+  if (detail === null) return <section className="route-panel"><h1>任务不存在</h1><Link to={`/tasks?date=${date}`}>返回悬赏板</Link></section>;
+  const task = detail.task;
   return (
     <article className="route-panel task-detail" aria-labelledby="task-detail-heading">
-      <Link className="inline-command" to={`/tasks?date=${date}`}><ArrowLeft size={15} />返回任务</Link>
+      <Link className="inline-command" to={`/tasks?date=${date}`}><ArrowLeft size={15} />返回悬赏板</Link>
       <p className="route-eyebrow">Task #{task.id} · v{task.version}</p>
       <h1 id="task-detail-heading">{task.title}</h1>
       <p>{task.description || "暂无详情"}</p>
-      <dl className="task-facts"><div><dt>当日接取</dt><dd>{assigned ? "已接取" : "未接取"}</dd></div><div><dt>状态</dt><dd>{task.status === 2 ? "已完成" : task.status === 1 ? "进行中" : "待处理"}</dd></div><div><dt>进度</dt><dd>{task.progressPercent}%</dd></div></dl>
-      {!active && task.status < 2 ? <button className="primary-button w-fit gap-2 px-4" disabled={pending} onClick={() => onStart(task, assigned)}><Play size={16} />{pending ? "正在开始..." : assigned ? "开始计时" : "接取并开始"}</button> : null}
-      {active ? <div className="route-state route-state-active"><p>此任务当前正在计时，基础控制项位于全局 mini timer。</p>{onCompleteAndFinish ? <button className="primary-button mt-2 px-4" disabled={pending} type="button" onClick={() => onCompleteAndFinish(task)}>完成任务并结束计时</button> : null}</div> : null}
+      {detail.source?.type === "QUICK_NOTE" ? <p className="task-source-note">来源：<Link to={`/notes/${detail.source.id}?date=${date}`}>随手记 #{detail.source.id}</Link>。这里只显示用户确认后的任务快照。</p> : null}
+      <dl className="task-facts"><div><dt>当日接取</dt><dd>{assigned ? "已接取" : "未接取"}</dd></div><div><dt>状态</dt><dd>{task.status === 3 ? "已归档" : task.status === 2 ? "已完成" : task.status === 1 ? "进行中" : "待处理"}</dd></div><div><dt>分类</dt><dd>{categoryName || "Inbox / 未分类"}</dd></div><div><dt>优先级 / 难度</dt><dd>{["", "低", "中", "高"][task.priority]} / {task.difficulty}</dd></div><div><dt>截止 / 预计</dt><dd>{task.dueAt ? formatDate(task.dueAt) : "无截止"} · {task.estimatedMinutes ? `${task.estimatedMinutes} 分钟` : "未估时"}</dd></div><div><dt>进度</dt><dd>{task.progressPercent}%</dd></div><div><dt>创建</dt><dd>{formatDate(task.createdAt)}</dd></div><div><dt>更新</dt><dd>{task.updatedAt ? formatDate(task.updatedAt) : "未知"}</dd></div><div><dt>完成</dt><dd>{task.completedAt ? formatDate(task.completedAt) : "未完成"}</dd></div></dl>
+      <div className="task-detail-actions">{task.status < 2 && !assigned ? <Button onClick={onAccept}>接取到今天</Button> : null}{!active && task.status < 2 ? <Button variant="primary" disabled={pending} onClick={() => onStart(task, assigned)}><Play size={16} />{pending ? "正在开始..." : assigned ? "开始" : "接取并开始"}</Button> : null}{active && onPauseResume ? <Button disabled={pending} onClick={onPauseResume}>{paused ? <CirclePlay size={16} /> : <CirclePause size={16} />}{paused ? "继续" : "暂停"}</Button> : null}{active ? finishAction : null}{task.status < 2 && !active ? <Button disabled={pending} onClick={() => onComplete(task)}>直接完成</Button> : null}{active && onCompleteAndFinish ? <Button variant="primary" disabled={pending} onClick={() => onCompleteAndFinish(task)}>完成悬赏并结束</Button> : null}<Button onClick={() => onEdit(task)}><Pencil size={15} />编辑</Button>{task.status !== 3 ? <Button variant="danger" onClick={() => onArchive(task)}><Archive size={15} />归档</Button> : null}</div>
+      {task.completionNote ? <section className="detail-section"><h2>完成结果</h2><p>{task.completionNote}</p></section> : null}
+      <section className="detail-section"><h2>计划块</h2>{detail.plannedSchedules.length ? <div className="detail-history">{detail.plannedSchedules.map((item) => <div key={item.id}><span>计划</span><strong>{item.scheduleDate} · {item.startTime.slice(0, 5)}-{item.endTime.slice(0, 5)}</strong><small>{["PENDING", "EXECUTED", "CANCELLED", "RESCHEDULED"][item.lifecycleState]}</small></div>)}</div> : <p className="muted">暂无计划。</p>}</section>
+      <section className="detail-section"><h2>ActualTime 历史</h2>{detail.actualEntries.length ? <div className="detail-history">{detail.actualEntries.map((item) => <div key={`${item.source}:${item.sourceId}`}><Clock3 size={15} /><strong>{item.businessDate} · {sourceLabel(item.source)}</strong><small>{item.startedAt ? formatDate(item.startedAt) : "未知开始"} - {item.endedAt ? formatDate(item.endedAt) : "未知结束"} · {item.recordTimezone}</small></div>)}</div> : <p className="muted">尚无真实投入，不会显示虚构时长。</p>}</section>
     </article>
   );
 }
+
+function formatDate(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(parsed); }
+function sourceLabel(source: TaskDetailPayload["actualEntries"][number]["source"]) { return source === "TIMER_SEGMENT" ? "计时" : source === "MANUAL_ACTUAL" ? "补录" : "历史实际"; }

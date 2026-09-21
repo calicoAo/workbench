@@ -16,5 +16,8 @@ describe("R1C frontend boundaries", () => {
     expect(shell.match(/useCurrentSession\(/g)).toHaveLength(1);
     expect(timer).toContain("queryKeys.currentSession(userId)");
     expect(shell).not.toContain("activeTimer");
+    expect(timer).toContain("export function CurrentFocusCard");
+    expect(shell).not.toContain("function CurrentFocus(");
+    expect(shell).toContain('location.pathname !== "/today"');
   });
 });

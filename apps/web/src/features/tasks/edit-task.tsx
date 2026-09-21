@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
+import { Button } from "../../shared/ui";
 import { type Request, type Task, dateInput, dueAtPayload, perform, timeInput } from "./model";
 import { CloseButton, DifficultyOptions, ModalActions, ModalPortal } from "./task-ui";
 
@@ -69,7 +70,7 @@ export function EditTaskWorkflow({ children, request, onError, onChanged }: {
               <input className="field" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
               <input className="field" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} disabled={!dueDate} />
               <select className="field" value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><DifficultyOptions /></select>
-              <button className="icon-button w-auto px-3 text-[11px]" type="button" onClick={() => setDueDate("")}>清空截止</button>
+              <Button variant="ghost" size="sm" type="button" onClick={() => setDueDate("")}>清空截止</Button>
             </div>
           </div>
           <ModalActions onClose={close} submitLabel="保存" />
