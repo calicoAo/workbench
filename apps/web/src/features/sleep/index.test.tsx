@@ -27,6 +27,7 @@ function feature(options: Partial<FeatureProps> = {}) {
       selectedDate={options.selectedDate ?? "2026-09-19"}
       record={options.record === undefined ? record("15") : options.record}
       snapshotReady={options.snapshotReady ?? true}
+      recordTimezone={options.recordTimezone}
       onError={options.onError ?? vi.fn()}
       onChanged={options.onChanged ?? vi.fn()}
     />
