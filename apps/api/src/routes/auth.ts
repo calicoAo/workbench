@@ -8,6 +8,8 @@ import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { DEFAULT_TIMEZONE } from "../time.js";
+import { seedWritingSlots } from "../writing-slots.js";
+import { seedGrowthDimensions } from "../growth.js";
 
 const registerSchema = z.object({
   username: z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
@@ -26,9 +28,13 @@ function publicUser(user: { id: number; username: string; displayName: string; t
 
 async function seedDefaultCategories(client: DatabaseClient, userId: number, now: Date) {
   await client.insert(taskCategories).values([
-    { userId, name: "coding", color: "#5B8DEF", icon: "code", dimensionKey: "career", targetMinutes: 6000, sortOrder: 10, enabled: 1, createdAt: now, updatedAt: now },
-    { userId, name: "Life", color: "#35C99A", icon: "sparkles", dimensionKey: "life", targetMinutes: 6000, sortOrder: 20, enabled: 1, createdAt: now, updatedAt: now },
-    { userId, name: "Stock Review", color: "#F7C96B", icon: "trending-up", dimensionKey: "learning", targetMinutes: 6000, sortOrder: 30, enabled: 1, createdAt: now, updatedAt: now }
+    { userId, name: "工作", color: "#3B82F6", icon: "briefcase", dimensionKey: "career", targetMinutes: 6000, sortOrder: 10, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "学习", color: "#8B5CF6", icon: "book-open", dimensionKey: "learning", targetMinutes: 6000, sortOrder: 20, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "创作", color: "#EC4899", icon: "pen-tool", dimensionKey: "creative", targetMinutes: 6000, sortOrder: 30, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "生活", color: "#10B981", icon: "home", dimensionKey: "life", targetMinutes: 6000, sortOrder: 40, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "健康", color: "#EF4444", icon: "heart-pulse", dimensionKey: "body", targetMinutes: 6000, sortOrder: 50, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "社交", color: "#F59E0B", icon: "users", dimensionKey: "social", targetMinutes: 6000, sortOrder: 60, enabled: 1, createdAt: now, updatedAt: now },
+    { userId, name: "其他", color: "#64748B", icon: "circle", dimensionKey: null, targetMinutes: 6000, sortOrder: 70, enabled: 1, createdAt: now, updatedAt: now }
   ]);
 }
 
@@ -54,6 +60,8 @@ export const authRoute = new Hono()
       const registeredUser = publicUser({ id: result.insertId, username: user.username, displayName: user.displayName, timezone: user.timezone });
       await tx.insert(userExecutionSlots).values({ userId: registeredUser.id, updatedAt: now });
       await seedDefaultCategories(tx, registeredUser.id, now);
+      await seedGrowthDimensions(tx, registeredUser.id, now);
+      await seedWritingSlots(tx, registeredUser.id, now);
       return registeredUser;
     });
 

@@ -7,6 +7,15 @@ export const TaskStatus = {
 
 export type TaskStatusValue = (typeof TaskStatus)[keyof typeof TaskStatus];
 
+export const ProjectStatus = {
+  PLANNING: 0,
+  ACTIVE: 1,
+  PAUSED: 2,
+  DONE: 3
+} as const;
+
+export type ProjectStatusValue = (typeof ProjectStatus)[keyof typeof ProjectStatus];
+
 const taskTransitions: Record<TaskStatusValue, TaskStatusValue[]> = {
   [TaskStatus.TODO]: [TaskStatus.IN_PROGRESS, TaskStatus.DONE, TaskStatus.ARCHIVED],
   [TaskStatus.IN_PROGRESS]: [TaskStatus.TODO, TaskStatus.DONE],
@@ -85,3 +94,14 @@ export const ScheduleLifecycle = {
   CANCELLED: 2,
   RESCHEDULED: 3
 } as const;
+
+export const HabitRecordMode = { COMPLETION: 0, COUNT: 1, QUANTITY: 2, MINUTES: 3 } as const;
+export const HabitFrequency = { DAILY: 0, WEEKDAYS: 1, WEEKLY_N: 2 } as const;
+export const HabitOccurrenceStatus = { PARTIAL: 0, COMPLETED: 1, SKIPPED: 2 } as const;
+export const HabitOccurrenceSource = { MANUAL: 0, LINKED_TASK: 1 } as const;
+
+export const FinanceAccountType = { CASH: 0, BANK: 1, PAYMENT: 2, CREDIT: 3 } as const;
+export const FinanceCategoryKind = { INCOME: 0, EXPENSE: 1 } as const;
+export const FinanceTransactionType = { OPENING: 0, INCOME: 1, EXPENSE: 2, TRANSFER: 3, REFUND: 4, REVERSAL: 5, CORRECTION: 6 } as const;
+export const FinanceTransactionStatus = { POSTED: 0, REVERSED: 1, VOIDED: 2 } as const;
+export const FinanceTransactionSource = { MANUAL: 0, IMPORT: 1 } as const;

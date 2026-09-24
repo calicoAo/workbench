@@ -8,8 +8,9 @@ import { scheduleDurationMinutes, TimelineBoard, type Schedule, type TimelineIte
 export type { Schedule, TimelineItem } from "./timeline";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
-type Task = { id: number; title: string; version?: number };
-type Draft = { categoryId: string; taskId: string; kind: string; title: string; note: string; start: string; end: string; completeTask: boolean };
+type Task = { id: number; title: string; version?: number; projectId?: number | null };
+type Project = { id: number; name: string; status: number; archivedAt: string | null };
+type Draft = { categoryId: string; projectId: string; taskId: string; kind: string; title: string; note: string; startDate: string; start: string; endDate: string; end: string; completeTask: boolean };
 type CalendarState = { date: string; editorOpen: boolean; editingId: number | null; overlapConflict: boolean; draft: Draft };
 
 export function CalendarFeature({
@@ -19,9 +20,12 @@ export function CalendarFeature({
   items,
   tasks,
   categories,
+  projects = [],
   recordTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
   initialKind,
   actualSeconds,
+  onEditSleep,
+  acceptedTaskIds,
   onError,
   onChanged
 }: {
@@ -31,13 +35,18 @@ export function CalendarFeature({
   items: TimelineItem[];
   tasks: Task[];
   categories: Category[];
+  projects?: Project[];
   recordTimezone?: string;
   initialKind?: "plan" | "actual";
   actualSeconds?: number;
+  onEditSleep?: () => void;
+  acceptedTaskIds?: number[];
   onError: (message: string, title?: string) => void;
   onChanged: () => void | Promise<void>;
 }) {
   const [state, setState] = useState<CalendarState>(() => initialState(selectedDate, initialKind));
+  const [remoteCandidateIds, setRemoteCandidateIds] = useState<number[] | null>(null);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   let currentState = state;
   if (state.date !== selectedDate) {
     currentState = initialState(selectedDate, initialKind);
@@ -47,7 +56,17 @@ export function CalendarFeature({
   const scheduleItems = items.filter((item) => !item.marker);
   const actualMinutes = scheduleItems.filter((item) => item.kind === 1).reduce((sum, item) => sum + scheduleDurationMinutes(item), 0);
   const plannedCount = scheduleItems.filter((item) => item.kind === 0).length;
-  const taskId = tasks.some((task) => String(task.id) === currentState.draft.taskId) ? currentState.draft.taskId : "";
+  useEffect(() => {
+    if (!currentState.editorOpen || currentState.draft.kind !== "1" || currentState.draft.startDate === selectedDate) { setRemoteCandidateIds(null); setCandidatesLoading(false); return; }
+    let current = true;
+    setCandidatesLoading(true);
+    void request<{ taskIds: number[] }>(`/api/task-days?date=${currentState.draft.startDate}`).then((result) => { if (current) setRemoteCandidateIds(result.taskIds); }).catch((error) => { if (current) onError(errorMessage(error), "任务候选加载失败"); }).finally(() => { if (current) setCandidatesLoading(false); });
+    return () => { current = false; };
+  }, [currentState.editorOpen, currentState.draft.kind, currentState.draft.startDate, onError, request, selectedDate]);
+  const editingItem = currentState.editingId ? scheduleItems.find((item) => item.id === currentState.editingId) : null;
+  const candidateIds = new Set(currentState.draft.startDate === selectedDate ? acceptedTaskIds ?? tasks.map((task) => task.id) : remoteCandidateIds ?? []);
+  const eligibleTasks = currentState.draft.kind === "1" ? tasks.filter((task) => candidateIds.has(task.id) || task.id === editingItem?.taskId) : tasks;
+  const taskId = eligibleTasks.some((task) => String(task.id) === currentState.draft.taskId) ? currentState.draft.taskId : "";
   const categoryId = categories.some((category) => String(category.id) === currentState.draft.categoryId)
     ? currentState.draft.categoryId
     : String(categories[0]?.id ?? "");
@@ -68,19 +87,22 @@ export function CalendarFeature({
   async function saveSchedule(includeInActualTime: boolean) {
     const editing = currentState.editingId ? scheduleItems.find((item) => item.id === currentState.editingId) : null;
     try {
-      const selectedTask = taskId ? tasks.find((task) => task.id === Number(taskId)) : null;
+      const selectedTask = taskId ? eligibleTasks.find((task) => task.id === Number(taskId)) : null;
       await request(editing ? `/api/schedules/${editing.id}` : "/api/schedules", {
         method: editing ? "PUT" : "POST",
         body: JSON.stringify({
           operationId: crypto.randomUUID(),
           expectedVersion: editing?.version,
-          scheduleDate: selectedDate,
+          scheduleDate: currentState.draft.startDate,
+          startDate: currentState.draft.startDate,
+          endDate: currentState.draft.endDate,
           startTime: currentState.draft.start,
           endTime: currentState.draft.end,
           kind: editing ? undefined : Number(currentState.draft.kind),
           taskId: taskId ? Number(taskId) : undefined,
           expectedTaskVersion: currentState.draft.completeTask ? selectedTask?.version : undefined,
           categoryId: !taskId && categoryId ? Number(categoryId) : undefined,
+          projectIdAtOccurrence: Number(currentState.draft.kind) === 1 ? (currentState.draft.projectId ? Number(currentState.draft.projectId) : null) : undefined,
           title: currentState.draft.title.trim() || undefined,
           note: currentState.draft.note.trim() || undefined,
           recordTimezone,
@@ -97,8 +119,9 @@ export function CalendarFeature({
   }
 
   function editSchedule(item: TimelineItem) {
+    if (item.marker === "sleep") { onEditSleep?.(); return; }
     if (item.source === 1 || item.actualTimeClass === 2) { onError(item.source === 1 ? "计时记录只能通过原 Session 修正。" : "历史实际记录为只读。", "此记录不可直接编辑"); return; }
-    setState((current) => ({ ...current, editorOpen: true, editingId: item.id, overlapConflict: false, draft: { ...current.draft, taskId: item.taskId ? String(item.taskId) : "", categoryId: item.categoryId ? String(item.categoryId) : "", kind: String(item.kind), title: item.title, note: item.note ?? "", start: item.startTime.slice(0, 5), end: item.endTime.slice(0, 5), completeTask: false } }));
+    setState((current) => ({ ...current, editorOpen: true, editingId: item.id, overlapConflict: false, draft: { ...current.draft, taskId: item.taskId ? String(item.taskId) : "", categoryId: item.categoryId ? String(item.categoryId) : "", projectId: item.projectIdAtOccurrence ? String(item.projectIdAtOccurrence) : "", kind: String(item.kind), title: item.title, note: item.note ?? "", startDate: item.scheduleDate ?? selectedDate, endDate: item.scheduleDate ?? selectedDate, start: item.startTime.slice(0, 5), end: item.endTime.slice(0, 5), completeTask: false } }));
   }
 
   async function deleteSchedule(id: number) {
@@ -143,7 +166,9 @@ export function CalendarFeature({
       {currentState.editorOpen && (
         <TimeBlockDialog
           categories={categories}
-          tasks={tasks}
+          tasks={eligibleTasks}
+          candidatesLoading={candidatesLoading}
+          projects={projects}
           draft={{ ...currentState.draft, taskId, categoryId }}
           onChange={updateDraft}
           onClose={() => setState((current) => ({ ...current, editorOpen: false }))}
@@ -157,15 +182,17 @@ export function CalendarFeature({
   );
 }
 
-function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, onChange, onClose, onSubmit, onKeepExcluded }: {
+function TimeBlockDialog({ categories, tasks, projects, draft, editing, overlapConflict, candidatesLoading, onChange, onClose, onSubmit, onKeepExcluded }: {
   categories: Category[];
   tasks: Task[];
+  projects: Project[];
   draft: Draft;
   onChange: (patch: Partial<Draft>) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
   editing: boolean;
   overlapConflict: boolean;
+  candidatesLoading: boolean;
   onKeepExcluded: () => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -196,9 +223,9 @@ function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, o
             <IconButton size="sm" label="关闭" type="button" onClick={onClose}><X size={15} /></IconButton>
           </div>
 
-          <div className="grid grid-cols-[1fr_96px] gap-2">
-            <select aria-label="关联任务" className="field" value={draft.taskId} onChange={(event) => onChange({ taskId: event.target.value })}>
-              <option value="">不关联任务</option>
+          <div className="time-editor-primary-grid">
+            <select aria-label="关联任务" className="field" value={draft.taskId} onChange={(event) => { const task = tasks.find((item) => String(item.id) === event.target.value); onChange({ taskId: event.target.value, projectId: task?.projectId ? String(task.projectId) : "" }); }}>
+              <option value="">{candidatesLoading ? "正在读取当日接取任务..." : draft.kind === "1" ? "不关联任务" : "不关联任务"}</option>
               {tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
             </select>
             <select aria-label="记录类型" className="field" value={draft.kind} onChange={(event) => onChange({ kind: event.target.value })}>
@@ -206,6 +233,8 @@ function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, o
               <option value="0">安排</option>
             </select>
           </div>
+
+          {draft.kind === "1" ? <label className="task-form-field mt-2"><span>发生时项目</span><select aria-label="发生时项目" className="field" value={draft.projectId} onChange={(event) => onChange({ projectId: event.target.value })}><option value="">Inbox / 无项目</option>{projects.filter((project) => !project.archivedAt && project.status !== 3).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label> : null}
 
           {!draft.taskId && (
             <div className="mt-2 grid grid-cols-[1fr_128px] gap-2">
@@ -216,9 +245,11 @@ function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, o
             </div>
           )}
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-soft">开始<input className="field mt-1" type="time" value={draft.start} onChange={(event) => onChange({ start: event.target.value })} /></label>
-            <label className="text-[11px] text-soft">结束<input className="field mt-1" type="time" value={draft.end} onChange={(event) => onChange({ end: event.target.value })} /></label>
+          <div className="time-editor-date-grid">
+            <label className="text-[11px] text-soft">开始日期<input aria-label="开始日期" className="field mt-1" type="date" value={draft.startDate} onChange={(event) => onChange({ startDate: event.target.value, ...(draft.kind === "0" ? { endDate: event.target.value } : {}) })} /></label>
+            <label className="text-[11px] text-soft">开始时间<input aria-label="开始时间" className="field mt-1" type="time" value={draft.start} onChange={(event) => onChange({ start: event.target.value })} /></label>
+            <label className="text-[11px] text-soft">结束日期<input aria-label="结束日期" className="field mt-1" type="date" value={draft.endDate} disabled={draft.kind === "0"} onChange={(event) => onChange({ endDate: event.target.value })} /></label>
+            <label className="text-[11px] text-soft">结束时间<input aria-label="结束时间" className="field mt-1" type="time" value={draft.end} onChange={(event) => onChange({ end: event.target.value })} /></label>
           </div>
           <input aria-label="时间块备注" className="field mt-2" placeholder="备注，可不填" value={draft.note} onChange={(event) => onChange({ note: event.target.value })} />
           {draft.kind === "1" && draft.taskId ? <label className="manual-complete-option"><input type="checkbox" checked={draft.completeTask} onChange={(event) => onChange({ completeTask: event.target.checked })} />同时完成悬赏（同一事务）</label> : null}
@@ -237,10 +268,11 @@ function TimeBlockDialog({ categories, tasks, draft, editing, overlapConflict, o
 }
 
 function CategoryOptions({ categories }: { categories: Category[] }) {
+  const unmapped = categories.filter((category) => category.dimensionKey === null);
   return <>{DIMENSIONS.map((dimension) => {
     const options = categories.filter((category) => category.dimensionKey === dimension.key);
     return options.length ? <optgroup key={dimension.key} label={dimension.label}>{options.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</optgroup> : null;
-  })}</>;
+  })}{unmapped.length ? <optgroup label="暂不映射">{unmapped.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</optgroup> : null}</>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -252,7 +284,7 @@ function EmptyText({ text }: { text: string }) {
 }
 
 function initialState(date: string, initialKind?: "plan" | "actual"): CalendarState {
-  return { date, editorOpen: Boolean(initialKind), editingId: null, overlapConflict: false, draft: { categoryId: "", taskId: "", kind: initialKind === "plan" ? "0" : "1", title: "", note: "", start: "09:00", end: "10:00", completeTask: false } };
+  return { date, editorOpen: Boolean(initialKind), editingId: null, overlapConflict: false, draft: { categoryId: "", projectId: "", taskId: "", kind: initialKind === "plan" ? "0" : "1", title: "", note: "", startDate: date, start: "09:00", endDate: date, end: "10:00", completeTask: false } };
 }
 
 function formatDuration(minutes: number) {

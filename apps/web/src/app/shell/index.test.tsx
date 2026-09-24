@@ -19,7 +19,7 @@ function dashboard(date: string) {
   return { date, stockReviewRecord: null, categories: [{ id: 1, name: "coding", color: "#35C99A", icon: "code", dimensionKey: "career", targetMinutes: 6000, sortOrder: 1, enabled: 1, totalMinutes: 0 }], categoryTotals: [], schedules: [], sleepRecord: null, journalRecord: null, morningWritingRecord: null, waterRecord: null, growth: { level: 1, xpTotal: 0, coins: 0, xpInLevel: 0, xpForNextLevel: 100 }, rewardEvents: [], taskRewardEvents: [], aiInsights: [], weeklySeries: [], monthlySleepSeries: [], weeklyStats: { totalMinutes: 0, completedTasks: 0, journalDays: 0, stockReviewDays: 0 } };
 }
 
-function requestFor(active: boolean | null = null) {
+function requestFor(active: boolean | null = null, writingSlots: Array<{ slotKey: "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW"; enabled: boolean; sortOrder: number }> = []) {
   return vi.fn(async (path: string, init?: RequestInit) => {
     if (path === "/api/daily-carryovers" && init?.method === "POST") return {};
     if (path.startsWith("/api/dashboard?date=")) return dashboard(path.split("=")[1]);
@@ -28,7 +28,10 @@ function requestFor(active: boolean | null = null) {
     if (path.startsWith("/api/task-days?")) return { taskDate: "2026-09-19", taskIds: [11] };
     if (path === "/api/timer-sessions/current") return active ? current : null;
     if (path.startsWith("/api/timer-sessions/actual-time")) return { date: "2026-09-19", timezone: "Asia/Shanghai", entries: [] };
+    if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
     if (path === "/api/rewards") return { growth: dashboard("2026-09-19").growth, items: [], events: [], redemptions: [] };
+    if (path.startsWith("/api/growth/overview")) return { period: { days: 30, from: "2026-08-21", to: "2026-09-19", timezone: "Asia/Shanghai" }, hero: dashboard("2026-09-19").growth, summary: { actualMinutes: 0, mappedActualMinutes: 0, completedTaskCount: 0, habitCompletedCount: 0 }, dimensions: [], unmapped: { actualMinutes: 0, completedTaskCount: 0, lastActivityDate: null }, recent: [] };
+    if (path === "/api/growth/dimensions") return { dimensions: [], categories: [] };
     if (path.startsWith("/api/morning-writings") || path.startsWith("/api/journals") || path.startsWith("/api/stock-reviews")) return [];
     return {};
   }) as unknown as Request;
@@ -95,7 +98,7 @@ describe("R1C router and AppShell", () => {
     expect(currentCalls).toHaveLength(1);
   });
 
-  it.each(["/calendar", "/journal", "/rewards", "/tools", "/insights", "/settings"])("keeps existing route %s usable", async (path) => {
+  it.each(["/calendar", "/journal", "/growth", "/rewards", "/tools", "/insights", "/settings"])("keeps existing route %s usable", async (path) => {
     renderShell(`${path}?date=2026-09-19`);
     await waitFor(() => expect(document.title).not.toContain("工作台 ·"));
     expect(screen.getByRole("main")).toBeTruthy();
@@ -115,5 +118,53 @@ describe("R1C router and AppShell", () => {
     client.clear();
     expect(client.getQueryData(queryKeys.tasks(1))).toBeUndefined();
     expect(client.getQueryData(queryKeys.tasks(2))).toBeUndefined();
+  });
+
+  it("keeps mobile primary actions compact and moves overflow actions into More", async () => {
+    const slots = [
+      { slotKey: "MORNING_WRITING" as const, enabled: true, sortOrder: 10 },
+      { slotKey: "JOURNAL" as const, enabled: true, sortOrder: 20 },
+      { slotKey: "STOCK_REVIEW" as const, enabled: true, sortOrder: 30 }
+    ];
+    const request = requestFor(null, slots);
+    renderShell("/today?date=2026-09-19", request);
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/settings")).toBe(true));
+    await screen.findByRole("checkbox", { name: "完成R1C integration" });
+    fireEvent.click(await screen.findByRole("button", { name: "打开快捷操作" }));
+    const menu = await screen.findByRole("menu");
+    expect(menu.querySelector(".quick-add-primary")?.textContent).toContain("发布悬赏随手记记一笔支出喝水晨写更多…");
+    expect(menu.querySelector(".quick-add-secondary")?.textContent).toContain("返回日记股市复盘安排计划补录实际记录睡眠记一笔收入转账");
+    fireEvent.click(screen.getByRole("button", { name: "更多…" }));
+    expect(menu.classList.contains("is-more-open")).toBe(true);
+  });
+
+  it("marks Settings to hide only its mobile Quick Action", async () => {
+    const settings = renderShell("/settings?date=2026-09-19");
+    await screen.findByRole("heading", { name: "设置" });
+    expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(true);
+    settings.unmount();
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "今日" });
+    expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(false);
+    expect(screen.getByRole("button", { name: "打开快捷操作" })).toBeTruthy();
+  });
+
+  it("adds Growth to desktop navigation while mobile navigation stays five items", async () => {
+    renderShell("/growth?date=2026-09-19");
+    expect(await screen.findByRole("heading", { name: "我的成长" })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: "成长" })).toHaveLength(1);
+    expect(document.querySelectorAll(".mobile-nav .shell-link")).toHaveLength(5);
+  });
+
+  it("closes Quick Action on outside tap, Escape, action selection, and route change", async () => {
+    renderShell("/today?date=2026-09-19");
+    const trigger = await screen.findByRole("button", { name: "打开快捷操作" });
+    fireEvent.click(trigger); fireEvent.pointerDown(document.body); expect(screen.queryByRole("menu")).toBeNull();
+    fireEvent.click(trigger); fireEvent.keyDown(document, { key: "Escape" }); expect(screen.queryByRole("menu")).toBeNull();
+    fireEvent.click(trigger); fireEvent.click(screen.getByRole("button", { name: "更多…" })); fireEvent.click(screen.getByRole("button", { name: "安排计划" }));
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "打开快捷操作" }));
+    fireEvent.change(screen.getByLabelText("工作日期"), { target: { value: "2026-09-20" } });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   });
 });

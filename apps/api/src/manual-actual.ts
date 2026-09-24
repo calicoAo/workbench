@@ -8,6 +8,7 @@ import { runMutation } from "./mutation-receipt.js";
 import { grantRewardInClient } from "./rewards.js";
 import { completeLockedTaskInClient, lockTaskInClient } from "./task-completion.js";
 import { businessDateAt, formatUtcDateTime, localTimeAt, parseUtcDateTime } from "./time.js";
+import { requireProjectInClient } from "./projects.js";
 
 type ManualActualValues = {
   taskId?: number;
@@ -17,6 +18,7 @@ type ManualActualValues = {
   endedAt: Date;
   recordTimezone: string;
   includeInActualTime: boolean;
+  projectIdAtOccurrence?: number | null;
 };
 
 async function overlapsActualTime(client: DatabaseClient, userId: number, start: Date, end: Date, exceptScheduleId?: number) {
@@ -54,6 +56,7 @@ export function recordManualActual(command: {
       taskId: command.taskId ?? null,
       title: command.title?.trim() || null,
       note: command.note?.trim() || null,
+      projectIdAtOccurrence: command.projectIdAtOccurrence ?? null,
       startedAt: command.startedAt.toISOString(),
       endedAt: command.endedAt.toISOString(),
       recordTimezone: command.recordTimezone,
@@ -73,6 +76,8 @@ export function recordManualActual(command: {
     if (!task && !command.title?.trim()) throw new BusinessError(ErrorCode.PARAM_ERROR, "title is required without a task");
     if (command.completeTask && task?.status === TaskStatus.DONE) throw new BusinessError(ErrorCode.CONFLICT, "task is already complete", 409);
     await validateManualInterval(tx, command.userId, command);
+    const projectIdAtOccurrence = command.projectIdAtOccurrence === undefined ? task?.projectId ?? null : command.projectIdAtOccurrence;
+    if (projectIdAtOccurrence) await requireProjectInClient(tx, command.userId, projectIdAtOccurrence);
     const now = new Date();
     const [result] = await tx.insert(schedules).values({
       userId: command.userId,
@@ -93,7 +98,8 @@ export function recordManualActual(command: {
       sourceId: `manual:${command.operationId}`,
       actualTimeClass: ActualTimeClass.MANUAL_ACTUAL,
       includeInActualTime: command.includeInActualTime ? 1 : 0,
-      projectAttributionStatus: AttributionStatus.NONE,
+      projectIdAtOccurrence,
+      projectAttributionStatus: projectIdAtOccurrence ? AttributionStatus.ATTRIBUTED : AttributionStatus.NONE,
       categoryIdAtOccurrence: task?.categoryId,
       categoryAttributionStatus: task?.categoryId ? AttributionStatus.ATTRIBUTED : AttributionStatus.NONE,
       version: 1,
@@ -142,7 +148,7 @@ export function correctManualActual(command: {
     userId: command.userId,
     operationId: command.operationId,
     commandType: "CORRECT_MANUAL_ACTUAL",
-    request: { scheduleId: command.scheduleId, expectedVersion: command.expectedVersion, startedAt: command.startedAt.toISOString(), endedAt: command.endedAt.toISOString(), recordTimezone: command.recordTimezone, includeInActualTime: command.includeInActualTime, title: command.title?.trim() || null, note: command.note?.trim() || null }
+    request: { scheduleId: command.scheduleId, expectedVersion: command.expectedVersion, startedAt: command.startedAt.toISOString(), endedAt: command.endedAt.toISOString(), recordTimezone: command.recordTimezone, includeInActualTime: command.includeInActualTime, projectIdAtOccurrence: command.projectIdAtOccurrence ?? null, title: command.title?.trim() || null, note: command.note?.trim() || null }
   }, async (tx) => {
     await lockExecutionSlot(tx, command.userId);
     const [identity] = await tx.select({ taskId: schedules.taskId }).from(schedules).where(and(eq(schedules.id, command.scheduleId), eq(schedules.userId, command.userId), isNull(schedules.deletedAt)));
@@ -152,6 +158,8 @@ export function correctManualActual(command: {
     if (!schedule || schedule.actualTimeClass !== ActualTimeClass.MANUAL_ACTUAL || schedule.source !== ScheduleSource.MANUAL) throw new BusinessError(ErrorCode.CONFLICT, "only Manual Actual can be corrected", 409);
     if (schedule.version !== command.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "schedule version conflict", 409);
     await validateManualInterval(tx, command.userId, command, schedule.id);
+    const projectIdAtOccurrence = command.projectIdAtOccurrence === undefined ? schedule.projectIdAtOccurrence : command.projectIdAtOccurrence;
+    if (command.projectIdAtOccurrence !== undefined && projectIdAtOccurrence) await requireProjectInClient(tx, command.userId, projectIdAtOccurrence);
     await tx.update(schedules).set({
       scheduleDate: businessDateAt(command.startedAt, command.recordTimezone),
       recordTimezone: command.recordTimezone,
@@ -162,6 +170,8 @@ export function correctManualActual(command: {
       title: command.title?.trim() || task?.title || schedule.title,
       note: command.note?.trim() || null,
       includeInActualTime: command.includeInActualTime ? 1 : 0,
+      projectIdAtOccurrence,
+      projectAttributionStatus: projectIdAtOccurrence ? AttributionStatus.ATTRIBUTED : AttributionStatus.NONE,
       categoryId: task?.categoryId ?? schedule.categoryId,
       categoryIdAtOccurrence: task?.categoryId ?? schedule.categoryIdAtOccurrence,
       categoryAttributionStatus: task?.categoryId ? AttributionStatus.ATTRIBUTED : schedule.categoryAttributionStatus,

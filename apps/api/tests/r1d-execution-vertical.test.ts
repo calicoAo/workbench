@@ -32,7 +32,7 @@ async function insertTask(title: string) {
 beforeEach(async () => {
   await pool.query("DROP TRIGGER IF EXISTS r1d_fail_assignment_insert");
   await pool.query("UPDATE user_execution_slots SET active_session_id = NULL, version = version + 1 WHERE user_id = 1");
-  for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks"]) await pool.query(`DELETE FROM ${table}`);
+  for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks", "projects"]) await pool.query(`DELETE FROM ${table}`);
   await pool.query("UPDATE users SET timezone = 'Asia/Shanghai' WHERE id = 1");
 });
 

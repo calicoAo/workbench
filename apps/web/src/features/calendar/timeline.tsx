@@ -5,6 +5,7 @@ export type Schedule = {
   id: number;
   taskId: number | null;
   categoryId: number | null;
+  projectIdAtOccurrence?: number | null;
   scheduleDate?: string;
   recordTimezone?: string;
   startTime: string;
@@ -95,7 +96,7 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
               </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
             </div>
-            {!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={`编辑${sourceText(item)}`} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}<IconButton size="sm" className="timeline-delete" label="删除时间记录" onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton></span> : null}
+            <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={`${sleepBlock || (item.source !== 1 && item.actualTimeClass !== 2) ? "编辑" : "查看"}${sourceText(item)}`} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}{!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <IconButton size="sm" className="timeline-delete" label="删除时间记录" onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton> : null}</span>
           </div>
         );
       })}

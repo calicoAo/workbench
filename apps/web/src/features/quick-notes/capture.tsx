@@ -15,16 +15,17 @@ type CaptureDraft = {
   tag: string;
 };
 
-export function QuickNoteCaptureButton({ request, userId, selectedDate, label = "记一条", compact = false, onCreated }: {
+export function QuickNoteCaptureButton({ request, userId, selectedDate, label = "记一条", compact = false, onOpen, onCreated }: {
   request: Request;
   userId: number;
   selectedDate: string;
   label?: string;
   compact?: boolean;
+  onOpen?: () => void;
   onCreated?: (note: QuickNote) => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  return <><Button variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => setOpen(true)}><Lightbulb size={14} />{label}</Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
+  return <><Button variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => { onOpen?.(); setOpen(true); }}><Lightbulb size={14} /><span>{label}</span></Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
 }
 
 function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCreated }: {

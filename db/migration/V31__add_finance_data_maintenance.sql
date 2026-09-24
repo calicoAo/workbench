@@ -1,0 +1,76 @@
+CREATE TABLE finance_import_batches (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  kind TINYINT NOT NULL COMMENT '0 external transactions, 1 Workbench restore',
+  source_name VARCHAR(255) NOT NULL,
+  source_format VARCHAR(16) NOT NULL,
+  file_digest CHAR(64) NOT NULL,
+  status TINYINT NOT NULL DEFAULT 0 COMMENT '0 preview, 1 confirming, 2 completed, 3 partial, 4 failed, 5 cancelled',
+  summary_json JSON NOT NULL,
+  created_at DATETIME NOT NULL,
+  confirmed_at DATETIME NULL,
+  completed_at DATETIME NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  UNIQUE KEY uk_finance_import_batch_id_user (id, user_id),
+  UNIQUE KEY uk_finance_import_batch_digest (user_id, kind, file_digest),
+  CONSTRAINT fk_finance_import_batch_user FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+ALTER TABLE finance_transactions
+  DROP CHECK chk_finance_transaction_source,
+  ADD CONSTRAINT chk_finance_transaction_source_v31 CHECK (source IN (0, 1)),
+  ADD COLUMN import_batch_id BIGINT UNSIGNED NULL AFTER source,
+  ADD COLUMN source_row_key VARCHAR(160) NULL AFTER import_batch_id,
+  ADD COLUMN source_namespace VARCHAR(255) NULL AFTER source_row_key,
+  ADD COLUMN source_row_fingerprint CHAR(64) NULL AFTER source_namespace,
+  ADD KEY idx_finance_transaction_import (user_id, import_batch_id, source_row_key),
+  ADD UNIQUE KEY uk_finance_transaction_import_identity (user_id, source_namespace, source_row_fingerprint),
+  ADD CONSTRAINT fk_finance_transaction_import_batch_user FOREIGN KEY (import_batch_id, user_id) REFERENCES finance_import_batches (id, user_id);
+
+CREATE TABLE finance_import_rows (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  batch_id BIGINT UNSIGNED NOT NULL,
+  source_row_key VARCHAR(160) NOT NULL,
+  source_namespace VARCHAR(255) NOT NULL,
+  source_row_fingerprint CHAR(64) NOT NULL,
+  source_line_number INT UNSIGNED NOT NULL,
+  raw_json JSON NOT NULL,
+  parsed_date DATE NULL,
+  parsed_time TIME NULL,
+  parsed_amount_cents BIGINT NULL,
+  parsed_kind TINYINT NULL COMMENT '1 income, 2 expense',
+  parsed_note VARCHAR(500) NULL,
+  account_id BIGINT UNSIGNED NULL,
+  category_id BIGINT UNSIGNED NULL,
+  status TINYINT NOT NULL DEFAULT 0 COMMENT '0 ready, 1 needs mapping, 2 invalid, 3 exact duplicate, 4 possible duplicate, 5 imported, 6 failed',
+  duplicate_status TINYINT NOT NULL DEFAULT 0 COMMENT '0 none, 1 exact, 2 possible',
+  warnings_json JSON NOT NULL,
+  error_message VARCHAR(500) NULL,
+  transaction_id BIGINT UNSIGNED NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  UNIQUE KEY uk_finance_import_row_batch_key (batch_id, source_row_key),
+  KEY idx_finance_import_row_source_identity (user_id, source_namespace, source_row_fingerprint),
+  KEY idx_finance_import_row_batch (batch_id, status),
+  CONSTRAINT fk_finance_import_row_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_finance_import_row_batch_user FOREIGN KEY (batch_id, user_id) REFERENCES finance_import_batches (id, user_id),
+  CONSTRAINT fk_finance_import_row_account_user FOREIGN KEY (account_id, user_id) REFERENCES finance_accounts (id, user_id),
+  CONSTRAINT fk_finance_import_row_category_user FOREIGN KEY (category_id, user_id) REFERENCES finance_categories (id, user_id),
+  CONSTRAINT fk_finance_import_row_transaction_user FOREIGN KEY (transaction_id, user_id) REFERENCES finance_transactions (id, user_id)
+);
+
+CREATE TABLE finance_data_audits (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  action VARCHAR(64) NOT NULL,
+  batch_id BIGINT UNSIGNED NULL,
+  source_name VARCHAR(255) NULL,
+  file_digest CHAR(64) NULL,
+  summary_json JSON NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY idx_finance_data_audit_user_created (user_id, created_at),
+  CONSTRAINT fk_finance_data_audit_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_finance_data_audit_batch_user FOREIGN KEY (batch_id, user_id) REFERENCES finance_import_batches (id, user_id)
+);

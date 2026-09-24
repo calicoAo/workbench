@@ -1,18 +1,20 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, CheckSquare2, NotebookPen, RotateCcw, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, CheckSquare2, Lightbulb, NotebookPen, RotateCcw, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
 import { Badge, Button } from "../../shared/ui";
+import { QuickNoteInspirationDialog } from "../inspirations";
 import { formatCreatedAt, formatNoteDate, type QuickNote } from "./model";
 
-type EditDraft = { baseVersion: number; noteDate: string; title: string; content: string; tag: string };
+type EditDraft = { baseVersion: number; noteDate: string; title: string; content: string; tag: string; projectId: string };
 type CategoryOption = { id: number; name: string };
+type ProjectOption = { id: number; name: string; archivedAt: string | null };
 type JournalReferenceResult = { status: "inserted" | "duplicate" };
 
-export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, recordTimezone = "Asia/Shanghai", categories = [], onQuoteToJournal = () => ({ status: "inserted" }) }: { request: Request; userId: number; noteId: number; selectedDate: string; recordTimezone?: string; categories?: CategoryOption[]; onQuoteToJournal?: (input: { noteId: number; targetDate: string; text: string; force?: boolean }) => JournalReferenceResult }) {
+export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, recordTimezone = "Asia/Shanghai", categories = [], projects = [], onQuoteToJournal = () => ({ status: "inserted" }) }: { request: Request; userId: number; noteId: number; selectedDate: string; recordTimezone?: string; categories?: CategoryOption[]; projects?: ProjectOption[]; onQuoteToJournal?: (input: { noteId: number; targetDate: string; text: string; force?: boolean }) => JournalReferenceResult }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: queryKeys.quickNote(userId, noteId), enabled: Number.isInteger(noteId) && noteId > 0, queryFn: () => request<QuickNote>(`/api/quick-notes/${noteId}`) });
@@ -22,6 +24,9 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
   const [error, setError] = useState<string | null>(null);
   const [convertOpen, setConvertOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [inspirationOpen, setInspirationOpen] = useState(false);
+  const [inspirationStatus, setInspirationStatus] = useState<number | null>(null);
+  const restoreOperationId = useRef<string | null>(null);
   const storageKey = `personal-workbench:quick-note-edit:${userId}:${noteId}`;
   const note = query.data;
 
@@ -31,7 +36,7 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
     setLoadedId(note.id);
   }, [loadedId, note, storageKey]);
 
-  const dirty = Boolean(note && draft && (draft.noteDate !== note.noteDate || draft.title !== (note.title ?? "") || draft.content !== note.content || draft.tag !== (note.tag ?? "")));
+  const dirty = Boolean(note && draft && (draft.noteDate !== note.noteDate || draft.title !== (note.title ?? "") || draft.content !== note.content || draft.tag !== (note.tag ?? "") || draft.projectId !== String(note.projectId ?? "")));
   useEffect(() => {
     if (!draft) return;
     if (dirty) localStorage.setItem(storageKey, JSON.stringify(draft));
@@ -44,11 +49,11 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
     setPending(true);
     setError(null);
     try {
-      const updated = await request<QuickNote>(`/api/quick-notes/${noteId}`, { method: "PUT", body: JSON.stringify({ expectedVersion: draft.baseVersion, noteDate: draft.noteDate, title: draft.title, content: draft.content, tag: draft.tag }) });
+      const updated = await request<QuickNote>(`/api/quick-notes/${noteId}`, { method: "PUT", body: JSON.stringify({ expectedVersion: draft.baseVersion, noteDate: draft.noteDate, title: draft.title, content: draft.content, tag: draft.tag, projectId: draft.projectId ? Number(draft.projectId) : null }) });
       queryClient.setQueryData(queryKeys.quickNote(userId, noteId), updated);
       setDraft(toDraft(updated));
       localStorage.removeItem(storageKey);
-      await queryClient.invalidateQueries({ queryKey: ["quick-notes", userId] });
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["quick-notes", userId] }), queryClient.invalidateQueries({ queryKey: ["project-materials", userId] })]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "保存失败");
     } finally {
@@ -62,10 +67,12 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
     setError(null);
     try {
       const path = action === "delete" ? `/api/quick-notes/${note.id}` : `/api/quick-notes/${note.id}/${action}`;
-      const updated = await request<QuickNote>(path, { method: action === "delete" ? "DELETE" : "POST", body: JSON.stringify({ expectedVersion: note.version }) });
+      if (action === "restore" && !restoreOperationId.current) restoreOperationId.current = crypto.randomUUID();
+      const updated = await request<QuickNote>(path, { method: action === "delete" ? "DELETE" : "POST", body: JSON.stringify({ expectedVersion: note.version, ...(action === "restore" ? { operationId: restoreOperationId.current } : {}) }) });
+      if (action === "restore") restoreOperationId.current = null;
       queryClient.setQueryData(queryKeys.quickNote(userId, noteId), updated);
       setDraft(toDraft(updated));
-      await queryClient.invalidateQueries({ queryKey: ["quick-notes", userId] });
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["quick-notes", userId] }), queryClient.invalidateQueries({ queryKey: ["trash", userId] }), queryClient.invalidateQueries({ queryKey: ["project-materials", userId] })]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "操作失败");
     } finally {
@@ -77,13 +84,14 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
   if (query.isError || !note || !draft) return <section className="quick-notes-route"><div className="notes-error"><h1>随手记没有加载成功</h1><p>{query.error instanceof Error ? query.error.message : "记录不存在"}</p><Button onClick={() => void query.refetch()}>重试</Button></div></section>;
 
   return <section className="quick-notes-route">
-    <header className="quick-notes-head"><div><Link className="notes-back" to={`/notes?date=${selectedDate}`}><ArrowLeft size={15} />返回灵感库</Link><h1>随手记详情</h1><p>记录日期 {formatNoteDate(note.noteDate)} · 创建于 {formatCreatedAt(note.createdAt)}</p></div><NoteState note={note} /></header>
+    <header className="quick-notes-head"><div><Link className="notes-back" to={`/notes?date=${selectedDate}`}><ArrowLeft size={15} />返回随手记</Link><h1>随手记详情</h1><p>记录日期 {formatNoteDate(note.noteDate)} · 创建于 {formatCreatedAt(note.createdAt)}</p></div><NoteState note={note} /></header>
     <form className="quick-note-detail" onSubmit={save}>
       <div className="quick-note-fields">
         <input aria-label="随手记标题" maxLength={120} placeholder="标题（可选）" disabled={Boolean(note.deletedAt)} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
         <input aria-label="随手记标签" maxLength={64} placeholder="标签（可选）" disabled={Boolean(note.deletedAt)} value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
         <input aria-label="记录日期" type="date" disabled={Boolean(note.deletedAt)} value={draft.noteDate} onChange={(event) => setDraft({ ...draft, noteDate: event.target.value })} />
       </div>
+      <label className="note-project-field">关联项目<select aria-label="关联项目" className="field" disabled={Boolean(note.deletedAt)} value={draft.projectId} onChange={(event) => setDraft({ ...draft, projectId: event.target.value })}><option value="">无项目</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}{note.linkedProject?.archivedAt && !projects.some((project) => project.id === note.linkedProject?.id) ? <option value={note.linkedProject.id}>{note.linkedProject.name}（已归档）</option> : null}</select><small>关联只建立素材入口，不会创建悬赏或复制正文。</small></label>
       <textarea aria-label="随手记正文" className="quick-note-body" maxLength={5000} disabled={Boolean(note.deletedAt)} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
       {note.linkedTask ? <aside className="note-source-link"><div><strong>已转为悬赏</strong><span>{note.linkedTask.title} · {linkedTaskState(note.linkedTask)}</span></div>{note.linkedTask.deletedAt ? null : <Link to={`/tasks/${note.linkedTask.id}?date=${selectedDate}`}>查看悬赏</Link>}</aside> : null}
       {error ? <p className="quick-note-error" role="alert">{error}{dirty ? "。当前草稿仍保留在本设备。" : ""}</p> : null}
@@ -91,6 +99,7 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
         <div>
           {!note.deletedAt && !note.linkedTask ? <Button type="button" disabled={dirty} onClick={() => setConvertOpen(true)}><CheckSquare2 size={14} />转为悬赏</Button> : null}
           {!note.deletedAt ? <Button type="button" disabled={dirty} onClick={() => setQuoteOpen(true)}><NotebookPen size={14} />引用到日记</Button> : null}
+          {!note.deletedAt ? <Button type="button" disabled={dirty} onClick={() => { setInspirationStatus(null); setInspirationOpen(true); }}><Lightbulb size={14} />加入灵感库</Button> : null}
           {!note.deletedAt && !note.archivedAt ? <Button variant="secondary" type="button" disabled={dirty} onClick={() => void command("archive")}><Archive size={14} />归档</Button> : null}
           {!note.deletedAt && note.archivedAt ? <Button variant="secondary" type="button" disabled={dirty} onClick={() => void command("unarchive")}><ArchiveRestore size={14} />取消归档</Button> : null}
           {!note.deletedAt ? <Button variant="danger" type="button" disabled={dirty} onClick={() => void command("delete")}><Trash2 size={14} />移到回收</Button> : <Button variant="secondary" type="button" onClick={() => void command("restore")}><RotateCcw size={14} />恢复</Button>}
@@ -99,7 +108,9 @@ export function QuickNoteDetailPage({ request, userId, noteId, selectedDate, rec
       </div>
     </form>
     {convertOpen ? <ConvertNoteDialog note={note} selectedDate={selectedDate} recordTimezone={recordTimezone} categories={categories} request={request} onClose={() => setConvertOpen(false)} onConverted={async () => { setConvertOpen(false); await query.refetch(); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.tasks(userId) }), queryClient.invalidateQueries({ queryKey: queryKeys.assignments(userId, selectedDate) })]); }} /> : null}
-    {quoteOpen ? <QuoteNoteDialog note={note} selectedDate={selectedDate} onClose={() => setQuoteOpen(false)} onQuote={(input) => { const result = onQuoteToJournal(input); if (result.status === "inserted") { setQuoteOpen(false); navigate(`/journal?date=${input.targetDate}`); } return result; }} /> : null}
+      {quoteOpen ? <QuoteNoteDialog note={note} selectedDate={selectedDate} onClose={() => setQuoteOpen(false)} onQuote={(input) => { const result = onQuoteToJournal(input); if (result.status === "inserted") { setQuoteOpen(false); navigate(`/journal?date=${input.targetDate}`); } return result; }} /> : null}
+      {inspirationOpen ? <QuickNoteInspirationDialog request={request} userId={userId} noteId={note.id} onClose={() => setInspirationOpen(false)} onDone={(id) => { setInspirationOpen(false); setInspirationStatus(id); void queryClient.invalidateQueries({ queryKey: ["inspirations", userId] }); }} /> : null}
+      {inspirationStatus ? <p className="quick-note-success" role="status">已加入灵感库。<Link to="/inspirations">查看灵感库</Link></p> : null}
   </section>;
 }
 
@@ -144,7 +155,7 @@ function NoteState({ note }: { note: QuickNote }) {
 }
 
 function toDraft(note: QuickNote): EditDraft {
-  return { baseVersion: note.version, noteDate: note.noteDate, title: note.title ?? "", content: note.content, tag: note.tag ?? "" };
+  return { baseVersion: note.version, noteDate: note.noteDate, title: note.title ?? "", content: note.content, tag: note.tag ?? "", projectId: String(note.projectId ?? "") };
 }
 
 function readEditDraft(key: string, note: QuickNote): EditDraft {

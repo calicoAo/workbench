@@ -6,7 +6,7 @@ type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Confirm = (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
 
 export type DimensionKey = "career" | "creative" | "learning" | "life" | "body" | "social" | "leisure" | "foundation";
-export type Category = { id: number; name: string; dimensionKey: DimensionKey; color: string; targetMinutes: number; totalMinutes: number };
+export type Category = { id: number; name: string; dimensionKey: DimensionKey | null; color: string; targetMinutes: number; totalMinutes: number };
 
 export const CORE_DIMENSIONS = [
   { key: "career", label: "事业力", hint: "主业、产品、编程", color: "#5B8DEF" },
@@ -63,7 +63,7 @@ export function CategoriesFeature({ request, categories, onError, onConfirm, onC
   function openEditor(category: Category) {
     setEditing(category);
     setEditName(category.name);
-    setEditDimensionKey(category.dimensionKey);
+    setEditDimensionKey(category.dimensionKey ?? "life");
     setEditTargetHours(String(Math.max(1, Math.round(category.targetMinutes / 60))));
   }
 
@@ -212,7 +212,7 @@ export function dimensionMeta(key?: string | null) {
   return DIMENSIONS.find((item) => item.key === key) ?? CORE_DIMENSIONS[3];
 }
 
-export function isCoreDimensionKey(value: DimensionKey) {
+export function isCoreDimensionKey(value: DimensionKey | null) {
   return CORE_DIMENSIONS.some((item) => item.key === value);
 }
 

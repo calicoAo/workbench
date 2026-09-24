@@ -6,7 +6,7 @@ import { estimatePlannedTaskReward, type RewardEvent, type RewardGrant } from ".
 import { CompleteTaskWorkflow } from "./complete-task";
 import { CreateTaskWorkflow } from "./create-task";
 import { EditTaskWorkflow } from "./edit-task";
-import { type Confirm, type Request, type Schedule, type Task, type TimerSession, difficultyLabel, formatDateTime, perform } from "./model";
+import { type Confirm, type ProjectOption, type Request, type Schedule, type Task, type TimerSession, difficultyLabel, formatDateTime, perform } from "./model";
 import { SelectDailyTasksWorkflow } from "./select-daily-tasks";
 import { CategoryOptions, CategoryTag, CloseButton, EmptyText, ModalPortal } from "./task-ui";
 
@@ -16,7 +16,7 @@ export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskDetai
 type TaskCategoryFilter = "all" | "none" | DimensionKey;
 type ContextValue = {
   panel: ReactNode;
-  openCreate: () => void;
+  openCreate: (options?: { projectId?: number }) => void;
   openSelector: () => void;
   openEditor: (task: Task) => void;
   complete: (task: Task) => void | Promise<void>;
@@ -32,6 +32,7 @@ export function TasksFeature({
   loading,
   tasks,
   categories,
+  projects = [],
   schedules,
   dailyTaskIds,
   focusTaskIds,
@@ -50,6 +51,7 @@ export function TasksFeature({
   loading: boolean;
   tasks: Task[];
   categories: Category[];
+  projects?: ProjectOption[];
   schedules: Schedule[];
   dailyTaskIds: number[];
   focusTaskIds?: number[];
@@ -129,7 +131,7 @@ export function TasksFeature({
 
   async function updateTask(task: Task, body: Record<string, unknown>) {
     await perform(onError, async () => {
-      await request(`/api/tasks/${task.id}`, { method: "PUT", body: JSON.stringify(body) });
+      await request(`/api/tasks/${task.id}`, { method: "PUT", body: JSON.stringify({ expectedVersion: task.version, ...body }) });
       await onChanged();
     });
   }
@@ -223,7 +225,7 @@ export function TasksFeature({
         />
       )}
 
-      <div className="space-y-2 overflow-y-auto pr-1 xl:max-h-[calc(100vh-245px)]">
+      <div className="space-y-2 pr-1">
         {loading && <EmptyText text="加载中..." />}
         {!loading && !tasks.length && <EmptyText text="任务池还没有任务，先添加一个悬赏。" />}
         {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text="今天还没有接取任务，点击上方“接取悬赏”开始选择。" />}
@@ -259,13 +261,13 @@ export function TasksFeature({
   }
 
   return (
-    <CreateTaskWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
+    <CreateTaskWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} projects={projects} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
       {(openCreate) => (
         <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} focusTaskIds={focusTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
           {(openSelector) => (
-            <EditTaskWorkflow request={request} onError={onError} onChanged={onChanged}>
+            <EditTaskWorkflow request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
               {(openEditor) => (
-                <CompleteTaskWorkflow request={request} selectedDate={selectedDate} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
+                <CompleteTaskWorkflow request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
                     <TasksContext.Provider value={{ panel: renderPanel(openCreate, openSelector, openEditor, toggleDone), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
                       {children}

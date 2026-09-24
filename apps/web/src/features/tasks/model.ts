@@ -7,6 +7,7 @@ export type Task = {
   title: string;
   description: string | null;
   categoryId: number | null;
+  projectId?: number | null;
   status: number;
   priority: number;
   difficulty: number;
@@ -22,6 +23,8 @@ export type Task = {
   completedAt: string | null;
   completionNote: string | null;
 };
+
+export type ProjectOption = { id: number; name: string; status: number; archivedAt: string | null };
 
 export type TimerSession = { id: number; taskId: number; startTime: string; durationMinutes: number; status: number };
 

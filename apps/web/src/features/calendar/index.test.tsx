@@ -25,6 +25,7 @@ function feature(options: Partial<FeatureProps> = {}) {
       loading={options.loading ?? false}
       items={options.items ?? items}
       tasks={options.tasks ?? tasks}
+      acceptedTaskIds={options.acceptedTaskIds}
       categories={options.categories ?? categories}
       onError={options.onError ?? vi.fn()}
       onChanged={options.onChanged ?? vi.fn()}
@@ -64,14 +65,16 @@ describe("CalendarFeature workflow ownership", () => {
     openEditor();
     fireEvent.change(screen.getByLabelText("时间块标题"), { target: { value: "  手工记录  " } });
     fireEvent.change(screen.getByLabelText("时间块备注"), { target: { value: "  保持专注  " } });
-    fireEvent.change(screen.getByLabelText("开始"), { target: { value: "13:00" } });
-    fireEvent.change(screen.getByLabelText("结束"), { target: { value: "14:30" } });
+    fireEvent.change(screen.getByLabelText("开始时间"), { target: { value: "13:00" } });
+    fireEvent.change(screen.getByLabelText("结束时间"), { target: { value: "14:30" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(requestMock.mock.calls[0][0]).toBe("/api/schedules");
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
       scheduleDate: "2026-09-19",
+      startDate: "2026-09-19",
+      endDate: "2026-09-19",
       startTime: "13:00",
       endTime: "14:30",
       kind: 1,
@@ -127,5 +130,15 @@ describe("CalendarFeature workflow ownership", () => {
 
     expect(request).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith("不关联任务时，需要写一下这段时间做了什么");
+  });
+
+  it("offers only accepted tasks for a new Manual Actual record", () => {
+    render(feature({ tasks: [{ id: 11, title: "已接取" }, { id: 12, title: "未接取" }], acceptedTaskIds: [11] }));
+    openEditor();
+
+    const options = [...screen.getByLabelText<HTMLSelectElement>("关联任务").options].map((option) => option.text);
+    expect(options).toContain("已接取");
+    expect(options).not.toContain("未接取");
+    expect(options).toContain("不关联任务");
   });
 });

@@ -173,7 +173,7 @@ describe("TasksFeature ownership", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "完成任务 A" }));
     fireEvent.change(screen.getByLabelText("完成感想"), { target: { value: "完成得很扎实" } });
-    fireEvent.click(screen.getByRole("button", { name: "完成任务" }));
+    fireEvent.click(screen.getByRole("button", { name: "直接完成" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(requestMock.mock.calls[0][0]).toBe("/api/tasks/1/complete");
@@ -183,5 +183,30 @@ describe("TasksFeature ownership", () => {
     });
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(onReward).toHaveBeenCalledWith(task, { xp: 12, coins: 3 });
+  });
+
+  it("sends completion with Actual time through one atomic Manual Actual command", async () => {
+    const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({ rewards: [{ xp: 12, coins: 3 }] }));
+    const onChanged = vi.fn(async () => undefined);
+    render(feature({ request: requestMock as Props["request"], onChanged }));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "完成任务 A" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "同时补录实际投入" }));
+    fireEvent.change(screen.getByLabelText("完成补录开始时间"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("完成补录结束时间"), { target: { value: "10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "完成并记录时间" }));
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(requestMock).toHaveBeenCalledOnce();
+    expect(requestMock.mock.calls[0][0]).toBe("/api/schedules");
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
+      taskId: task.id,
+      expectedTaskVersion: task.version,
+      kind: 1,
+      completeTask: true,
+      includeInActualTime: true,
+      startTime: "09:00",
+      endTime: "10:00"
+    });
   });
 });

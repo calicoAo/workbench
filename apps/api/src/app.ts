@@ -24,6 +24,12 @@ import { waterRecordsRoute } from "./routes/water-records.js";
 import { settingsRoute } from "./routes/settings.js";
 import { searchRoute } from "./routes/search.js";
 import { exportsRoute } from "./routes/exports.js";
+import { projectsRoute } from "./routes/projects.js";
+import { trashRoute } from "./routes/trash.js";
+import { habitsRoute } from "./routes/habits.js";
+import { financeRoute } from "./routes/finance.js";
+import { growthRoute } from "./routes/growth.js";
+import { inspirationRoute } from "./routes/inspiration.js";
 
 export const app = new Hono();
 
@@ -52,3 +58,9 @@ app.route("/api/water-records", waterRecordsRoute);
 app.route("/api/settings", settingsRoute);
 app.route("/api/search", searchRoute);
 app.route("/api/exports", exportsRoute);
+app.route("/api/projects", projectsRoute);
+app.route("/api/trash", trashRoute);
+app.route("/api/habits", habitsRoute);
+app.route("/api/finance", financeRoute);
+app.route("/api/growth", growthRoute);
+app.route("/api/writing", inspirationRoute);

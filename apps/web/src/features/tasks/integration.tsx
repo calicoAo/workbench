@@ -11,6 +11,7 @@ export type TaskSnapshot = {
   title: string;
   description: string | null;
   categoryId: number | null;
+  projectId?: number | null;
   status: number;
   priority: number;
   difficulty: number;

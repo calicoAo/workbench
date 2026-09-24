@@ -18,6 +18,8 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const createScheduleSchema = z.object({
   operationId: operationId.optional(),
   scheduleDate: date,
+  startDate: date.optional(),
+  endDate: date.optional(),
   startTime: time,
   endTime: time,
   recordTimezone: z.string().refine(isValidTimezone).optional(),
@@ -25,6 +27,7 @@ const createScheduleSchema = z.object({
   taskId: z.number().int().positive().optional(),
   expectedTaskVersion: z.number().int().positive().optional(),
   categoryId: z.number().int().positive().optional(),
+  projectIdAtOccurrence: z.number().int().positive().nullable().optional(),
   title: z.string().trim().min(1).max(200).optional(),
   note: z.string().trim().max(500).optional(),
   includeInActualTime: z.boolean().default(true),
@@ -35,12 +38,15 @@ const correctSchema = z.object({
   operationId,
   expectedVersion: z.number().int().positive(),
   scheduleDate: date,
+  startDate: date.optional(),
+  endDate: date.optional(),
   startTime: time,
   endTime: time,
   recordTimezone: z.string().refine(isValidTimezone),
   title: z.string().trim().min(1).max(200).optional(),
   note: z.string().trim().max(500).optional(),
-  includeInActualTime: z.boolean()
+  includeInActualTime: z.boolean(),
+  projectIdAtOccurrence: z.number().int().positive().nullable().optional()
 });
 const cancelSchema = z.object({ operationId, expectedVersion: z.number().int().positive() });
 const rangeSchema = z.object({ from: date, to: date, timezone: z.string().refine(isValidTimezone) });
@@ -104,7 +110,10 @@ export const schedulesRoute = new Hono()
   })
   .post("/", async (c) => {
     const body = createScheduleSchema.parse(await c.req.json());
-    if (body.endTime <= body.startTime) throw new BusinessError(ErrorCode.PARAM_ERROR, "end time must be later than start time");
+    const startDate = body.startDate ?? body.scheduleDate;
+    const endDate = body.endDate ?? body.scheduleDate;
+    if (body.kind === ScheduleKind.PLANNED && (startDate !== body.scheduleDate || endDate !== body.scheduleDate)) throw new BusinessError(ErrorCode.PARAM_ERROR, "planned blocks must stay within their schedule date");
+    if (body.kind === ScheduleKind.PLANNED && body.endTime <= body.startTime) throw new BusinessError(ErrorCode.PARAM_ERROR, "end time must be later than start time");
     const userId = getCurrentUserId(c);
     const [user] = await db.select({ timezone: users.timezone }).from(users).where(and(eq(users.id, userId), isNull(users.deletedAt)));
     if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
@@ -117,9 +126,10 @@ export const schedulesRoute = new Hono()
         taskId: body.taskId,
         expectedTaskVersion: body.expectedTaskVersion,
         title: body.title,
+        projectIdAtOccurrence: body.projectIdAtOccurrence,
         note: body.note,
-        startedAt: localDateTimeToUtc(body.scheduleDate, body.startTime, recordTimezone),
-        endedAt: localDateTimeToUtc(body.scheduleDate, body.endTime, recordTimezone),
+        startedAt: localDateTimeToUtc(startDate, body.startTime, recordTimezone),
+        endedAt: localDateTimeToUtc(endDate, body.endTime, recordTimezone),
         recordTimezone,
         includeInActualTime: body.includeInActualTime,
         completeTask: body.completeTask,
@@ -157,8 +167,8 @@ export const schedulesRoute = new Hono()
       userId,
       scheduleId,
       ...body,
-      startedAt: localDateTimeToUtc(body.scheduleDate, body.startTime, body.recordTimezone),
-      endedAt: localDateTimeToUtc(body.scheduleDate, body.endTime, body.recordTimezone)
+      startedAt: localDateTimeToUtc(body.startDate ?? body.scheduleDate, body.startTime, body.recordTimezone),
+      endedAt: localDateTimeToUtc(body.endDate ?? body.scheduleDate, body.endTime, body.recordTimezone)
     }));
   })
   .delete("/:id", async (c) => {

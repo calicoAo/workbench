@@ -8,6 +8,7 @@ import { runMutation } from "./mutation-receipt.js";
 import { grantTaskDoneRewardInClient } from "./rewards.js";
 import { closePendingContinuationsInClient } from "./task-assignments.js";
 import { businessDateAt, formatUtcDateTime } from "./time.js";
+import { completeLinkedHabitFromTaskInClient } from "./habits.js";
 
 export type CompleteTaskCommand = {
   userId: number;
@@ -53,6 +54,7 @@ export async function completeLockedTaskInClient(client: DatabaseClient, command
   const [eventResult] = await client.insert(taskCompletionEvents).values({
     userId: command.userId,
     taskId: task.id,
+    categoryIdAtOccurrence: task.categoryId,
     occurredAt: formatUtcDateTime(now),
     recordTimezone: command.recordTimezone,
     businessDate: businessDateAt(now, command.recordTimezone),
@@ -63,7 +65,8 @@ export async function completeLockedTaskInClient(client: DatabaseClient, command
   });
   await closePendingContinuationsInClient(client, command.userId, task.id, "task_completed", now);
   const reward = await grantTaskDoneRewardInClient(client, command.userId, task);
-  return { id: task.id, status: TaskStatus.DONE, completed: true, completionEventId: eventResult.insertId, reward };
+  const habitOccurrence = await completeLinkedHabitFromTaskInClient(client, { userId: command.userId, taskId: task.id, completedAt: now, recordTimezone: command.recordTimezone });
+  return { id: task.id, status: TaskStatus.DONE, completed: true, completionEventId: eventResult.insertId, reward, habitOccurrence };
 }
 
 export function completeTask(command: CompleteTaskCommand) {

@@ -1,0 +1,81 @@
+CREATE TABLE finance_accounts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  type TINYINT NOT NULL COMMENT '0 cash, 1 bank, 2 payment, 3 credit',
+  currency CHAR(3) NOT NULL DEFAULT 'CNY',
+  include_in_overview TINYINT NOT NULL DEFAULT 1,
+  opening_date DATE NOT NULL,
+  archived_at DATETIME NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_finance_account_id_user (id, user_id),
+  KEY idx_finance_account_user_state (user_id, archived_at, type),
+  CONSTRAINT fk_finance_account_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT chk_finance_account_type CHECK (type BETWEEN 0 AND 3),
+  CONSTRAINT chk_finance_account_currency CHECK (currency = 'CNY'),
+  CONSTRAINT chk_finance_account_overview CHECK (include_in_overview IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Finance-owned account metadata; balance is never stored here';
+
+CREATE TABLE finance_categories (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  kind TINYINT NOT NULL COMMENT '0 income, 1 expense',
+  name VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL,
+  enabled TINYINT NOT NULL DEFAULT 1,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_finance_category_id_user (id, user_id),
+  UNIQUE KEY uk_finance_category_user_kind_name (user_id, kind, name),
+  KEY idx_finance_category_user_order (user_id, kind, enabled, sort_order),
+  CONSTRAINT fk_finance_category_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT chk_finance_category_kind CHECK (kind IN (0, 1)),
+  CONSTRAINT chk_finance_category_enabled CHECK (enabled IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Finance-only income and expense categories';
+
+CREATE TABLE finance_transactions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  type TINYINT NOT NULL COMMENT '0 opening, 1 income, 2 expense',
+  occurred_at DATETIME NOT NULL,
+  record_timezone VARCHAR(64) NOT NULL,
+  business_date DATE NOT NULL,
+  category_id BIGINT UNSIGNED NULL,
+  note VARCHAR(500) NULL,
+  status TINYINT NOT NULL DEFAULT 0 COMMENT '0 posted',
+  source TINYINT NOT NULL DEFAULT 0 COMMENT '0 manual',
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_finance_transaction_id_user (id, user_id),
+  KEY idx_finance_transaction_user_date (user_id, business_date, id),
+  KEY idx_finance_transaction_category (user_id, category_id, business_date),
+  CONSTRAINT fk_finance_transaction_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_finance_transaction_category_user FOREIGN KEY (category_id, user_id) REFERENCES finance_categories (id, user_id),
+  CONSTRAINT chk_finance_transaction_type CHECK (type BETWEEN 0 AND 2),
+  CONSTRAINT chk_finance_transaction_shape CHECK ((type = 0 AND category_id IS NULL) OR (type IN (1, 2) AND category_id IS NOT NULL)),
+  CONSTRAINT chk_finance_transaction_status CHECK (status = 0),
+  CONSTRAINT chk_finance_transaction_source CHECK (source = 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Finance action headers; FIN-01 rows are immutable except safe metadata';
+
+CREATE TABLE finance_entries (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  transaction_id BIGINT UNSIGNED NOT NULL,
+  account_id BIGINT UNSIGNED NOT NULL,
+  amount_cents BIGINT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_finance_entry_transaction_account (transaction_id, account_id),
+  KEY idx_finance_entry_user_account (user_id, account_id, transaction_id),
+  CONSTRAINT fk_finance_entry_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_finance_entry_transaction_user FOREIGN KEY (transaction_id, user_id) REFERENCES finance_transactions (id, user_id),
+  CONSTRAINT fk_finance_entry_account_user FOREIGN KEY (account_id, user_id) REFERENCES finance_accounts (id, user_id),
+  CONSTRAINT chk_finance_entry_nonzero CHECK (amount_cents <> 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Signed integer-cent account movements and sole balance truth';

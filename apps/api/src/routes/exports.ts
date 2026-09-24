@@ -3,13 +3,13 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { journals, morningWritings, quickNotes, quickNoteTaskLinks, rewardEvents, rewardRedemptions, schedules, sleepRecords, tasks, timerSegments, waterRecords } from "../db/schema.js";
+import { habitDefinitions, habitGoalVersions, habitOccurrences, habitRuleVersions, habitTaskLinks, journals, morningWritings, projects, quickNotes, quickNoteTaskLinks, rewardEvents, rewardRedemptions, schedules, sleepRecords, tasks, timerSegments, waterRecords } from "../db/schema.js";
 import { ActualTimeClass, ScheduleKind, TimerSegmentStatus } from "../enums.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 
 const querySchema = z.object({ format: z.enum(["json", "csv", "markdown"]), includeTrash: z.enum(["true", "false"]).default("false") });
-const domains = ["tasks", "writing", "calendar", "rewards", "life"] as const;
+const domains = ["projects", "tasks", "habits", "writing", "calendar", "rewards", "life"] as const;
 
 function csv(rows: Record<string, unknown>[]) {
   if (!rows.length) return "";
@@ -29,13 +29,24 @@ export const exportsRoute = new Hono().get("/:domain", async (c) => {
   const userId = getCurrentUserId(c);
   let rows: Record<string, unknown>[] = [];
 
-  if (domain === "tasks") {
+  if (domain === "projects") {
+    rows = (await db.select().from(projects).where(eq(projects.userId, userId)).orderBy(asc(projects.id))).map((row) => ({ kind: "project", ...row }));
+  } else if (domain === "tasks") {
     const [taskRows, links] = await Promise.all([
       db.select().from(tasks).where(and(eq(tasks.userId, userId), ...(includeTrash ? [] : [isNull(tasks.deletedAt)]))).orderBy(asc(tasks.id)),
       db.select().from(quickNoteTaskLinks).where(eq(quickNoteTaskLinks.userId, userId))
     ]);
     const sourceByTask = new Map(links.map((link) => [link.taskId, link.quickNoteId]));
     rows = taskRows.map((row) => ({ kind: "task", ...row, sourceType: sourceByTask.has(row.id) ? "QUICK_NOTE" : null, sourceId: sourceByTask.get(row.id) ?? null }));
+  } else if (domain === "habits") {
+    const [definitions, rules, goals, occurrences, links] = await Promise.all([
+      db.select().from(habitDefinitions).where(eq(habitDefinitions.userId, userId)).orderBy(asc(habitDefinitions.id)),
+      db.select().from(habitRuleVersions).where(eq(habitRuleVersions.userId, userId)).orderBy(asc(habitRuleVersions.id)),
+      db.select().from(habitGoalVersions).where(eq(habitGoalVersions.userId, userId)).orderBy(asc(habitGoalVersions.id)),
+      db.select().from(habitOccurrences).where(eq(habitOccurrences.userId, userId)).orderBy(asc(habitOccurrences.id)),
+      db.select().from(habitTaskLinks).where(eq(habitTaskLinks.userId, userId)).orderBy(asc(habitTaskLinks.id))
+    ]);
+    rows = [...definitions.map((row) => ({ kind: "habit_definition", ...row })), ...rules.map((row) => ({ kind: "habit_rule_version", ...row })), ...goals.map((row) => ({ kind: "habit_goal_version", ...row })), ...occurrences.map((row) => ({ kind: "habit_occurrence", ...row })), ...links.map((row) => ({ kind: "habit_task_link", ...row }))];
   } else if (domain === "writing") {
     const [notes, links, journalRows, morningRows] = await Promise.all([
       db.select().from(quickNotes).where(and(eq(quickNotes.userId, userId), ...(includeTrash ? [] : [isNull(quickNotes.deletedAt)]))).orderBy(asc(quickNotes.id)),

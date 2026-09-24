@@ -262,6 +262,11 @@ export function useJournalDraftBridge() {
   return { stageJournalReference: feature.stageJournalReference };
 }
 
+export function useWritingInspirationBridge() {
+  const feature = useWritingReflection();
+  return { insertIntoJournal: (text: string) => feature.setJournal({ ...feature.journal, content: [feature.journal.content.trimEnd(), text.trim()].filter(Boolean).join("\n\n") }) };
+}
+
 function journalReferenceRegistryKey(userId: number, date: string) { return `personal-workbench:journal-reference-registry:v1:${userId}:${date}`; }
 function pendingReferenceKey(userId: number, date: string) { return `personal-workbench:journal-reference-pending:v1:${userId}:${date}`; }
 function readNumberSet(key: string) {
@@ -279,24 +284,31 @@ function appendJournalReferences(content: string, references: Array<{ noteId: nu
   return [content.trimEnd(), addition].filter(Boolean).join("\n\n");
 }
 
-export function WritingReflectionShortcuts() {
+export function WritingReflectionShortcuts({ enabledSlots }: { enabledSlots?: string[] } = {}) {
   const feature = useWritingReflection();
-  const hasPending = !feature.completed.morning || !feature.completed.journal || !feature.completed.review;
+  const enabled = new Set(enabledSlots ?? []);
+  const entries = [
+    { key: "MORNING_WRITING", kind: "morning" as const, label: "晨写" },
+    { key: "JOURNAL", kind: "journal" as const, label: "日记" },
+    { key: "STOCK_REVIEW", kind: "review" as const, label: "复盘" }
+  ].filter((entry) => enabled.has(entry.key));
+  const hasPending = entries.some((entry) => !feature.completed[entry.kind]);
   return (
     <div className="writing-shortcut-wrap">
       {hasPending && <span className="writing-nudge">点我记录</span>}
-      <WritingShortcut label="晨写" done={feature.completed.morning} disabled={feature.disabled} onClick={() => feature.setModal("morning")} />
-      <WritingShortcut label="复盘" done={feature.completed.review} disabled={feature.disabled} onClick={() => feature.setModal("review")} />
-      <WritingShortcut label="日记" done={feature.completed.journal} disabled={feature.disabled} onClick={() => feature.setModal("journal")} />
+      {entries.map((entry) => <WritingShortcut key={entry.key} label={entry.label} done={feature.completed[entry.kind]} disabled={feature.disabled} onClick={() => feature.setModal(entry.kind)} />)}
     </div>
   );
 }
 
-export function WritingReflectionHistory({ loading }: { loading: boolean }) {
+export function WritingQuickActions({ enabledSlots, onSelect, showIcons = false }: { enabledSlots: string[]; onSelect?: () => void; showIcons?: boolean }) { const feature = useWritingReflection(); const entries = { MORNING_WRITING: { kind: "morning" as const, label: "晨写", icon: SunMedium }, JOURNAL: { kind: "journal" as const, label: "日记", icon: BookOpenText }, STOCK_REVIEW: { kind: "review" as const, label: "股市复盘", icon: TrendingUp } }; return <>{enabledSlots.map((key) => ({ key, entry: entries[key as keyof typeof entries] })).filter(({ entry }) => entry).map(({ key, entry }) => { const Icon = entry.icon; return <button key={key} type="button" onClick={() => { feature.setModal(entry.kind); onSelect?.(); }}>{showIcons ? <Icon size={17} /> : null}<span>{entry.label}</span></button>; })}</>; }
+
+export function WritingReflectionHistory({ loading, enabledSlots }: { loading: boolean; enabledSlots?: string[] }) {
   const feature = useWritingReflection();
+  const enabled = new Set(enabledSlots ?? ["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"]);
   return (
     <>
-      <FeaturePanel
+      {enabled.has("MORNING_WRITING") ? <FeaturePanel
         title={`晨写 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<SunMedium size={17} />}
         action={<ExpandButton label="打开晨写编辑" disabled={feature.disabled} onClick={() => feature.setModal("morning")} />}
@@ -304,9 +316,9 @@ export function WritingReflectionHistory({ loading }: { loading: boolean }) {
         <form className="space-y-2" onSubmit={feature.saveMorning}>
           <MorningFields compact />
         </form>
-      </FeaturePanel>
+      </FeaturePanel> : null}
 
-      <FeaturePanel
+      {enabled.has("JOURNAL") ? <FeaturePanel
         title={`睡前日记 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<BookOpenText size={17} />}
         action={<ExpandButton label="打开日记编辑" disabled={feature.disabled} onClick={() => feature.setModal("journal")} />}
@@ -315,9 +327,9 @@ export function WritingReflectionHistory({ loading }: { loading: boolean }) {
         <form className="space-y-2" onSubmit={feature.saveJournal}>
           <JournalFields compact />
         </form>
-      </FeaturePanel>
+      </FeaturePanel> : null}
 
-      <FeaturePanel
+      {enabled.has("STOCK_REVIEW") ? <FeaturePanel
         title={`股市复盘 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<TrendingUp size={17} />}
         action={<ExpandButton label="打开复盘编辑" disabled={feature.disabled} onClick={() => feature.setModal("review")} />}
@@ -325,7 +337,7 @@ export function WritingReflectionHistory({ loading }: { loading: boolean }) {
         <form className="space-y-2" onSubmit={feature.saveReview}>
           <ReviewFields compact />
         </form>
-      </FeaturePanel>
+      </FeaturePanel> : null}
     </>
   );
 }

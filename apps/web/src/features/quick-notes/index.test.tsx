@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuickNoteCaptureButton, QuickNoteDetailPage, QuickNotesPage } from ".";
 import type { Request } from "../../app/api";
+import type { QuickNote } from "./model";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -87,5 +88,31 @@ describe("Quick Notes draft ownership", () => {
     wrapper(<QuickNotesPage request={vi.fn(async () => ({ items: [], nextCursor: null })) as Request} userId={7} selectedDate="2026-09-20" />);
     await screen.findByText("还没有随手记"); expect(screen.queryByLabelText("起始记录日期")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "筛选" })); expect(screen.getByLabelText("起始记录日期")).toBeTruthy(); expect(screen.getByText("开始日期")).toBeTruthy(); expect(screen.getByText("结束日期")).toBeTruthy();
+  });
+
+  it("associates and unlinks one Project without creating another workflow", async () => {
+    const base = { id: 8, userId: 7, noteDate: "2026-09-21", recordTimezone: "Asia/Shanghai", title: "素材", content: "项目素材", tag: null, projectId: null, archivedAt: null, deletedAt: null, version: 1, createdAt: "2026-09-21T08:00:00Z", updatedAt: "2026-09-21T08:00:00Z", linkedTask: null, linkedProject: null };
+    let current: QuickNote = base;
+    const requestMock = vi.fn(async (_path: string, init?: RequestInit) => {
+      if (!init?.method) return current;
+      const body = JSON.parse(String(init.body));
+      current = { ...current, version: current.version + 1, projectId: body.projectId, linkedProject: body.projectId ? { id: 9, name: "导游考试", status: 1, archivedAt: null } : null };
+      return current;
+    });
+    wrapper(<QuickNoteDetailPage request={requestMock as Request} userId={7} noteId={8} selectedDate="2026-09-21" projects={[{ id: 9, name: "导游考试", archivedAt: null }]} />);
+    const selector = await screen.findByLabelText<HTMLSelectElement>("关联项目");
+    fireEvent.change(selector, { target: { value: "9" } }); fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    await waitFor(() => expect(JSON.parse(String(requestMock.mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.body)).projectId).toBe(9));
+    fireEvent.change(screen.getByLabelText("关联项目"), { target: { value: "" } }); fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    await waitFor(() => expect(requestMock.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2));
+    expect(JSON.parse(String(requestMock.mock.calls.filter(([, init]) => init?.method === "PUT")[1][1]?.body)).projectId).toBeNull();
+  });
+
+  it("keeps a historical archived Project visible in the selector", async () => {
+    const note = { id: 9, userId: 7, noteDate: "2026-09-21", recordTimezone: "Asia/Shanghai", title: "历史素材", content: "仍保留关联", tag: null, projectId: 12, archivedAt: null, deletedAt: null, version: 2, createdAt: "2026-09-21T08:00:00Z", updatedAt: "2026-09-21T08:00:00Z", linkedTask: null, linkedProject: { id: 12, name: "旧项目", status: 2, archivedAt: "2026-09-21T09:00:00Z" } };
+    wrapper(<QuickNoteDetailPage request={vi.fn(async () => note) as Request} userId={7} noteId={9} selectedDate="2026-09-21" projects={[]} />);
+    const selector = await screen.findByLabelText<HTMLSelectElement>("关联项目");
+    expect(selector.value).toBe("12");
+    expect(screen.getByRole("option", { name: "旧项目（已归档）" })).toBeTruthy();
   });
 });

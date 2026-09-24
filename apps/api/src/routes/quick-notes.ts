@@ -3,12 +3,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { quickNotes, quickNoteTaskLinks, tasks } from "../db/schema.js";
+import { projects, quickNotes, quickNoteTaskLinks, tasks } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
-import { assertQuickNoteVersion, createQuickNote, lockQuickNote } from "../quick-note.js";
+import { assertQuickNoteVersion, createQuickNote, lockQuickNote, restoreQuickNote } from "../quick-note.js";
 import { convertQuickNoteToTask } from "../quick-note-linking.js";
+import { createFromQuickNote } from "../inspiration.js";
+import { requireProjectInClient } from "../projects.js";
 import { isValidTimezone, localDateTimeToUtc } from "../time.js";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -29,7 +31,8 @@ const createSchema = z.object({
   noteDate: date.optional(),
   title: z.string().trim().max(120).optional().nullable(),
   content: z.string().trim().min(1).max(5000),
-  tag: z.string().trim().max(64).optional().nullable()
+  tag: z.string().trim().max(64).optional().nullable(),
+  projectId: z.number().int().positive().optional().nullable()
 });
 
 const updateSchema = z.object({
@@ -37,10 +40,12 @@ const updateSchema = z.object({
   noteDate: date.optional(),
   title: z.string().trim().max(120).optional().nullable(),
   content: z.string().trim().min(1).max(5000).optional(),
-  tag: z.string().trim().max(64).optional().nullable()
-}).refine((value) => [value.noteDate, value.title, value.content, value.tag].some((item) => item !== undefined), { message: "at least one editable field is required" });
+  tag: z.string().trim().max(64).optional().nullable(),
+  projectId: z.number().int().positive().optional().nullable()
+}).refine((value) => [value.noteDate, value.title, value.content, value.tag, value.projectId].some((item) => item !== undefined), { message: "at least one editable field is required" });
 
 const versionSchema = z.object({ expectedVersion: z.number().int().positive() });
+const restoreSchema = versionSchema.extend({ operationId: z.string().uuid() });
 const convertSchema = z.object({
   operationId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
@@ -79,14 +84,14 @@ function normalized(value?: string | null) {
   return value?.trim() || null;
 }
 
-async function mutateNote(userId: number, id: number, expectedVersion: number, action: "edit" | "archive" | "unarchive" | "delete" | "restore", values: Record<string, unknown> = {}) {
+async function mutateNote(userId: number, id: number, expectedVersion: number, action: "edit" | "archive" | "unarchive" | "delete", values: Record<string, unknown> = {}) {
   return db.transaction(async (tx) => {
     const note = await lockQuickNote(tx, userId, id);
     assertQuickNoteVersion(note, expectedVersion);
-    if (action !== "restore" && note.deletedAt) throw new BusinessError(ErrorCode.CONFLICT, "quick note is deleted", 409);
-    if (action === "restore" && !note.deletedAt) throw new BusinessError(ErrorCode.CONFLICT, "quick note is not deleted", 409);
+    if (note.deletedAt) throw new BusinessError(ErrorCode.CONFLICT, "quick note is deleted", 409);
     if (action === "archive" && note.archivedAt) throw new BusinessError(ErrorCode.CONFLICT, "quick note is already archived", 409);
     if (action === "unarchive" && !note.archivedAt) throw new BusinessError(ErrorCode.CONFLICT, "quick note is not archived", 409);
+    if ("projectId" in values && values.projectId !== note.projectId && values.projectId !== null) await requireProjectInClient(tx, userId, Number(values.projectId));
 
     const now = new Date();
     await tx.update(quickNotes).set({ ...values, version: note.version + 1, updatedAt: now }).where(and(eq(quickNotes.id, id), eq(quickNotes.userId, userId)));
@@ -127,7 +132,8 @@ export const quickNotesRoute = new Hono()
     if (!note) throw new BusinessError(ErrorCode.NOT_FOUND, "quick note not found", 404);
     const [link] = await db.select().from(quickNoteTaskLinks).where(and(eq(quickNoteTaskLinks.userId, getCurrentUserId(c)), eq(quickNoteTaskLinks.quickNoteId, id)));
     const [linkedTask] = link ? await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, deletedAt: tasks.deletedAt }).from(tasks).where(and(eq(tasks.id, link.taskId), eq(tasks.userId, getCurrentUserId(c)))) : [];
-    return ok(c, { ...note, linkedTask: linkedTask ?? null });
+    const [linkedProject] = note.projectId ? await db.select({ id: projects.id, name: projects.name, status: projects.status, archivedAt: projects.archivedAt }).from(projects).where(and(eq(projects.id, note.projectId), eq(projects.userId, getCurrentUserId(c)))) : [];
+    return ok(c, { ...note, linkedTask: linkedTask ?? null, linkedProject: linkedProject ?? null });
   })
   .post("/", async (c) => {
     const body = createSchema.parse(await c.req.json());
@@ -148,6 +154,10 @@ export const quickNotesRoute = new Hono()
     log.info({ userId: getCurrentUserId(c), noteId: id, taskId: result.id }, "[quick_note_converted_to_task]");
     return ok(c, result);
   })
+  .post("/:id/inspiration", async (c) => {
+    const body = z.object({ operationId: z.string().uuid(), tagNames: z.array(z.string().trim().min(1).max(120)).max(32).default([]) }).parse(await c.req.json());
+    return ok(c, await createFromQuickNote(getCurrentUserId(c), noteId(c.req.param("id")), body.operationId, body.tagNames));
+  })
   .put("/:id", async (c) => {
     const id = noteId(c.req.param("id"));
     const body = updateSchema.parse(await c.req.json());
@@ -156,6 +166,7 @@ export const quickNotesRoute = new Hono()
     if (body.title !== undefined) values.title = normalized(body.title);
     if (body.content !== undefined) values.content = body.content.trim();
     if (body.tag !== undefined) values.tag = normalized(body.tag);
+    if (body.projectId !== undefined) values.projectId = body.projectId;
     const note = await mutateNote(getCurrentUserId(c), id, body.expectedVersion, "edit", values);
     log.info({ userId: getCurrentUserId(c), id }, "[quick_note_updated]");
     return ok(c, note);
@@ -179,8 +190,8 @@ export const quickNotesRoute = new Hono()
   })
   .post("/:id/restore", async (c) => {
     const id = noteId(c.req.param("id"));
-    const body = versionSchema.parse(await c.req.json());
-    const note = await mutateNote(getCurrentUserId(c), id, body.expectedVersion, "restore", { deletedAt: null });
+    const body = restoreSchema.parse(await c.req.json());
+    const note = await restoreQuickNote({ userId: getCurrentUserId(c), noteId: id, ...body });
     log.info({ userId: getCurrentUserId(c), id }, "[quick_note_restored]");
     return ok(c, note);
   });

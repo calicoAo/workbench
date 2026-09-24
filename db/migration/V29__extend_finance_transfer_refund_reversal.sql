@@ -1,0 +1,15 @@
+ALTER TABLE finance_transactions
+  MODIFY type TINYINT NOT NULL COMMENT '0 opening, 1 income, 2 expense, 3 transfer, 4 refund, 5 reversal, 6 correction',
+  ADD COLUMN source_account_id BIGINT UNSIGNED NULL AFTER category_id,
+  ADD COLUMN target_account_id BIGINT UNSIGNED NULL AFTER source_account_id,
+  ADD COLUMN related_transaction_id BIGINT UNSIGNED NULL AFTER target_account_id,
+  MODIFY status TINYINT NOT NULL DEFAULT 0 COMMENT '0 posted, 1 reversed, 2 voided',
+  DROP CHECK chk_finance_transaction_type,
+  DROP CHECK chk_finance_transaction_shape,
+  DROP CHECK chk_finance_transaction_status,
+  ADD KEY idx_finance_transaction_related (user_id, related_transaction_id),
+  ADD CONSTRAINT fk_finance_transaction_source_account_user FOREIGN KEY (source_account_id, user_id) REFERENCES finance_accounts (id, user_id),
+  ADD CONSTRAINT fk_finance_transaction_target_account_user FOREIGN KEY (target_account_id, user_id) REFERENCES finance_accounts (id, user_id),
+  ADD CONSTRAINT fk_finance_transaction_related_user FOREIGN KEY (related_transaction_id, user_id) REFERENCES finance_transactions (id, user_id),
+  ADD CONSTRAINT chk_finance_transaction_type_v29 CHECK (type BETWEEN 0 AND 6),
+  ADD CONSTRAINT chk_finance_transaction_status_v29 CHECK (status BETWEEN 0 AND 2);

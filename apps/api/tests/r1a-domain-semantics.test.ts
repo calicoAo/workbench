@@ -285,6 +285,10 @@ test("ActualTime excludes TIMER projections and legacy PAUSED sessions are not c
      WHERE slot.user_id = 1 AND session.session_model = 1 AND session.status IN (0, 1) AND session.deleted_at IS NULL`
   ), 0);
 
+  // The assertions above intentionally exercise the frozen R1A schema. Load the
+  // current application only after this fixture reaches the migration head.
+  await applyMigrations(admin, fixtureDatabase, Number.MAX_SAFE_INTEGER, 23);
+
   const readModelUrl = new URL(testDatabaseUrl);
   readModelUrl.pathname = `/${fixtureDatabase}`;
   process.env.NODE_ENV = "test";

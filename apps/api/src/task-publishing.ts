@@ -5,6 +5,7 @@ import { TaskStatus } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 import { runMutation } from "./mutation-receipt.js";
 import { acceptLockedTaskForDateInClient } from "./task-assignments.js";
+import { requireAssignableProjectInClient } from "./projects.js";
 
 export type PublishTaskCommand = {
   userId: number;
@@ -12,6 +13,7 @@ export type PublishTaskCommand = {
   title: string;
   description?: string;
   categoryId?: number;
+  projectId?: number;
   priority: 1 | 2 | 3;
   difficulty: 1 | 2 | 3 | 4;
   dueAt?: Date;
@@ -32,11 +34,13 @@ async function validateCategory(client: DatabaseClient, command: PublishTaskComm
 
 export async function publishTaskInClient(client: DatabaseClient, command: PublishTaskCommand) {
     await validateCategory(client, command);
+    if (command.projectId) await requireAssignableProjectInClient(client, command.userId, command.projectId);
     const [position] = await client.select({ value: max(tasks.sortOrder) }).from(tasks).where(and(eq(tasks.userId, command.userId), isNull(tasks.deletedAt)));
     const now = new Date();
     const [result] = await client.insert(tasks).values({
       userId: command.userId,
       categoryId: command.categoryId,
+      projectId: command.projectId,
       title: command.title.trim(),
       description: command.description?.trim() || null,
       priority: command.priority,
@@ -67,6 +71,7 @@ export function publishTask(command: PublishTaskCommand) {
       title: command.title.trim(),
       description: command.description?.trim() || null,
       categoryId: command.categoryId ?? null,
+      projectId: command.projectId ?? null,
       priority: command.priority,
       difficulty: command.difficulty,
       dueAt: command.dueAt?.toISOString() ?? null,

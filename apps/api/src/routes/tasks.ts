@@ -11,6 +11,7 @@ import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { archiveTask, completeTask, removeTask, reopenTask } from "../task-completion.js";
 import { publishTask } from "../task-publishing.js";
+import { requireAssignableProjectInClient } from "../projects.js";
 import { isValidTimezone, localDateTimeToUtc } from "../time.js";
 
 
@@ -19,6 +20,7 @@ const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   categoryId: z.number().int().positive().optional(),
+  projectId: z.number().int().positive().nullable().optional(),
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(2),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -46,15 +48,17 @@ const versionedCommandSchema = z.object({ operationId: z.string().uuid(), expect
 const reopenTaskSchema = versionedCommandSchema.extend({ progressPercent: z.number().int().min(0).max(99).default(0) });
 
 const updateTaskSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
+  projectId: z.number().int().positive().nullable().optional(),
   dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).nullable().optional(),
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
   estimatedMinutes: z.number().int().positive().nullable().optional(),
   progressPercent: z.number().int().min(0).max(100).optional()
-}).refine((value) => Object.values(value).some((item) => item !== undefined), {
+}).refine((value) => Object.entries(value).some(([key, item]) => key !== "expectedVersion" && item !== undefined), {
   message: "at least one editable field is required"
 });
 
@@ -116,6 +120,7 @@ export const tasksRoute = new Hono()
         title: body.title,
         description: body.description,
         categoryId: body.categoryId,
+        projectId: body.projectId ?? undefined,
         priority: body.priority,
         difficulty: body.difficulty,
         dueAt,
@@ -130,10 +135,12 @@ export const tasksRoute = new Hono()
     }
 
     const now = new Date();
+    if (body.projectId) await requireAssignableProjectInClient(db, getCurrentUserId(c), body.projectId);
     const existingTasks = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
     const [result] = await db.insert(tasks).values({
       userId: getCurrentUserId(c),
       categoryId: body.categoryId,
+      projectId: body.projectId,
       title: body.title,
       description: body.description?.trim() || null,
       priority: body.priority,
@@ -182,38 +189,39 @@ export const tasksRoute = new Hono()
   .put("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
     const body = updateTaskSchema.parse(await c.req.json());
-    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt)));
-    if (!task) {
-      throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
-    }
-
-    if (body.categoryId) {
-      const [category] = await db
-        .select()
-        .from(taskCategories)
-        .where(and(eq(taskCategories.id, body.categoryId), eq(taskCategories.userId, getCurrentUserId(c)), eq(taskCategories.enabled, 1), isNull(taskCategories.deletedAt)));
-      if (!category) {
-        throw new BusinessError(ErrorCode.NOT_FOUND, "category not found", 404);
+    const userId = getCurrentUserId(c);
+    const result = await db.transaction(async (tx) => {
+      const [task] = await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt))).for("update");
+      if (!task) throw new BusinessError(ErrorCode.NOT_FOUND, "task not found", 404);
+      if (body.expectedVersion !== undefined && task.version !== body.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+      if (body.categoryId) {
+        const [category] = await tx.select().from(taskCategories).where(and(eq(taskCategories.id, body.categoryId), eq(taskCategories.userId, userId), eq(taskCategories.enabled, 1), isNull(taskCategories.deletedAt)));
+        if (!category) throw new BusinessError(ErrorCode.NOT_FOUND, "category not found", 404);
       }
-    }
-
-    const now = new Date();
-    const categoryId = body.categoryId === undefined ? task.categoryId : body.categoryId;
-    const title = body.title ?? task.title;
-    const description = body.description === undefined ? task.description : body.description?.trim() || null;
-    const difficulty = body.difficulty ?? task.difficulty;
-    const priority = body.priority ?? task.priority;
-    const estimatedMinutes = body.estimatedMinutes === undefined ? task.estimatedMinutes : body.estimatedMinutes;
-    const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? localDateTime(body.dueAt) : null;
-    const dueDate = body.dueAt === undefined ? task.dueDate : body.dueAt ? body.dueAt.slice(0, 10) : null;
-    const progressPercent = body.progressPercent ?? task.progressPercent;
-    await Promise.all([
-      db.update(tasks).set({ title, description, categoryId, dueDate, dueAt, priority, difficulty, estimatedMinutes, progressPercent, updatedAt: now }).where(and(eq(tasks.id, id), eq(tasks.userId, getCurrentUserId(c)), isNull(tasks.deletedAt))),
-      db.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, getCurrentUserId(c)), eq(schedules.kind, ScheduleKind.PLANNED), isNull(schedules.deletedAt)))
-    ]);
-
-    log.info({ userId: getCurrentUserId(c), taskId: id, categoryId, titleChanged: body.title !== undefined }, "[task_updated]");
-    return ok(c, { id, title, description, categoryId, dueAt, priority, difficulty, estimatedMinutes, progressPercent });
+      if (body.projectId) await requireAssignableProjectInClient(tx, userId, body.projectId);
+      const changesAttribution = (body.projectId !== undefined && body.projectId !== task.projectId) || (body.categoryId !== undefined && body.categoryId !== task.categoryId);
+      if (changesAttribution) {
+        const [openSegment] = await tx.select({ id: timerSegments.id }).from(timerSegments).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSegments.status, TimerSegmentStatus.OPEN), isNull(timerSegments.deletedAt))).for("update");
+        if (openSegment) throw new BusinessError(ErrorCode.CONFLICT, "pause the active timer before changing task attribution", 409);
+      }
+      const now = new Date();
+      const categoryId = body.categoryId === undefined ? task.categoryId : body.categoryId;
+      const projectId = body.projectId === undefined ? task.projectId : body.projectId;
+      const title = body.title ?? task.title;
+      const description = body.description === undefined ? task.description : body.description?.trim() || null;
+      const difficulty = body.difficulty ?? task.difficulty;
+      const priority = body.priority ?? task.priority;
+      const estimatedMinutes = body.estimatedMinutes === undefined ? task.estimatedMinutes : body.estimatedMinutes;
+      const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? localDateTime(body.dueAt) : null;
+      const dueDate = body.dueAt === undefined ? task.dueDate : body.dueAt ? body.dueAt.slice(0, 10) : null;
+      const progressPercent = body.progressPercent ?? task.progressPercent;
+      const version = task.version + 1;
+      await tx.update(tasks).set({ title, description, categoryId, projectId, dueDate, dueAt, priority, difficulty, estimatedMinutes, progressPercent, version, updatedAt: now }).where(eq(tasks.id, id));
+      await tx.update(schedules).set({ title, categoryId, updatedAt: now }).where(and(eq(schedules.taskId, id), eq(schedules.userId, userId), eq(schedules.kind, ScheduleKind.PLANNED), isNull(schedules.deletedAt)));
+      return { id, title, description, categoryId, projectId, dueAt, priority, difficulty, estimatedMinutes, progressPercent, version };
+    });
+    log.info({ userId, taskId: id, categoryId: result.categoryId, projectId: result.projectId, titleChanged: body.title !== undefined }, "[task_updated]");
+    return ok(c, result);
   })
   .delete("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));

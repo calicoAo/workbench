@@ -17,7 +17,7 @@ async function createNote(content = "Private original note", userId = 1) { retur
 function conversion(operationId: string, values: Record<string, unknown> = {}) { return { operationId, title: "Confirmed action", description: "Explicit action summary", difficulty: 2, priority: 2, estimatedMinutes: 25, recordTimezone: "Asia/Shanghai", ...values }; }
 
 beforeEach(async () => {
-  for (const table of ["quick_note_task_links", "task_daily_assignments", "task_completion_events", "timer_segments", "schedules", "timer_sessions", "tasks", "quick_notes", "journals", "morning_writings", "reward_events", "user_growth", "mutation_receipts", "user_settings"]) await pool.query(`DELETE FROM ${table}`);
+  for (const table of ["quick_note_task_links", "task_daily_assignments", "task_completion_events", "schedules", "timer_segments", "timer_sessions", "tasks", "projects", "quick_notes", "journals", "morning_writings", "reward_events", "user_growth", "mutation_receipts", "user_settings"]) await pool.query(`DELETE FROM ${table}`);
   await pool.query("UPDATE users SET display_name = username, timezone = 'Asia/Shanghai' WHERE id IN (1, 930)");
   await pool.query("UPDATE task_categories SET enabled = 1 WHERE user_id = 1");
   await pool.query("INSERT INTO users (id, username, display_name, timezone, created_at, updated_at) VALUES (930, 'g5b-isolation', 'Isolation', 'Asia/Shanghai', NOW(), NOW()) ON DUPLICATE KEY UPDATE deleted_at = NULL");

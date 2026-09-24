@@ -8,12 +8,14 @@ export type QuickNote = {
   title: string | null;
   content: string;
   tag: string | null;
+  projectId: number | null;
   archivedAt: string | null;
   deletedAt: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
   linkedTask?: { id: number; title: string; status: number; deletedAt: string | null } | null;
+  linkedProject?: { id: number; name: string; status: number; archivedAt: string | null } | null;
 };
 
 export type QuickNotePage = { items: QuickNote[]; nextCursor: string | null };

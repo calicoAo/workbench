@@ -40,7 +40,8 @@ describe("WaterFeature workflow ownership", () => {
     expect(screen.getByText("3/8 杯")).toBeTruthy();
     expect(screen.getByText("历史记录")).toBeTruthy();
     expect(screen.getByText("约每 2h 一杯，当前应到 8/8 杯")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /标记到第 \d 杯/ })).toHaveLength(8);
+    expect(screen.getByRole("button", { name: "+1 杯" })).toBeTruthy();
+    expect(screen.getByLabelText("手动修正喝水杯数")).toBeTruthy();
   });
 
   it("saves a selected cup count and refreshes on success", async () => {
@@ -48,7 +49,8 @@ describe("WaterFeature workflow ownership", () => {
     const onChanged = vi.fn(async () => undefined);
     render(feature({ request: requestMock as FeatureProps["request"], onChanged }));
 
-    fireEvent.click(screen.getByRole("button", { name: "标记到第 6 杯" }));
+    fireEvent.change(screen.getByLabelText("手动修正喝水杯数"), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
     expect(requestMock).toHaveBeenCalledWith("/api/water-records", {
@@ -58,11 +60,12 @@ describe("WaterFeature workflow ownership", () => {
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
-  it("clamps decrement at zero", async () => {
+  it("clamps manual correction at zero", async () => {
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
     render(feature({ request: requestMock as FeatureProps["request"], record: { ...record, cups: 0 } }));
 
-    fireEvent.click(screen.getByRole("button", { name: "点错了，退一杯" }));
+    fireEvent.change(screen.getByLabelText("手动修正喝水杯数"), { target: { value: "-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(0);
@@ -74,7 +77,7 @@ describe("WaterFeature workflow ownership", () => {
     const onChanged = vi.fn();
     render(feature({ request, onError, onChanged }));
 
-    fireEvent.click(screen.getByRole("button", { name: "标记到第 4 杯" }));
+    fireEvent.click(screen.getByRole("button", { name: "+1 杯" }));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith("保存失败", "操作没有成功"));
     expect(onChanged).not.toHaveBeenCalled();

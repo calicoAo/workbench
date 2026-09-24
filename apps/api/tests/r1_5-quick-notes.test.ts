@@ -125,7 +125,7 @@ test("archive, unarchive, soft delete, and restore preserve one reward", async (
   assert.ok(deleted.data.deletedAt);
   assert.equal((await request<{ items: QuickNote[] }>("/?state=active")).data.items.length, 0);
   assert.equal((await request<{ items: QuickNote[] }>("/?state=deleted")).data.items.length, 1);
-  const restored = await request<QuickNote>(`/${created.data.id}/restore`, { method: "POST", body: JSON.stringify({ expectedVersion: 4 }) });
+  const restored = await request<QuickNote>(`/${created.data.id}/restore`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 4 }) });
   assert.equal(restored.data.version, 5);
   assert.equal(restored.data.deletedAt, null);
   assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE source_type = 'quick_note'"), 1);

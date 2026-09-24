@@ -1,9 +1,9 @@
 # Personal Workbench vNext PRD
 
-版本：v1.4 设计稿 · 2026-09-18（六项语义封口与并行开发编排）
+版本：v1.5 · 2026-09-21（R2D0 后路线复审：Finance 优先、Hero/AI 分层推进）
 
 主题：以悬赏板驱动执行的 Personal OS  
-状态：待实施；本次交付仅包含设计与计划。现状依据当前工作区源码，未连接生产数据库核验。
+状态：持续实施中。R0、R1A–D、R1.5、R2A、R2B、R2C、R2D0 已完成验收；下一核心产品门槛调整为 Finance。R2D0 另有一个 Writing Slot 新用户默认值的小修正待完成。
 
 ## 1. 产品决策
 
@@ -30,7 +30,35 @@ Workbench 是个人现实生活的计划、执行、记录与复盘系统。核�
 | 功能补齐 | 全部核心域进入路线图，Finance、通用习惯、Bridge 有独立交付范围，不以空页面视为实现 |
 | 后端全面改目录 | 不强制；保留现有 route-centric CRUD，跨表执行工作流才抽明确事务 owner |
 | Media | 全链路下线，不迁入 Journal、Together 或 Agent；删除前备份，使用新增迁移 |
-| 交付顺序 | 保留 R0 → R1A–D → R1.5 → R2 → R3 → R4 的产品门槛；契约稳定的独立任务并行，R2A/B 后成长与 Finance 可分线，具体以开发计划任务组为准 |
+| 交付顺序 | 已完成执行主链、Projects、Trash、Habits 与 R2D0 个性化。当前优先顺序调整为：R2D0.1 Writing Slot 默认修正 → R3 Finance 完整首版 → Hero Growth + Pixel Visual V1 → 内部 AI Foundation / Familiar → Writing AI → Period Reviews → Decision / Psychological Bridge / Project Copilot / Ask Workbench → 通用 Import → 外部 Agent Bridge。像素资产制作可并行，不阻塞业务域。 |
+
+## 1.1 2026-09-21 路线复审结论
+
+本次复审不改变已经稳定的 Task / Assignment / Timer / ActualTime / Project / Habit 等领域边界，而是调整 **后续发布优先级**：
+
+1. **Finance 改为当前下一核心域。** R2A/B 所需前置已经成立，R2C Habits 与 R2D0 个性化也已交付；没有技术理由继续让 Finance 排在 Growth 之后。
+2. **Growth 仍是英雄培养系统的核心呈现，但不再抢在真实财务域之前。** Finance 完整首版完成后，再进入 Hero Growth 与 Pixel Visual V1。
+3. **内部 AI 与外部 Agent Bridge 分开。** 指引魔法使、晨写／日记洞察、决策辅助等属于 Workbench 内部 AI 能力；R4 Agent Bridge 仍是外部受控集成，不与 AI Gateway 混为一层。
+4. **AI 不拥有业务真值。** 能用 SQL / code 得出的事实摘要不调用模型；Jev 只用于分类、筛选、路由等判断型工作，生成式 LLM 只承担语义理解、文字生成和复杂推理。任何 Task / Journal / Finance 写入仍由用户确认后交给对应 owner。
+5. **Pixel Fantasy Skin 与业务开发解耦。** 视觉资产现在即可并行制作；代码层首先在 Growth / Familiar 等世界观承载面落地，不先全站重做表单与编辑器。
+6. **通用 Import 延后于核心体验，但 Finance 的导入不再等待 R2E。** FIN-04 拥有 Finance 自己的 ImportBatch / 去重 / 对账语义；未来通用 Import 复用已验证模式，而不是反向阻塞 Finance。
+
+当前建议主线：
+
+```text
+R2D0.1 Writing Slot 默认修正
+→ R3 Finance（FIN-01 → FIN-02 → FIN-03 → FIN-04）
+→ R2D1 Hero Growth + Pixel Visual V1
+→ R3.5A AI Foundation + Familiar Shell
+→ R3.5B Morning Writing / Journal / Text→Task AI
+→ R2D2 Period Reviews（确定性事实为底，AI 可选增强）
+→ R3.5C Decision / Psychological Bridge
+→ R3.5D Project Copilot / Ask My Workbench / Stuck Insight
+→ R2E 通用 Import / Restore
+→ R4 Agent Bridge
+→ R5 Finance Projection / Agent Wallet 对账
+→ R6 扩展
+```
 
 ## 2. 文档关系与现状
 
@@ -40,24 +68,22 @@ Workbench 是个人现实生活的计划、执行、记录与复盘系统。核�
 - [ARCHITECTURE.md](ARCHITECTURE.md)仍是架构唯一记录；设计中的未来能力不代表已落地。
 - 根目录[旧 PRD](../个人工作台PRD.md)保留为 v0.1 历史资料。新开发的产品范围以本套 vNext 文档为准。
 
-### 2.1 当前代码核验（2026-09-18 更新）
+### 2.1 当前交付状态（2026-09-21）
 
-| 范围 | 实际已有 | 缺口／本版处理 | 代码依据 |
+| 范围 | 当前状态 | 已成立的关键事实 | 仍待实施 |
 | --- | --- | --- | --- |
-| 悬赏与接取 | 发布并接取、分类、难度、置顶、进度、截止时间、日接取独立表 | 完整悬赏板、详情深链、生命周期与今日状态分离、筛选 | `apps/web/src/App.tsx`；`routes/tasks.ts`、`routes/task-days.ts` |
-| Timer | 持久化 start/pause/finish，暂停或结束生成 ACTUAL Schedule；finish 已显式接受 completeTask，默认 false | 仅限制同任务并发；缺独立 resume／片段；UI 仍需按目标闭环验收 | `apps/api/src/routes/timer-sessions.ts`；`work-session.ts` |
-| Timeline / Schedule | 计划／实际区分、来源区分、睡眠和喝水展示 | Schedule 路由仅创建／删除；独立查询、更新、跨日、源记录关联不足 | `routes/schedules.ts`；`App.tsx` 的 TimelineBoard |
-| 完成与奖励 | Task completion 与 Timer 终结已建立事务 owner、重试与时间投影身份 | 继续补片段、跨日、单活跃执行；随手记创建与奖励仍是分步写入 | `task-completion.ts`；`work-session.ts`；`routes/quick-notes.ts` |
-| 聚合与统计 | Dashboard 汇总任务、时间、生活记录与成长 | GET 内执行两类结转及 ensureGrowth；部分周统计未按完整周范围过滤 | `routes/dashboard.ts` |
-| 前端结构 | React 18 / Vite / Tailwind；Rewards、Decision Tools、Writing / Reflection 已拆分，当前工作区还有 Tasks feature | pageMode 导航；无 Router / Query 依赖；随手记只有样式，未找到前端调用入口 | `App.tsx`；`apps/web/src/features/`；`apps/web/package.json` |
-| 生活与文字 | Sleep、Water、Morning Writing、Journal、Stock Review、AI Insight、Decision Tools | 页面归位、草稿保护、通用习惯、手写周复盘等 | `apps/api/src/routes/` |
-| 随手记 | quick_notes 表、schema、路由注册、OpenAPI；GET 日期／limit 查询、POST 创建、DELETE 硬删除；每条创建 +6 XP / +2 金币 | 补入口、详情／编辑、分页／搜索、软删除、幂等创建与奖励事务、转悬赏；不是尚未建模的新功能 | `routes/quick-notes.ts`；`db/schema.ts`；`V17__add_quick_notes.sql` |
-| 成长与总结基础 | 已有等级／XP、类别累计时间和“六维能力”入口；分类 API 固定 8 个 dimensionKey；V1 含 weekly_summaries 表 | 尚非可配置 N 维角色页；补维度配置、统一评分、里程碑与周／月总结；旧周总结表未见 ORM 映射，迁移前核验存量 | `rewards.ts`；`routes/task-categories.ts`；`App.tsx`；`V1__init_schema.sql` |
-| 数据演进 | MySQL / Drizzle / Flyway；随手记与工作流身份迁移均已入仓库 | 当前两个 `V17__*.sql` 版本重复；V2_1 与所有已部署 history 仍需核验；不能直接新增另一个 V17 | `db/migration/`；实际部署未核验 |
-| 新领域 | 未发现 Projects、Finance、通用 Habit、Integration Grant 的完整领域实现 | 分阶段新增 | schema、API 路由与 workspace manifests |
-| 验证 | typecheck、lint（实为 TS 检查）、build；已有 API workflow 测试与 Web Vitest 测试 | 复用已有测试设施补随手记与剩余执行规则；本次文档更新未执行运行时测试 | 根与 workspace package.json；`apps/api/tests/` |
+| 执行主链 | **PASS** | Task / Assignment / TimerSegment / ActualTime / continuation / operationId / current-session 单真值 | 仅按后续真实需求继续深化 |
+| Today / AppShell | **PASS** | Router、Query、跨页 Timer、桌面 Main + Utility Rail、可折叠侧栏、移动统一 Quick Action | Pixel visual 只作为后续视觉层，不改 ownership |
+| Quick Notes / Search / Settings / Trash | **PASS** | 捕捉、转 Task、Journal 草稿引用、Project 素材、Search/Export、QuickNote Trash | 通用 Import 仍待 R2E |
+| Projects | **PASS** | 单项目归属、历史 occurrence attribution、Project 投入与进度、Search/Export | ProjectSection / Workstream 仅候选，尚未实现 |
+| Habits / Routines | **PASS** | daily / weekdays / weekly-N、rule/goal version、skip、Task link；Water/Writing/Sleep 不双写 | Growth 统计消费尚未实现 |
+| Personalization | **PASS_WITH_SMALL_CORRECTION** | 七个通用默认 Task Category、自定义颜色、nullable Growth mapping、Writing Slot 偏好、Sleep wake-date 语义 | 新用户 Writing Slot 目标改为晨写/日记/股市复盘全部显式 opt-in |
+| Finance | **NEXT** | PRD 与独立领域边界已冻结 | FIN-01–04 尚未实现 |
+| Hero Growth / Reviews | **PENDING** | 数据源已经足够：Task / Project / Habit / ActualTime / Rewards | Growth 页面、N 维配置、Period Review |
+| Internal AI / Familiar | **PENDING** | 已有局部 AI Insight / Decision Tools，可迁移复用 | 统一 AI Gateway、cost telemetry、AI Artifact、Familiar shell、Writing AI 等 |
+| Agent Bridge | **PENDING** | 核心 owner/version/idempotency 已稳定 | 外部 Grant / Candidate / audit；仍排在 Finance 与内部产品能力之后 |
 
-上述路径中 `routes/` 指 `apps/api/src/routes/`，后端未带前缀的文件指 `apps/api/src/`。本次工作区含 feature 提取、测试与 CI 等未提交改动，实施时保留并核对。现状是源码核验结果，不代表生产库已应用迁移或当前运行时已通过全部验收。
+旧 2026-09-18 的源码核验结论属于历史起点，不再作为当前缺口列表。当前开发以已通过的 R0–R2D0 报告、`ARCHITECTURE.md` 与本文新版路线为准。
 
 ## 3. 用户场景与结果
 
@@ -117,25 +143,28 @@ P0 表示该交付阶段必须通过的核心能力，P1 表示该阶段可在�
 | WB-07 | 现有生活记录 | Sleep / Water 保留，晨写快捷入口；领域历史 | R1D 保留可用；R1.5 归位 / P0 |
 | WB-08 | Journal / Reviews | 日记、晨写、股票复盘归位、归档、草稿保护 | R1D 保留入口和 CRUD；R1.5 完善 / P0 |
 | WB-09 | Insights / Tools | 现有 AI Insight、Decision Tools 归位；来源与失败状态 | R1.5 / P1 |
-| WB-10 | Settings 基础 | 用户资料、类别与能力映射、目标、外观、奖励展示、数据导出入口 | R1D 保留必要设置；R1.5 完善 / P0 |
-| WB-11 | Projects | 项目 CRUD、所属悬赏、计划与实际投入、进度、笔记、归档 | R2 / P0 |
-| WB-12 | 通用 Routines / Habits | 频率、目标、发生日、次数／数量／时长、历史、跳过、关联任务 | R2 / P0 |
-| WB-13 | 周月总结 / Reviews | 周总结、月总结、同口径对比、事实摘要、个人反思、可选 AI 草稿、下一步转悬赏；项目／学习复盘 | 周月总结 R2 / P0；扩展复盘 / P1 |
+| WB-10 | Settings / Personalization | 用户资料、分类管理、自定义颜色、可选 Growth 映射、Writing Slots、时区、外观、奖励展示、数据入口 | R1.5 基础；R2D0 个性化已交付，Writing Slot 新用户默认值待 R2D0.1 小修 / P0 |
+| WB-11 | Projects | 项目 CRUD、所属悬赏、计划与实际投入、进度、笔记、归档、QuickNote 素材 | R2A–B 已交付 / P0 |
+| WB-12 | 通用 Routines / Habits | 频率、目标、发生日、次数／数量／时长、历史、跳过、关联任务 | R2C 已交付 / P0 |
+| WB-13 | 周月总结 / Reviews | 周总结、月总结、同口径对比、事实摘要、个人反思、可选 AI 草稿、下一步转悬赏；项目／学习复盘 | Finance 与 Growth 后的 R2D2 / P0；AI 为可选增强而非事实依赖 |
 | WB-14 | Search | 关键词、类型、日期、分页；先任务／日记／随手记／日历，随新领域扩展 | R1.5 基础；R2B 扩展，新增领域交付时补入 / P0 |
 | WB-15 | 数据维护 | 全量导出、回收站、备份恢复流程；受控导入、去重和错误报告 | R1.5 导出；R2B 回收站；R2E 导入 / P1 |
 | WB-16 | Agent Bridge | Today + Tasks 受限读取，候选悬赏、确认写入、授权与撤销、审计 | R4 / P0 |
-| WB-17 | Finance | 账户、分类、收支、转账、预算、周期收支、报表 | R3 / P0，独立 PRD |
+| WB-17 | Finance | 账户、分类、收支、转账、退款/冲正、预算、周期收支、报表、导入/对账 | **当前下一主线 R3 / P0**，FIN-01–04 构成完整首版 |
 | WB-18 | Finance Projection | 独立敏感授权下的财务投影；不隐式继承 Today 授权 | R5 / P0 |
 | WB-19 | Agent Wallet 对接 | 外部钱包账本关联、支付结果确认、对账；钱包执行归 Agent 产品 | R5 / P1，外部契约依赖 |
 | WB-20 | Inventory | 物品、位置、状态、购入／保修记录、维护提醒关联悬赏 | R6 / P1，扩展范围 |
 | WB-21 | Calendar 后续 | 月视图、重复计划、提醒；不影响日／周主流程 | R6 / P1 |
-| WB-22 | Decision Tools 后续 | Pros/Cons、加权决策、事前推演、决策日志与回顾 | R6 / P1 |
+| WB-22 | Decision / Psychological Bridge | 问题重构、选项/标准、加权决策、事前推演、心理桥梁、决策日志与回顾；写 Task 需确认 | 内部 AI Foundation 后的 R3.5C / P1 |
 | WB-23 | 项目后续 | 里程碑、阶段回顾；保持单人轻量使用 | R6 / P1 |
 | WB-24 | Media 下线 | 先停 UI/API／聚合引用；备份恢复与部署历史核验后再物理 DROP | R0 应用下线 / P0；R0.5 独立删除门槛，可延后执行 |
 | WB-25 | 随手记／灵感库 | 快速记录、日期／标签／关键词、详情编辑、草稿、归档／回收站、转悬赏、引用到日记、搜索导出、创建幂等与奖励 | R1.5 / P0；项目关联及导入随 R2 |
-| WB-26 | 我的成长 / N 维图 | 英雄培养式角色档案、现有 XP 等级、可配置成长维度、目标与投入雷达、技能进度、里程碑与成长历程 | R2 / P0，复用现有能力与奖励基础 |
+| WB-26 | 我的成长 / N 维图 | 英雄培养式角色档案、现有 XP 等级、可配置成长维度、目标与投入图、技能进度、里程碑与成长历程；Pixel Visual V1 首次系统落地 | Finance 后的 R2D1 / P0 |
+| WB-27 | AI Foundation / 指引魔法使 | AI Gateway、provider routing、预算与成本遥测、AI Artifact、来源版本/stale、Familiar shell；不拥有业务真值 | R3.5A / P0 |
+| WB-28 | Writing AI | 晨写梳理、日记洞察、Text→Task 候选；AI 结果是派生物，写入 Task 需用户确认 | R3.5B / P0 |
+| WB-29 | Workbench Copilot | Project Copilot、Ask My Workbench、Stuck Insight；代码先算事实，模型只解释/筛选/推理 | R3.5D / P1 |
 
-R0–R3 先让 Workbench 独立成立；R4–R5 为集成路线，需外部接口配合；R6 为已登记扩展。成长是本轮重要体验，但 Finance 不必等待整个 R2E：R2A/B 后可与成长线并行，资源不足时优先成长。任务只按依赖与退出门槛推进，不做人日估算。Activity Feed 保留为可选派生视图，不另建通用业务实体。Shared Life、Together、角色关系、聊天仓库、MCP、桌宠、实时协作和复杂离线同步不进入本轮。
+R0–R2D0 已让执行、项目、习惯、记录与个性化主干成立。当前产品优先级调整为 **先完成 R3 Finance，再完成 Hero Growth / Reviews 与内部 AI**；这是产品顺序调整，不是新的技术依赖。R4–R5 继续保留为外部受控集成路线。任务只按依赖与退出门槛推进，不做人日估算。Activity Feed 保留为可选派生视图，不另建通用业务实体。Shared Life、Together、角色关系、聊天仓库、MCP、桌宠、实时协作和复杂离线同步不进入本轮。
 
 ## 6. 核心产品规则
 
@@ -155,6 +184,7 @@ R0–R3 先让 Workbench 独立成立；R4–R5 为集成路线，需外部接�
 14. **历史归属不漂移。** 每份投入固定发生时项目／类别与记录时区；移动任务或修改偏好只影响新记录。周月总结固定自己的 periodTimezone。
 15. **完成事件与奖励分离。** reopen 后再次 DONE 新增完成事件，首次完成奖励按 taskId 仅一次；同一统计周期任务数去重，完成事件不丢失。
 16. **一次动作一个身份。** operationId 贯穿重试；同 ID 同参数回放，同 ID 换参数冲突。单活跃执行由数据库每用户 slot 行锁保证，两次合法 resume 使用不同动作 ID。
+17. **AI 先读事实、后给建议，不拥有事实。** 统计、金额、日期、完成率等确定性内容由 code / SQL 产生；Jev 仅用于分类、筛选、路由等判断型任务；生成式模型用于语义理解、文字生成与复杂推理。AI 生成的行动、分类或修改都必须经过用户确认并调用真实领域 owner。
 
 ## 7. 成功指标与验收
 
@@ -180,6 +210,6 @@ R0–R3 先让 Workbench 独立成立；R4–R5 为集成路线，需外部接�
 
 ## 8. 默认方案与后续确认点
 
-本版按个人使用、user.timezone 默认 Asia/Shanghai、周一为一周起点设计。用户可手动更改新记录的默认时区，历史按各自 recordTimezone／periodTimezone 固定；不自动跟随设备切换。默认单活跃 Session、主动续接、单项目归属、进度手动维护、奖励可隐藏、Finance 首版单币种 CNY。具体规则与并行任务前置条件已固定，可以从 R0 核验开始；不再以重复全盘审阅作为开发前置。
+本版按个人使用、user.timezone 默认 Asia/Shanghai、周一为一周起点设计。用户可手动更改新记录的默认时区，历史按各自 recordTimezone／periodTimezone 固定；不自动跟随设备切换。默认单活跃 Session、主动续接、单项目归属、进度手动维护、奖励可隐藏、Finance 首版单币种 CNY。新用户 Writing Slots 的目标默认是晨写／日记／股市复盘全部关闭，由 Settings 显式选择启用；既有用户偏好与历史记录不被迁移强改。具体规则与并行任务前置条件已固定，可以从 R0 核验开始；不再以重复全盘审阅作为开发前置。
 
 暂不确定的工程事实：生产 Flyway history、存量计时与 Schedule 的可关联率、是否存在多条长期运行计时、历史数据规模和外部 Agent 钱包协议。它们属于 R0 / R5 调查项，不应靠猜测执行破坏性迁移。

@@ -4,7 +4,7 @@ import { getCurrentUserId } from "../auth.js";
 import { pool } from "../db/index.js";
 import { ok } from "../http.js";
 
-const typeSchema = z.enum(["task", "quick_note", "journal", "morning_writing", "schedule"]);
+const typeSchema = z.enum(["task", "project", "habit", "quick_note", "journal", "morning_writing", "schedule", "finance"]);
 const querySchema = z.object({
   q: z.string().trim().min(1).max(120),
   type: typeSchema.optional(),
@@ -49,6 +49,12 @@ export const searchRoute = new Hono().get("/", async (c) => {
     SELECT 'task' AS type, id, title, COALESCE(description, '') AS body, COALESCE(due_date, DATE(created_at)) AS result_date, created_at
       FROM tasks WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
+    SELECT 'project', id, name, CONCAT_WS(' ', name, description, notes), COALESCE(target_date, start_date, DATE(created_at)), created_at
+      FROM projects WHERE user_id = ?
+    UNION ALL
+    SELECT 'habit', id, name, CONCAT_WS(' ', name, description, unit), start_date, created_at
+      FROM habit_definitions WHERE user_id = ?
+    UNION ALL
     SELECT 'quick_note', id, COALESCE(NULLIF(title, ''), '随手记'), CONCAT_WS(' ', title, content, tag), note_date, created_at
       FROM quick_notes WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
@@ -60,11 +66,18 @@ export const searchRoute = new Hono().get("/", async (c) => {
     UNION ALL
     SELECT 'schedule', id, title, CONCAT_WS(' ', title, note), schedule_date, created_at
       FROM schedules WHERE user_id = ? AND deleted_at IS NULL
+    UNION ALL
+    SELECT 'finance', t.id, COALESCE(c.name, CASE t.type WHEN 1 THEN '收入' WHEN 2 THEN '支出' WHEN 3 THEN '转账' ELSE '财务流水' END), CONCAT_WS(' ', c.name, a.name, t.note), t.business_date, t.created_at
+      FROM finance_transactions t
+      LEFT JOIN finance_categories c ON c.id = t.category_id AND c.user_id = t.user_id
+      LEFT JOIN finance_entries e ON e.transaction_id = t.id AND e.user_id = t.user_id
+      LEFT JOIN finance_accounts a ON a.id = e.account_id AND a.user_id = t.user_id
+      WHERE t.user_id = ? AND t.status <> 2
   `;
   const where = ["(title LIKE ? OR body LIKE ?)"];
   const keyword = `%${query.q}%`;
   const userId = getCurrentUserId(c);
-  const values: unknown[] = [userId, userId, userId, userId, userId, keyword, keyword];
+  const values: unknown[] = [userId, userId, userId, userId, userId, userId, userId, userId, keyword, keyword];
   if (query.type) { where.push("type = ?"); values.push(query.type); }
   if (query.from) { where.push("result_date >= ?"); values.push(query.from); }
   if (query.to) { where.push("result_date <= ?"); values.push(query.to); }
@@ -73,7 +86,7 @@ export const searchRoute = new Hono().get("/", async (c) => {
     values.push(cursor.date, cursor.date, cursor.createdAt, cursor.date, cursor.createdAt, cursor.type, cursor.date, cursor.createdAt, cursor.type, cursor.id);
   }
   values.push(query.limit + 1);
-  const [raw] = await pool.query(`SELECT type, id, title, body, result_date, created_at FROM (${union}) domain_results WHERE ${where.join(" AND ")} ORDER BY result_date DESC, created_at DESC, type ASC, id DESC LIMIT ?`, values);
+  const [raw] = await pool.query(`SELECT type, id, MAX(title) AS title, MAX(body) AS body, MAX(result_date) AS result_date, MAX(created_at) AS created_at FROM (${union}) domain_results WHERE ${where.join(" AND ")} GROUP BY type, id ORDER BY result_date DESC, created_at DESC, type ASC, id DESC LIMIT ?`, values);
   const rows = raw as SearchRow[];
   const page = rows.slice(0, query.limit);
   const items = page.map((row) => ({
@@ -82,7 +95,7 @@ export const searchRoute = new Hono().get("/", async (c) => {
     title: row.title,
     snippet: snippet(row.body || row.title, query.q),
     date: resultDate(row.result_date),
-    deepLink: row.type === "task" ? `/tasks/${row.id}?date=${resultDate(row.result_date)}` : row.type === "quick_note" ? `/notes/${row.id}?date=${resultDate(row.result_date)}` : row.type === "schedule" ? `/calendar?date=${resultDate(row.result_date)}` : `/journal?date=${resultDate(row.result_date)}`
+    deepLink: row.type === "project" ? `/projects/${row.id}` : row.type === "habit" ? `/routines?habit=${row.id}` : row.type === "task" ? `/tasks/${row.id}?date=${resultDate(row.result_date)}` : row.type === "quick_note" ? `/notes/${row.id}?date=${resultDate(row.result_date)}` : row.type === "schedule" ? `/calendar?date=${resultDate(row.result_date)}` : row.type === "finance" ? `/finance?tab=transactions&transactionId=${row.id}` : `/journal?date=${resultDate(row.result_date)}`
   }));
-  return ok(c, { items, nextCursor: rows.length > query.limit && page.length ? encodeCursor(page[page.length - 1]) : null, archivedPolicy: "Archived Tasks and Quick Notes are included; soft-deleted records are excluded." });
+  return ok(c, { items, nextCursor: rows.length > query.limit && page.length ? encodeCursor(page[page.length - 1]) : null, archivedPolicy: "Archived Projects, Tasks and Quick Notes are included; soft-deleted records are excluded." });
 });

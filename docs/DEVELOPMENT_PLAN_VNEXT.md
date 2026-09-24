@@ -1,65 +1,125 @@
 # Workbench vNext 开发计划
 
-版本：v1.4 · 2026-09-18 · 语义封口与并行执行版，部分基础已实现、其余待实施
+版本：v1.6 · 2026-09-24 · R2D1 Hero Growth 当前执行版
 
 依据：[PRD](PRD_VNEXT.md) · [功能设计](FUNCTIONAL_DESIGN_VNEXT.md) · [Finance PRD](PERSONAL_WORKBENCH_FINANCE_PRD.md) · [架构记录](ARCHITECTURE.md)
 
 ## 1. 本次路线修订
 
-保留悬赏板主流程，把旧“大 R1”拆为四个有独立退出门槛的阶段：语义成立 → 原子命令成立 → 前端骨架成立 → 主链可日用。现有生活、文字和奖励功能继续可用，全面归位与随手记完善放 R1.5，成长主页／N 维图／周月总结放 R2。默认先发布 Finance（R3），再发布 Agent Bridge（R4）；R2A/B 后 Finance 开发可与成长线并行。
+2026-09-21 复审后，前半程已经不再是规划：R0、R1A、R1B、R1C、R1D、R1.5、R2A、R2B、R2C、R2D0 已通过各自 gate。路线的主要问题不再是“怎样同时开工”，而是 **下一批应先完成哪个核心真值域**。
 
-采纳补充审阅中的纯读前移、Media 延迟物理删除、Segment、命令 owner、日期归属与轻量搜索建议。时间真值选择保留源记录权威：TimerSegment 拥有计时事实，手动 Actual Schedule 拥有补录事实，统一 ActualTime 读模型只聚合各来源一次；不再新增竞争性的可写时间账本。详见功能设计 4.1。
+本次调整：
 
-### 1.1 以新源码校正起点
+1. R2D0 只保留一个小修：**新用户 Writing Slots 全部显式 opt-in**；既有用户偏好不强改。
+2. **R3 Finance 调整为下一核心主线，并完整完成 FIN-01–04 后再进入剩余 Growth / AI。** 这不是新增依赖，而是用户优先级与 Personal OS 完整性判断。
+3. Hero Growth 仍是产品世界观核心，在 Finance 后作为 R2D1 实施，并承担 Pixel Visual V1 的首次系统级落地。
+4. 内部 AI 新增独立路线 R3.5，与 R4 Agent Bridge 严格分离。内部 AI 负责理解/生成派生结果；Bridge 负责外部授权与候选动作。
+5. AI 采用 deterministic-first：统计、日期、金额、完成率先由 code/SQL 计算；Jev 只做判断/分类/筛选/路由；LLM 只用于语义理解、写作与复杂推理。
+6. 通用 R2E Import 不再阻塞 Finance。FIN-04 自己拥有 FinanceImportBatch 与来源行幂等；R2E 后续复用已验证模式。
+7. 像素资产制作是可并行视觉轨，不作为 Finance 或数据模型 gate。前端代码先在 Growth/Familiar 等世界观表面落地，不先全站换皮。
 
-- Task completion、Timer pause/finish 已在 `task-completion.ts` / `work-session.ts` 建立事务、投影身份与匹配重试；finish API 的 `completeTask` 默认 false。不能照旧评审文字当作全部缺失，R1A/B 复用后补 Segment、resume、跨日和单活跃执行。
-- 当前已有 API workflow 测试、Web Vitest、feature 提取与 CI 相关改动。先验证现有设施，再补缺口，不重新选一套框架。当前工作区的未提交代码由原工作保留，本次只修改方案。
-- Quick Notes 已有表／API／OpenAPI／奖励，前端只发现 CSS，未发现调用入口。需要恢复／补齐产品入口及可靠性，不能标为已交付完整页面。
-- 当前同时存在 `V17__add_quick_notes.sql` 与 `V17__add_workflow_projection_identity.sql`，版本冲突是数据库迁移前置阻断项。旧 V2/V2_1 的生产记录也待核验；不未经调查重命名已部署迁移或 repair checksum。
-- 现有类别 API 固定八个 dimensionKey，页面有能力分类与时长基础；N 维自由配置与成长角色页尚未实现。V1 的 `weekly_summaries` 未见对应 ORM，周期总结必须调查存量再迁移，不能复制第二套周报真值。
+当前建议顺序：
 
-## 2. 发布门槛与可并行任务组
+```text
+R2D0.1 Writing Slot 默认修正
+→ R3 FIN-01 基础账本
+→ R3 FIN-02 转账 / 退款 / 冲正
+→ R3 FIN-03 预算 / 周期 / 报表 / 快速记账
+→ R3 FIN-04 财务导入 / 对账 / 敏感导出
+→ R2D1 Hero Growth + Pixel Visual V1
+→ R3.5A AI Foundation + Familiar Shell
+→ R3.5B Morning Writing / Journal / Text→Task AI
+→ R2D2 Period Reviews
+→ R3.5C Decision / Psychological Bridge
+→ R3.5D Project Copilot / Ask My Workbench / Stuck Insight
+→ R2E 通用 Import / Restore
+→ R4 Agent Bridge
+→ R5 Finance Projection / Agent Wallet 对账
+→ R6 独立扩展
+```
 
-保留 R0 → R1A → R1B → R1C → R1D 的验收顺序。发布门槛是顺序关系，独立实现可以在冻结的契约上重叠进行；不能以 mock 通过代替真实接口集成。工作包 B00–B30 保留编号，子项仅拆职责，不另起路线。进度只记录待开始／进行中／阻断／待集成／已验收及证据，不估人日或按人力换算工期。
+### 1.1 当前实际起点
 
-| 发布门槛 | 交付范围 | 必须已经通过 |
+当前已验收：
+
+- R0 数据/语义安全基线：PASS。
+- R1A Domain Semantics：PASS。
+- R1B Transaction Workflows：PASS。
+- R1C App Shell：PASS。
+- R1D Execution Vertical Slice：PASS。
+- R1.5 Quick Notes / Search / Settings / Export：PASS。
+- R2A Projects：PASS。
+- R2B Trash / Project Materials：PASS。
+- R2C Habits：PASS。
+- R2D0 Core UX / Personalization：PASS；仅 Writing Slot 新用户默认策略需小修。
+
+R2D0 已建立七个通用 Task Category、自定义颜色、nullable Growth mapping、Writing Slot 偏好、wake-date Sleep 语义、Today Utility Rail、移动统一 Quick Action、补录候选过滤与完成时可选补录。接下来不再重复这些已成立能力。
+
+目标产品行为与当前实现有一个明确差异：
+
+```text
+当前新用户：Morning Writing ON / Journal ON / Stock Review OFF
+目标新用户：Morning Writing OFF / Journal OFF / Stock Review OFF
+```
+
+R2D0.1 只修新注册 seed / UI 文案与测试；既有 `writing_slots` 不迁移强改，历史正文继续可达。
+
+## 2. 当前发布门槛与执行顺序
+
+| Gate | 状态 | 范围 / 下一步 |
 | --- | --- | --- |
-| R0 | 数据／迁移核验、现有测试基线、纯读、Media 应用下线 | B00、B04a、B01a；DROP 的 B01b 独立控制 |
-| R1A | 六项语义、schema／核心 DTO 与查询契约 | R0；B07a、B05a |
-| R1B | 原子命令、operation receipts、slot 互斥 | R1A；B07b、B06a、B04b |
-| R1C | Router、Query、核心 feature 与全局计时真实接通 | R1B；B02、B03a、B05b（可提前开发） |
-| R1D | 首个可日用执行闭环 | R1B/C；B06b、B08、B12a |
-| R1.5 | 既有功能归位、随手记、基础搜索／导出 | R1D；B03b、B09–B11、B29、B12b |
-| R2A/B | Projects、已有域 Search/Export/Trash | R1.5；B13、B11b、B16a |
-| R2C/D | Habits、成长角色页、N 维图、周月总结 | 对应源领域／Growth 契约稳定；B14、B30、B15 |
-| R2E | 各领域受控导入与恢复 | 对应领域 schema／导出契约稳定；B16b，按域接入 |
-| R3 | 完整 Finance 首版 | R2A/B 及 Finance 自身 B19–B22；不等待全部 R2E |
-| R4 | Today + Tasks Agent Bridge | 核心事实／版本／幂等契约稳定；默认在 Finance 后发布 B17–B18 |
-| R5 | 财务投影／外部钱包对账 | R3、Grant、外部钱包协议；B23–B24 |
-| R6 | Inventory／完整 Calendar／项目里程碑／决策扩展 | 各自领域前置，不互相等待；B25–B28 |
+| R0 | ✅ PASS | 数据/迁移/纯读/Media 应用下线 |
+| R1A | ✅ PASS | 核心语义、Segment、时区/归属快照、receipt |
+| R1B | ✅ PASS | 原子命令、幂等、slot 串行化 |
+| R1C | ✅ PASS | Router、Query、AppShell、跨路由 Timer |
+| R1D | ✅ PASS | 可日用执行闭环 |
+| R1.5 | ✅ PASS | Quick Notes、Search、Settings、Export |
+| R2A | ✅ PASS | Projects |
+| R2B | ✅ PASS | Trash + Project Materials |
+| R2C | ✅ PASS | Habits / Routines |
+| R2D0 | ✅ PASS + small correction | Core UX / Personalization；先补 Writing Slot 新用户默认 |
+| **R3** | **✅ COMPLETE** | Finance FIN-01–04 完整首版 |
+| **R2D1** | **CURRENT** | Hero Growth + Pixel Visual V1 |
+| R3.5A/B | NEXT after R2D1 gate | AI Foundation + Familiar；Writing AI |
+| R2D2 | Pending | Period Reviews，确定性事实为底、AI 可选 |
+| R3.5C/D | Pending | Decision / Psychological Bridge / Project Copilot / Ask Workbench |
+| R2E | Pending | 通用 Import / Restore |
+| R4 | Pending | 外部 Agent Bridge |
+| R5 | Pending | Finance Projection / Agent Wallet 对账 |
+| R6 | Pending | Inventory / Calendar 后续 / ProjectSection 等扩展 |
 
-### 2.1 并行编排表
+### 2.1 当前工作包
 
-“同组”表示完成该行启动条件后可以一起开发；表内箭头仍为组内串行依赖。每个组先指定一名集成负责人，最多三条独立开发线；更多包进入下一子批。这里只安排未来开发，不表示本次已启动这些任务。
+| 顺序 | 工作包 | 交付 | 启动条件 | 退出点 |
+| --- | --- | --- | --- | --- |
+| 0 | `WB-R2D0-WRITING-SLOT-DEFAULT-CORRECTION-001` | 新用户三个 Writing Slot 全 OFF；既有偏好不改 | R2D0 PASS | READY_FOR_FINANCE |
+| 1 | B19 / FIN-01 | 账户、财务分类、期初、收入/支出、账本、余额 | R2D0.1 | 可每天真实记账；余额完全可追溯 |
+| 2 | B20 / FIN-02 | 转账、手续费、退款、冲正、归档、并发 | FIN-01 | 双边原子、幂等、409、审计成立 |
+| 3 | B21 / FIN-03 | 预算、周期候选、报表、统一 FAB 快速记账 | FIN-02 | 计划/真实分离，报表=账本 |
+| 4 | B22 / FIN-04 | Finance 导入预览/去重、敏感导出、对账 | FIN-02/03 | Finance PRD 样例全过；不依赖通用 R2E |
+| 5 | B30 / R2D1 | Hero Growth、N 维配置、技能/里程碑、Pixel Visual V1 | R3 | 每个值可追源；视觉不改业务 truth |
+| 6 | B31 / R3.5A | AI Gateway、provider abstraction、预算/成本遥测、AI Artifact、Familiar shell | R3 + Growth 基础 | 不改变任何领域 truth；真实最小 AI vertical slice |
+| 7 | B32 / R3.5B | 晨写梳理、Journal Insight、Text→Task candidates | B31 | 派生结果有来源/version/cost；写 Task 必须确认 |
+| 8 | B15 / R2D2 | 周/月 Period Review、事实快照、个人正文、可选 AI 草稿 | B30；B31 可选增强 | 区间/快照/正文 owner 成立，AI 失败不阻塞 |
+| 9 | B33 / R3.5C | Decision Assistant + Psychological Bridge | B31 | AI 不替用户决定；候选 Task 经确认 |
+| 10 | B34 / R3.5D | Project Copilot / Ask Workbench / Stuck Insight | B31 + stable domain reads | deterministic-first、最小 context、来源可追 |
+| 11 | B16b / R2E | 通用 Import / Restore | 各域稳定 export | 不重复、引用映射、恢复核对 |
+| 12 | B17–B18 / R4 | Agent Bridge | 核心域 + Grant contract | scope / candidate / audit |
+| 13 | B23–B24 / R5 | Finance Projection / Wallet reconciliation | R3 + R4 | 敏感 scope 独立、外部结果幂等 |
+| 14 | B25–B28+ | 扩展 | 各自前置 | 独立发布 |
 
-| 组 | 启动条件 | 开发线 A | 开发线 B | 开发线 C | 集成／退出点 |
-| --- | --- | --- | --- | --- | --- |
-| G0 基线调查 | 当前工作区冻结基线 | B00a：部署／schema／Flyway／V17 冲突调查 | B00b：现有 invariant 与测试设施核验；DB 阻断时可先做不依赖 DB 的核验 | B01a 只读准备：Media 引用清单、下线补丁范围与备份方案 | 集成负责人确认迁移处理及可用隔离环境，才运行依赖 DB 的测试／改动 |
-| G1 安全收口 | G0 数据／环境结论可用 | B04a：纯读／显式结转 | B01a：Media feature 与 route 下线 | B00b：纯读与旧闭环回归用例，独立测试文件 | dashboard.ts、app.ts、OpenAPI 重叠改动只由集成人合入；通过 R0。B01b 另走备份恢复门槛 |
-| G2 核心契约 | R0 | B07a：六项语义、slot／Segment／快照／receipt／完成事件 schema 提案 | B05a：基于已冻结字段批次的 DTO／Query 契约，未冻结部分等待 | B00b 扩展：对应状态／并发／跨时区数据夹具与验收样例 | 单一负责人合并 schema、迁移、contracts/OpenAPI；通过 R1A 后才写依赖新模型的命令 |
-| G3a 公共底座 | R1A | B07b-0：transaction-aware operation receipt 与 execution slot 公共能力 | B02：AppShell／Router／登录返回／既有入口；不写执行策略 | B03a：核心 feature 结构提取，复用原 public surface；App 接线交集交给 B02 owner | receipt／slot 公共 API 和 Query key 约定冻结；UI 可用受契约约束的 fixture，但不可算集成完成 |
-| G3b 核心业务并行 | G3a 底座可调用 | B07b：pause/resume/finish/cancel 与 Task completion，统一事务／锁序 | B06a + B04b：接取／撤回／continuation 命令及公开事务能力 | B05b：API client／Query／核心查询消费／mini timer；等待 A/B 接口接通 | A 只在 B 的事务 API 稳定后接 acceptAndStart；单一集成人验证 R1B，再验证 R1C，不各自改奖励／锁规则 |
-| G4 主链页面 | R1B/C | B06b：悬赏板／Task Detail／接取面板 | B08a：Timeline／Calendar 日周／手动 Actual 与更正 | B08b：Today composition／跨页 timer／Quick Add | B08a/b 是 B08 的 UI 职责拆分；B12a 汇总真实接口全链路与移动端验收，通过 R1D |
-| G5a 归位与捕捉 | R1D | B09 + B03b：生活／文字页归位，公开日记草稿引用入口 | B29a：Quick Notes 记录／列表／编辑／奖励事务 | B10：Rewards/Insights/Tools 展示归位 | 三线各有 feature owner；路由／菜单／全局样式统一合入；不并发改同一奖励规则文件 |
-| G5b 随手记联动与查找 | G5a 对应公开契约稳定 | B29b：转任务／引用草稿，依赖 B29a、B09、R1B | B11a：Settings、时区／显示／结转偏好 | B11b 基础：Search/Export 对已稳定域接入 | B12b 做 R1.5 集成；后续新增域只是扩展接入，不复制搜索／导出 owner |
-| G6 项目与后续共用契约 | R1.5 | B13：Projects／Task 关联、历史快照使用 | B16a：通用回收站页面与已有域适配；项目适配等 A | B30a：GrowthDimension／目标版本与读 DTO 契约，不先做全图 | B11b 项目 Search/Export 在 A 契约稳定后接入；集成通过 R2A/B，冻结 Growth 和导出接入协议 |
-| G7 成长与财务首批 | R2A/B + B30a | B14：Habit occurrence／目标规则／关联任务 | B30b：成长角色页、时间来源雷达／技能／里程碑；Habit 轴等待 A | B19：Finance 账户／分类／期初／基础账本 | Growth 先可用投入模式，Habit 适配接通后才算完整 R2D；Finance 独立功能标志与路由，不挡成长验收 |
-| G8 周月总结与财务完善 | 对应上游公开契约稳定 | B15：Period Review 正文／快照／AI 草稿／转任务；按稳定 Growth、Habit 接口接入 | B20：Finance 转账／退款／冲正／并发 | B16b 基础：已稳定域导入与恢复；后加入的 Review/Finance 适配等待各 owner | A/B/C 可分别合入，不以全域导入阻塞周期总结或财务核心；对应里程碑各自验收 |
-| G9 报表／数据与集成准备 | B20；R2D 对应源完成 | B21：预算／周期／财务报表 | B22：财务导入／对账，复用 B16b 的批次约定；与 A 重叠的 schema 串行合入 | B17：Grant／Today + Tasks 受限读取，可独立开发；默认待 R3 后发布 | B19–B22 验收组成 R3；B15/B16b/B30 对应功能分别收口 R2，不强制同一次发布 |
-| G10 受控集成 | B17；财务投影还需 R3 | B18：Candidate／确认写入／审计 | B23：Finance Projection，独立敏感 scope | 外部 Wallet 契约／对账夹具准备；B24 实现等待 B23 与外部协议 | R4 完成后发布 R5；不让共享 Grant schema 两边各定义一版 |
-| G11 独立扩展 | 各自前置达成 | B25 Inventory（R2；财务关联需 R3） | B26 Calendar（月／系列，需 B14） | B27 项目里程碑（需 B13/B15）→ B28 Decision 扩展（需 B10） | 可分批独立发布；B27 与 B28 可在空出的线独立进行，无业务串行依赖 |
+### 视觉并行轨
 
-R2A/B 后形成明确分叉：**成长线（Habits/Growth/Reviews）与财务线可以并行**，不用再等整个 R2E 才写 Finance。默认先完成用户主动提出的成长体验；如并行槽不足，先保成长线，财务线排下一批，不再为此重排整套路线。R1.5 收口时只核对当时的实际依赖与用户新优先级。
+视觉资产制作现在即可并行，不占业务迁移 gate：
+
+1. Familiar / Hero 角色基准；
+2. Nav / Category / Utility / Growth icons；
+3. Pixel Visual tokens；
+4. Growth 页面首次系统集成；
+5. Familiar shell 集成；
+6. 其它页面逐步使用 Pixel accents。
+
+禁止为了像素风重写编辑器、日期控件、表单、状态 ownership 或 Design System。
 
 ### 2.2 并行开发的共享边界
 
@@ -71,25 +131,23 @@ R2A/B 后形成明确分叉：**成长线（Habits/Growth/Reviews）与财务线
 
 ```mermaid
 flowchart TD
-    R0[R0 基线 / 纯读 / 安全下线] --> A[R1A 六项语义与契约]
-    A --> B[R1B 事务命令]
-    A --> Cdev[R1C 骨架提前并行开发]
-    B --> Cgate[R1C 真实接口集成验收]
-    Cdev --> Cgate
-    Cgate --> D[R1D 执行闭环]
-    D --> Rehome[R1.5 三线归位 / 随手记]
-    Rehome --> P[R2A/B Projects / Search / Trash]
-    P --> Growth[R2C/D Habits / Growth / Reviews]
-    P --> Finance[R3 Finance 独立开发线]
-    Growth --> Import[R2E 各稳定域 Import]
-    Finance --> FinImport[Finance 导入与对账适配]
-    Import --> FinImport
-    Finance --> Bridge[R4 默认发布顺序]
-    FinImport --> Bridge
-    Bridge --> F[R5 财务投影 / 钱包对账]
+    Fix[R2D0.1 Writing Slot default correction] --> Fin1[R3 FIN-01 基础账本]
+    Fin1 --> Fin2[R3 FIN-02 转账 / 退款 / 冲正]
+    Fin2 --> Fin3[R3 FIN-03 预算 / 周期 / 报表]
+    Fin3 --> Fin4[R3 FIN-04 Finance 导入 / 对账]
+    Fin4 --> Growth[R2D1 Hero Growth + Pixel Visual V1]
+    Growth --> AIF[ R3.5A AI Foundation + Familiar ]
+    AIF --> WritingAI[R3.5B Writing AI]
+    AIF --> Review[R2D2 Period Reviews]
+    WritingAI --> Review
+    Review --> DecisionAI[R3.5C Decision / Psychological Bridge]
+    DecisionAI --> Copilot[R3.5D Project Copilot / Ask Workbench]
+    Copilot --> Import[R2E 通用 Import / Restore]
+    Import --> Bridge[R4 Agent Bridge]
+    Bridge --> Projection[R5 Finance Projection / Wallet]
 ```
 
-图中 Import → Finance 导入适配指共享批次协议可用，不要求所有 R2 域适配完成；R3 的基础账本、转账、预算不等待 Import。
+Finance FIN-04 自己拥有 FinanceImportBatch / source-row identity，不再等待通用 R2E。通用 Import 后续可以复用 Finance 已验证的预览、来源行幂等与错误报告模式，但只有出现第二个独立消费者后才抽共享批次 contract。
 
 ## 3. R0：数据与语义安全基线
 
@@ -180,37 +238,62 @@ B06b / B08 / B12a 完成 Today、悬赏板、Task Detail、跨页计时器、Tim
 
 Quick Notes 前端应有自己的 owner／public surface，不能为补入口把状态继续堆进 App 或塞入 Writing / Reflection 内部。
 
-## 6. R2：Personal OS 与成长角色页
+## 6. R2：Personal OS、Growth 与 Reviews
 
-| 子阶段／工作包 | 交付 | 退出门槛 |
+| 子阶段／工作包 | 状态 | 交付 / 当前结论 |
 | --- | --- | --- |
-| R2A / B13 Projects | 单项目归属、项目 CRUD／笔记／进度／计划与投入／归档；随手记可关联项目素材 | 项目→所属悬赏→接取计时→项目投入可核对，不复制 Task／QuickNote |
-| R2B / B11b + B16a | Search 扩到 Projects；完善导出和统一回收站 | 已存在域完整可查可导出可恢复；未来 Habits/Reviews 交付时各自加入普通查询，无空索引框架 |
-| R2C / B14 Habits | 定义／频率／目标生效版本、Occurrence、跳过与历史、专用记录投影、转今日悬赏 | 改规则不重写历史；每周 N 次正确；Water/晨写不双写；关联任务幂等 |
-| R2D / B30 Growth | 英雄培养式 `/growth`、角色卡与现有 XP、可配置 N 维图／目标、技能卡、展示性里程碑／成长历程 | AC-19/20/24；新维度无需改枚举；投入与奖励不混算；多于 8 轴分组可读；每值可追源 |
-| R2D / B15 Period Reviews | 周／月总结、相同口径对比、事实快照、个人正文、可选 AI 草稿、随手记引用、下一步转悬赏；项目／学习复盘 P1 | AC-21–23；周月区间无重叠统计；Growth/Journal 共用记录，AI 重生不覆盖正文；旧 weekly_summaries 迁移有核对 |
-| R2E / B16b Import | 导入预览、批次去重、错误报告；跨域引用 ID 映射；恢复演练 | 源数据→导出→新环境导入，主对象数量／时间总量与来源关系核对；重试不重复 |
+| R2A / B13 Projects | ✅ PASS | 单项目归属、Project CRUD、投入/进度、QuickNote material |
+| R2B / B11b + B16a | ✅ PASS | Project Search/Export、Trash composition |
+| R2C / B14 Habits | ✅ PASS | daily/weekday/weekly-N、effective rules/goals、Occurrence、skip、Task link |
+| R2D0 | ✅ PASS + 小修 | 分类/颜色/Writing Slot/Sleep/Today UX；新用户 Writing Slot 默认值待修 |
+| R2D1 / B30 Growth | **CURRENT（2026-09-24）** | Hero Growth、可配置 N 维、ActualTime / CompletionEvent 派生投入、Pixel Visual V1 |
+| R2D2 / B15 Period Reviews | Pending | 周/月事实快照、个人正文、可选 AI 草稿、下一步转 Task |
+| R2E / B16b Import | Pending | 通用跨域 Import / Restore；不再阻塞 Finance FIN-04 |
 
-B30 的维度配置／投影先提供稳定读口径，B15 消费它；成长页的总结卡只链接 Review 公共入口，不能与 Review 形成相互等待的写入循环。基础规则摘要不依赖 AI 服务，角色展示不依赖昂贵美术资产。
+R2D1 的 Growth 仍以 Task → Category → GrowthDimension、Habit 明确 mapping、ActualTime occurrence attribution 与 Rewards ledger 为来源。Finance 可以在后续 Review/AI 中作为独立事实输入，但不混入 Growth 能力值。
 
-## 7. R3–R6：财务先成立，再受控集成
+Period Review 的基础事实必须 deterministic；AI 只写可选草稿。B31 AI Foundation 已存在时可复用，否则 Review 基线仍能独立完成。
 
-| 阶段／工作包 | 交付与依赖 | 退出门槛 |
+## 7. R3–R6：Finance 优先，随后 Hero / AI，再受控集成
+
+### R3 — Finance（当前下一主线）
+
+| 工作包 | 交付 | 退出门槛 |
 | --- | --- | --- |
-| R3 / B19（FIN-01） | 账户、分类、期初、收入支出、账本、余额；R2A/B 后可与成长线并行 | 金额整数分，余额来自有效分录，无第二份手填真值 |
-| R3 / B20（FIN-02） | 转账／退款／冲正／归档，依赖 B19 | 双边原子性、幂等、409 冲突；转账不计收入支出 |
-| R3 / B21（FIN-03） | 预算、周期模板与待确认项、报表、Quick Add，依赖 B20 | 未确认周期不动余额；报表与流水一致 |
-| R3 / B22（FIN-04） | 导入预览／去重、敏感导出、对账与审计，依赖 B20–21、B16b 的基础批次协议（不等待全部域导入） | Finance PRD 全部样例通过，恢复每账户余额一致 |
-| R4 / B17 | 独立 Grant／scope／撤销、Today + Tasks 白名单读取，依赖 version 与 R1 纯读 | 不复用 Web token、不直连 DB；不能读随手记／周月总结／健康／财务 |
-| R4 / B18 | Candidate 审阅、确认发布／接取、精确低风险授权、审计，依赖 B17 | 双次确认只一条 Task，冲突不覆盖用户状态，无角色判断字段混进事实 |
-| R5 / B23（FIN-05） | 独立敏感 Finance Projection，依赖 R3、B17 | 普通 Today 授权无法读财务；过期／撤销立即阻止后续请求 |
-| R5 / B24（FIN-06） | 外部 Wallet／Payment Effect 结果关联与对账，依赖 B23 和外部协议／环境 | 只有成功结果记账、来源 ID 幂等；待定不扣款；钱包执行不归 Workbench |
-| R6 / B25 | Inventory：物品／位置／状态／保修／维护悬赏；依赖 R2，真实交易关联需 R3 | 物品价格不另改财务余额，维护历史可追溯 |
-| R6 / B26 | Calendar 月视图、重复计划、提醒；依赖 R1D、B14 | 单次／系列分开修改，提醒失败不影响真值 |
-| R6 / B27 | 项目里程碑、阶段目标与关联任务；依赖 B13、B15 | 不复制 Task 状态；与 B30 的个人展示性成就区分 |
-| R6 / B28 | Decision Tools 比较／权重／事前风险／回顾；依赖 B10 | 转 Task 明确确认，不用万能实体混存 |
+| B19 / FIN-01 | FinanceAccount、FinanceCategory、Opening Transaction/Entry、收入支出、账本、余额 | 金额整数分；余额只来自有效 Entry；GET 纯读 |
+| B20 / FIN-02 | 转账、手续费、退款、冲正、作废、账户归档、并发 | 双边原子性；operationId replay；409；转账不计收入支出 |
+| B21 / FIN-03 | 月/分类预算、RecurringTemplate/Occurrence、报表、统一 Quick Action 快速记账 | 未确认周期不动余额；预算/报表与账本一致 |
+| B22 / FIN-04 | FinanceImportBatch、导入预览/去重、敏感导出、对账报告、恢复核验 | 导入重试不重复；每账户余额恢复一致；**不等待 R2E** |
 
-Activity Feed 与健康连接仍是后续机会项；Growth 的成长历程仅聚合明确相关成果，不等于现在建设全站通用事件平台。
+FIN-01–04 构成 R3 完整首版；不能把只有余额卡片或收入/支出 CRUD 的状态称为 Finance 完成。
+
+### R3.5 — Internal AI / 指引魔法使
+
+| 工作包 | 交付 | 退出门槛 |
+| --- | --- | --- |
+| B31 | AI Gateway、provider abstraction、per-feature budget、usage/cost telemetry、AI Artifact、source provenance/version/stale、Familiar shell | existing AI Insight / Decision Tools 可逐步接入；无业务 truth 迁移 |
+| B32 | Morning Writing Guide、Journal Insight、Text→Task candidate | 结果有来源；失败不清草稿；候选写入需确认 |
+| B33 | Decision Assistant、Psychological Bridge | 不替用户做最终决定；reasoning model 仅主动/必要时调用 |
+| B34 | Weekly AI enhancement、Project Copilot、Ask My Workbench、Stuck Insight | code 先算事实；最小 context；可查看来源；cost 可量化 |
+
+模型成本层：
+
+```text
+Tier 0 Code/SQL/Template → 默认
+Tier 1 Jev → 只做判断/分类/筛选/routing
+Tier 2 Cheap LLM → 梳理/生成
+Tier 3 Reasoning LLM → 用户主动的复杂决策/深度分析
+```
+
+普通日报、金额、日期、完成率、时间分布禁止为了“AI 化”而调用模型。
+
+### R4–R6
+
+| 阶段 | 范围 |
+| --- | --- |
+| R4 / B17–B18 | 外部 Agent Bridge：Grant / scope / Candidate / audit；与 Familiar 内部 AI 分离 |
+| R5 / B23–B24 | 敏感 Finance Projection + 外部 Agent Wallet / Payment Effect 对账 |
+| R6 | Inventory、Calendar 月/系列、ProjectSection/里程碑、其它扩展 |
 
 ## 8. 数据迁移与兼容
 
@@ -236,8 +319,9 @@ Activity Feed 与健康连接仍是后续机会项；Growth 的成长历程仅�
 | 执行规则／事务 | Session/Segment、slot 并发、续接 resolution、记录时区／归属快照、再次完成事件、operationId 回放／参数冲突、回滚 | R1B |
 | 核心前端 | 单远端状态、深链、草稿、全链操作、移动端 | R1C/D |
 | 随手记 | 创建＋奖励原子、转换幂等、长文摘要、软删、引用草稿／隐私、分页 | R1.5 |
-| 成长／总结 | N 维配置、同口径公式、来源去重、周月裁切／快照／修订、AI 非覆盖 | R2D |
-| Finance | 双边转账／冲正、整数金额、导入与周期幂等、账户隔离 | R3 |
+| Growth／总结 | N 维配置、同口径公式、来源去重、周月裁切／快照／修订、AI 非覆盖 | R2D1–D2 |
+| Finance | Entry 派生余额、双边转账／退款／冲正、整数金额、预算/周期、FinanceImportBatch 幂等、账户隔离 | **下一门槛 R3** |
+| Internal AI | deterministic-first、artifact 来源/version/stale、预算/成本、用户确认写入 | R3.5 |
 | Bridge | scope、白名单、撤销、候选确认、个人文字不因来源关联泄露 | R4–R5 |
 
 每个退出门槛还须：契约变化同步 OpenAPI，schema 与 migration 一致，ownership 变化同次更新 ARCHITECTURE。简单 CRUD 保留 route-centric；只为实际跨域事务抽工作流；Web 与 API 仍只走 HTTP，共享 contracts 不得夹带 DB。Query 属服务器快照缓存，表单草稿留本 feature，Timeline/Growth/Search 均不能成为竞争性写入 owner。
@@ -259,10 +343,12 @@ Activity Feed 与健康连接仍是后续机会项；Growth 的成长历程仅�
 | 原子用户动作由后端负责 | R1B 命令表；复用现有 workflow public contracts |
 | 数据日期不随时区重新漂移 | 功能设计 3.3；B07a、迁移策略第 5 条 |
 | Media 物理删除最后执行 | B01a/b；独立 R0.5 门槛，不挡安全解耦后的 R1 |
-| Projects→Search/Trash→Habits→Reviews→Import | R2A–E；Growth 与 Reviews 合并为 R2D 的相关交付 |
-| 原生财务早于外部集成 | R3 Finance、R4 Bridge；受限提前接入仅在后续明确调整时启用 |
+| Projects→Search/Trash→Habits | R2A–C 已完成；R2D0 个性化已完成并有一个 Writing Slot 默认小修 |
+| 原生财务当前优先 | R2D0.1 后立即 R3 FIN-01–04；Finance 完整首版先于剩余 Growth / 内部 AI 与外部 Bridge |
 | Finance Projection、Agent Wallet 分离 | R5；独立财务授权与外部执行 owner |
-| Inventory、完整 Calendar、Decision、里程碑 | R6 B25–B28；不挤进核心切片 |
+| Internal AI / Familiar | B31–B34；与 R4 Agent Bridge 分离，AI 不拥有业务真值；Jev 只做判断型工作 |
+| Pixel Visual | 资产制作并行；Growth/Familiar 首先集成，现代编辑/表单控件不强制像素化 |
+| Inventory、完整 Calendar、ProjectSection 等 | R6；不挤进核心切片 |
 | 待续接处理状态 | 功能设计 3.4；R1A schema、R1B B04b／B06a；AC-26/27 |
 | 单活跃 Session 串行化锚点 | 功能设计 3.2；user_execution_slots；AC-28 |
 | 用户时区快照统一 | 功能设计 2.11、3.3；recordTimezone／periodTimezone；AC-25/29 |

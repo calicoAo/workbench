@@ -7,22 +7,24 @@ import { schedules, taskCategories, tasks, timerSessions } from "../db/schema.js
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
+import { requireGrowthDimension } from "../growth.js";
 
 
-const dimensionKeySchema = z.enum(["career", "creative", "learning", "life", "body", "social", "leisure", "foundation"]);
+const dimensionKeySchema = z.string().trim().min(1).max(32);
+const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/).transform((value) => value.toUpperCase());
 
 const createCategorySchema = z.object({
   name: z.string().min(1).max(64),
-  dimensionKey: dimensionKeySchema.default("life"),
-  color: z.string().max(32).default("#35C99A"),
+  dimensionKey: dimensionKeySchema.nullable().default(null),
+  color: colorSchema.default("#35C99A"),
   icon: z.string().max(64).optional(),
   targetMinutes: z.number().int().positive().default(6000)
 });
 
 const updateCategorySchema = z.object({
   name: z.string().min(1).max(64).optional(),
-  dimensionKey: dimensionKeySchema.optional(),
-  color: z.string().max(32).optional(),
+  dimensionKey: dimensionKeySchema.nullable().optional(),
+  color: colorSchema.optional(),
   icon: z.string().max(64).optional(),
   targetMinutes: z.number().int().positive().optional(),
   enabled: z.boolean().optional()
@@ -40,6 +42,7 @@ export const taskCategoriesRoute = new Hono()
   })
   .post("/", async (c) => {
     const body = createCategorySchema.parse(await c.req.json());
+    if (body.dimensionKey) await requireGrowthDimension(db, getCurrentUserId(c), body.dimensionKey);
     const [result] = await db.insert(taskCategories).values({
       userId: getCurrentUserId(c),
       name: body.name,
@@ -53,11 +56,13 @@ export const taskCategoriesRoute = new Hono()
       updatedAt: new Date()
     });
 
-    return ok(c, { id: result.insertId });
+    const [category] = await db.select().from(taskCategories).where(eq(taskCategories.id, result.insertId));
+    return ok(c, category);
   })
   .put("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
     const body = updateCategorySchema.parse(await c.req.json());
+    if (body.dimensionKey) await requireGrowthDimension(db, getCurrentUserId(c), body.dimensionKey);
     const [category] = await db
       .select()
       .from(taskCategories)

@@ -7,6 +7,494 @@ servers:
 security:
   - BearerAuth: []
 paths:
+  /writing/inspirations:
+    get:
+      summary: List the authenticated user's Writing inspiration library
+      parameters:
+        - { in: query, name: state, schema: { type: string, enum: [active, favorite, pinned, untagged, archived], default: active } }
+        - { in: query, name: keyword, schema: { type: string } }
+        - { in: query, name: tags, description: Comma-separated tags; all tags must match, schema: { type: string } }
+      responses:
+        "200": { description: QuickNote-backed inspiration cards and explicit tags }
+    post:
+      summary: Atomically create a QuickNote and add its Writing inspiration metadata
+      responses:
+        "200": { description: Created QuickNote-backed inspiration }
+        "409": { description: operationId replay with another payload or optimistic conflict }
+  /writing/inspirations/{id}:
+    get:
+      summary: Read one Writing inspiration and its source QuickNote
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Inspiration detail } }
+    put:
+      summary: Update inspiration metadata and the owned QuickNote content snapshot
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Updated inspiration }, "409": { description: Stale version or operation conflict } }
+  /writing/inspirations/{id}/archive:
+    post:
+      summary: Archive only the Writing inspiration metadata
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Archived inspiration }, "409": { description: Stale version or operation conflict } }
+  /writing/inspirations/{id}/unarchive:
+    post:
+      summary: Restore an archived Writing inspiration
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Unarchived inspiration }, "409": { description: Stale version or operation conflict } }
+  /writing/inspiration-tags:
+    get:
+      summary: List normalized Writing tags and usage counts
+      responses: { "200": { description: Explicit tag list } }
+    post:
+      summary: Create or reuse a normalized Writing tag
+      responses: { "200": { description: Tag identity } }
+  /writing/inspiration-tags/{id}/merge:
+    post:
+      summary: Merge one explicit Writing tag into another
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Merged tag identity } }
+  /writing/inspiration-tags/{id}:
+    put:
+      summary: Rename a normalized Writing tag while preserving links
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Renamed tag }, "409": { description: Tag name conflict } }
+    delete:
+      summary: Delete a Writing tag and only its relations
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Deleted tag; inspirations and QuickNotes remain } }
+  /quick-notes/{id}/inspiration:
+    post:
+      summary: Idempotently add an existing QuickNote to the Writing inspiration library
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Inspiration metadata and explicit tags } }
+  /growth/overview:
+    get:
+      summary: Read the authenticated user's derived Hero Growth overview
+      description: XP and level come from the Rewards owner; investment comes only from the canonical ActualTime read model; completed tasks come from immutable CompletionEvent history. Finance never contributes. Category history is interpreted through the current category mapping.
+      parameters:
+        - in: query
+          name: period
+          schema: { type: integer, enum: [7, 30, 90], default: 30 }
+        - in: query
+          name: to
+          description: Inclusive product business date; defaults from the user's configured timezone.
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Hero progression, period summary, dimension distribution, unmapped attribution and derived recent activity }
+  /growth/dimensions:
+    get:
+      summary: Read GrowthDimension configuration and current TaskCategory mappings
+      responses:
+        "200": { description: Ordered dimensions including disabled rows and all non-deleted categories }
+    post:
+      summary: Create an enabled custom GrowthDimension
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, color, sortOrder]
+              properties:
+                name: { type: string, maxLength: 64 }
+                iconKey: { type: string, nullable: true, maxLength: 64 }
+                color: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
+                sortOrder: { type: integer, minimum: 0 }
+      responses:
+        "200": { description: Stable dimension identity, generated dimensionKey and version }
+  /growth/dimensions/{id}:
+    put:
+      summary: Rename, recolor, reorder, enable or disable a GrowthDimension
+      description: Disabling atomically clears current TaskCategory mappings to the dimension; historical domain facts are unchanged.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: New version and whether categories were unmapped }
+        "409": { description: Stale expectedVersion }
+  /growth/category-mappings/{categoryId}:
+    put:
+      summary: Set or clear the current TaskCategory to GrowthDimension mapping
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dimensionKey]
+              properties:
+                dimensionKey: { type: string, nullable: true, maxLength: 32 }
+      responses:
+        "200": { description: Current mapping }
+        "400": { description: Dimension is missing or disabled }
+  /finance/initialize:
+    post:
+      summary: Explicitly initialize the authenticated user's default Finance categories
+      description: GET endpoints remain pure. Replays use the shared mutation receipt identity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceOperationRequest" }
+      responses:
+        "200": { description: Initialization result and current category count }
+        "409": { description: operationId was reused with another command or payload }
+  /finance/overview:
+    get:
+      summary: Read Entry-derived assets, liabilities, net worth, monthly flow, accounts and recent transactions
+      description: Asset total is signed CASH/BANK/PAYMENT plus positive CREDIT; liabilities are the absolute negative CREDIT balances; net worth is the signed sum of included accounts. OPENING is excluded from monthly flow.
+      parameters:
+        - in: query
+          name: month
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}$" }
+      responses:
+        "200": { description: API-owned Finance overview; all cents are integer strings }
+  /finance/accounts:
+    get:
+      summary: List Finance accounts with POSTED Entry-derived balances
+      parameters:
+        - in: query
+          name: view
+          schema: { type: string, enum: [active, archived, all], default: active }
+      responses:
+        "200": { description: User-owned accounts and derived balanceCents }
+    post:
+      summary: Atomically create an account and optional OPENING transaction and Entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceAccountRequest" }
+      responses:
+        "200": { description: Stable account identity, version and opening result }
+        "409": { description: operationId identity conflict }
+  /finance/accounts/{id}:
+    put:
+      summary: Update safe account metadata or archive/restore using expectedVersion
+      description: Account type, currency, opening date and opening balance are not editable in FIN-01.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateFinanceAccountRequest" }
+      responses:
+        "200": { description: New account version }
+        "409": { description: Stale expectedVersion }
+  /finance/accounts/{id}/archive:
+    post:
+      summary: Archive a Finance account without deleting history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceArchiveRequest" }
+      responses:
+        "200": { description: Archived account version }
+        "409": { description: Stale version or mutation receipt conflict }
+  /finance/accounts/{id}/unarchive:
+    post:
+      summary: Restore an archived Finance account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceArchiveRequest" }
+      responses:
+        "200": { description: Restored account version }
+        "409": { description: Stale version or mutation receipt conflict }
+  /finance/categories:
+    get:
+      summary: List Finance-only income and expense categories including disabled history references
+      responses:
+        "200": { description: User-owned categories }
+    post:
+      summary: Create a Finance category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceCategoryRequest" }
+      responses:
+        "200": { description: Category identity and version }
+        "409": { description: Duplicate name in the same kind }
+  /finance/categories/{id}:
+    put:
+      summary: Rename, sort, enable or disable a Finance category with expectedVersion
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateFinanceCategoryRequest" }
+      responses:
+        "200": { description: New category version }
+        "409": { description: Stale expectedVersion or duplicate name }
+  /finance/transactions:
+    get:
+      summary: Filter and cursor-page immutable posted Finance transactions
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: accountId, schema: { type: integer, format: int64 } }
+        - { in: query, name: categoryId, schema: { type: integer, format: int64 } }
+        - { in: query, name: type, schema: { type: string, enum: [OPENING, INCOME, EXPENSE, TRANSFER, REFUND, REVERSAL, CORRECTION] } }
+        - { in: query, name: keyword, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: cursor, schema: { type: integer, format: int64 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        "200": { description: Transaction items and nextCursor; signed amountCents are strings }
+  /finance/transactions/{id}:
+    get:
+      summary: Read one user-owned Finance transaction and its FIN-01 Entry projection
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: Transaction detail }
+        "404": { description: Transaction not found for the authenticated user }
+    put:
+      summary: Update only the transaction note using expectedVersion
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateFinanceTransactionNoteRequest" }
+      responses:
+        "200": { description: New transaction version }
+        "409": { description: Stale expectedVersion }
+  /finance/income:
+    post:
+      summary: Atomically post one INCOME transaction and positive Entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceRecordRequest" }
+      responses:
+        "200": { description: Transaction, Entry, timezone snapshot and business date }
+        "409": { description: Receipt identity, account state or category invariant conflict }
+  /finance/expenses:
+    post:
+      summary: Atomically post one EXPENSE transaction and negative Entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceRecordRequest" }
+      responses:
+        "200": { description: Transaction, Entry, timezone snapshot and business date }
+        "409": { description: Receipt identity, account state or category invariant conflict }
+  /finance/transfers:
+    post:
+      summary: Atomically transfer CNY between two active accounts, with an optional linked fee expense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceTransferRequest" }
+      responses:
+        "200": { description: One TRANSFER header, two Entries, and optional fee transaction }
+        "409": { description: Account, currency, receipt, or concurrency invariant conflict }
+  /finance/transactions/{id}/refunds:
+    post:
+      summary: Append a partial or full refund linked to an EXPENSE transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceRefundRequest" }
+      responses:
+        "200": { description: Refund identity and remaining refundable cents }
+        "409": { description: Version, status, or cumulative refund conflict }
+  /finance/transactions/{id}/correct:
+    post:
+      summary: Append a REVERSAL and replacement CORRECTION while retaining the original
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceCorrectionRequest" }
+      responses:
+        "200": { description: Replacement and reversal transaction identities }
+        "409": { description: Version, status, or category conflict }
+  /finance/transactions/{id}/void:
+    post:
+      summary: Void a posted income or expense by appending a reversal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFinanceVoidRequest" }
+      responses:
+        "200": { description: Reversal identity and VOIDED original status }
+        "409": { description: Version or status conflict }
+  /habits:
+    get:
+      summary: List Habit definitions with effective-dated rule and goal histories
+      responses:
+        "200": { description: User-owned Habit definitions and version rows }
+    post:
+      summary: Create a Habit definition, initial rule, and initial goal atomically
+      description: operationId makes an identical retry return the original result without duplicate rows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateHabitRequest" }
+      responses:
+        "200": { description: Habit identity and version }
+        "409": { description: operationId identity conflict }
+  /habits/summary:
+    get:
+      summary: Derive daily and Monday-based weekly Habit status plus specialized life projections
+      description: Pending and missed are derived without occurrence writes. Water, Morning Writing, and Sleep remain projections of their specialized owners.
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Expected habits, weekly progress, and specialized life summary }
+  /habits/{id}:
+    get:
+      summary: Read one Habit with rule, goal, occurrence, and Task-link history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: Habit detail }
+        "404": { description: Habit not found for the authenticated user }
+  /habits/{id}/rule:
+    put:
+      summary: Add a future-effective Habit schedule rule version
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HabitRuleRevisionRequest" }
+      responses:
+        "200": { description: Updated Habit version }
+        "409": { description: Version or effective-date conflict }
+  /habits/{id}/goal:
+    put:
+      summary: Add a future-effective Habit goal version
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HabitGoalRevisionRequest" }
+      responses:
+        "200": { description: Updated Habit version }
+        "409": { description: Version or effective-date conflict }
+  /habits/{id}/state:
+    put:
+      summary: Add a future-effective enable or disable rule and archive or restore the definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HabitStateRequest" }
+      responses:
+        "200": { description: Updated Habit state and version }
+        "409": { description: Version or effective-date conflict }
+  /habits/{id}/occurrences:
+    post:
+      summary: Create or edit an explicit Habit occurrence
+      description: Stores completed, partial, or skipped facts only. Future and missed rows are never pre-generated.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecordHabitOccurrenceRequest" }
+      responses:
+        "200": { description: Occurrence identity, version, status, and actual value }
+        "409": { description: Occurrence conflict or Habit not expected on date }
+  /habits/{id}/task:
+    post:
+      summary: Publish and accept one Task for one Habit occurrence date
+      description: Unique by user, Habit, and occurrenceDate. Only an explicitly configured binary Habit can be completed by its linked Task; no Habit reward is added.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublishHabitTaskRequest" }
+      responses:
+        "200": { description: Stable linked Task identity }
+        "409": { description: operationId identity conflict }
   /health:
     get:
       summary: Health check
@@ -645,7 +1133,8 @@ paths:
         "200": { description: Active Quick Note }
   /quick-notes/{id}/restore:
     post:
-      summary: Restore a soft-deleted Quick Note
+      summary: Idempotently restore a soft-deleted Quick Note
+      description: The Quick Notes owner replays the same operationId without re-awarding the creation reward.
       parameters:
         - in: path
           name: id
@@ -655,9 +1144,10 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/QuickNoteVersionRequest" }
+            schema: { $ref: "#/components/schemas/RestoreQuickNoteRequest" }
       responses:
         "200": { description: Restored Quick Note }
+        "409": { description: Version, state, or operation identity conflict }
   /quick-notes/{id}/convert-to-task:
     post:
       summary: Atomically convert one Quick Note snapshot into its single directly linked Task
@@ -677,7 +1167,7 @@ paths:
         "409": { description: Reused operationId with changed parameters or Quick Note already converted }
   /settings:
     get:
-      summary: Read profile, display preferences, continuation capability, and all current categories
+      summary: Read profile, display preferences, writing-slot entrances, continuation capability, and all current categories
       responses:
         "200": { description: Settings snapshot; missing preference rows use read-only defaults }
     patch:
@@ -694,12 +1184,60 @@ paths:
                 timezone: { type: string, example: Asia/Shanghai }
                 reducedMotion: { type: boolean }
                 showRewards: { type: boolean }
+                writingSlots:
+                  type: array
+                  minItems: 3
+                  maxItems: 3
+                  items:
+                    type: object
+                    required: [slotKey, enabled, sortOrder]
+                    properties:
+                      slotKey: { type: string, enum: [MORNING_WRITING, JOURNAL, STOCK_REVIEW] }
+                      enabled: { type: boolean }
+                      sortOrder: { type: integer, minimum: 0, maximum: 100 }
       responses:
         "200": { description: Updated settings snapshot }
+  /trash:
+    get:
+      summary: Compose recoverable deleted records without a universal Trash table
+      description: Currently only Quick Notes has a complete soft-delete and restore capability. Responses contain summaries, never full personal text.
+      parameters:
+        - in: query
+          name: type
+          schema: { type: string, enum: [all, quick_note], default: all }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200": { description: User-scoped deleted summaries ordered by deletedAt then id }
+  /trash/{type}/{id}/restore:
+    post:
+      summary: Dispatch an idempotent restore to the owning domain
+      description: Trash does not write domain tables. The current quick_note type delegates to the Quick Notes restore capability.
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema: { type: string, enum: [quick_note] }
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RestoreQuickNoteRequest" }
+      responses:
+        "200": { description: Owner restore result }
+        "409": { description: Version, state, or operation identity conflict }
   /search:
     get:
       summary: Search stable user-owned domains without a copied search index
-      description: Includes archived Tasks and Quick Notes, excludes soft-deleted records, and returns only result summaries and deep links.
+      description: Includes archived Projects, Tasks, Habit definitions and Quick Notes, excludes soft-deleted records, and returns only result summaries and deep links.
       parameters:
         - in: query
           name: q
@@ -707,7 +1245,7 @@ paths:
           schema: { type: string, minLength: 1, maxLength: 120 }
         - in: query
           name: type
-          schema: { type: string, enum: [task, quick_note, journal, morning_writing, schedule] }
+          schema: { type: string, enum: [project, task, habit, quick_note, journal, morning_writing, schedule] }
         - in: query
           name: from
           schema: { type: string, format: date }
@@ -729,7 +1267,7 @@ paths:
         - in: path
           name: domain
           required: true
-          schema: { type: string, enum: [tasks, writing, calendar, rewards, life] }
+          schema: { type: string, enum: [projects, tasks, habits, writing, calendar, rewards, life] }
         - in: query
           name: format
           required: true
@@ -875,6 +1413,109 @@ paths:
       responses:
         "200":
           description: Generated and saved psychological bridge
+  /projects:
+    get:
+      summary: List user-owned Projects with derived progress, occurrence-attributed time, and next Task
+      parameters:
+        - in: query
+          name: view
+          schema: { type: string, enum: [active, archived, all], default: active }
+      responses:
+        "200": { description: Project summaries; a Project without Tasks has null progressPercent }
+    post:
+      summary: Create a PLANNING Project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateProjectRequest" }
+      responses:
+        "200": { description: Created Project identity and version }
+  /projects/{id}:
+    get:
+      summary: Read Project overview, current Tasks, Task-derived plans, and occurrence-attributed ActualTime
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: Project detail composition }
+        "404": { description: Project not found for the authenticated user }
+    put:
+      summary: Update editable Project fields with optimistic concurrency
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProjectRequest" }
+      responses:
+        "200": { description: Updated Project version }
+        "409": { description: Project version conflict }
+  /projects/{id}/materials:
+    get:
+      summary: Read first-party linked Quick Note summaries for a Project
+      description: Personal-text protected capability. Returns title/excerpt metadata and deep links only; deleted Notes are excluded and full bodies are not part of the generic Project DTO.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: Current user's linked Quick Note summaries }
+        "404": { description: Project not found for the authenticated user }
+  /projects/{id}/status:
+    put:
+      summary: Start, pause, resume, or explicitly complete a Project
+      description: DONE with unfinished Tasks requires unfinishedTaskPolicy=KEEP and never mutates those Tasks.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectStatusRequest" }
+      responses:
+        "200": { description: Updated Project lifecycle version }
+        "409": { description: Version conflict, final DONE status, archived Project, or missing unfinished-Task policy }
+  /projects/{id}/archive:
+    put:
+      summary: Archive a non-ACTIVE Project without deleting Tasks or time
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectVersionRequest" }
+      responses:
+        "200": { description: Archived Project }
+  /projects/{id}/restore:
+    put:
+      summary: Restore an archived Project while retaining its business status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectVersionRequest" }
+      responses:
+        "200": { description: Restored Project }
   /tasks:
     get:
       summary: List tasks
@@ -1259,6 +1900,92 @@ paths:
           description: Segments and projections voided, no reward granted, slot released
         "409":
           description: Finished, stale, inconsistent, legacy, or operation identity conflict
+  /finance/budgets:
+    get:
+      summary: Read monthly total and category budgets with effective posted spend
+      parameters:
+        - { in: query, name: month, required: true, schema: { type: string, pattern: "^\\d{4}-\\d{2}$" } }
+    post:
+      summary: Create or update one budget scope using operationId
+  /finance/budgets/{id}:
+    delete:
+      summary: Delete a budget with expectedVersion and operationId
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+  /finance/reports:
+    get:
+      summary: Read deterministic monthly flow, category breakdown, account movement and reconciliation
+      parameters:
+        - { in: query, name: month, required: true, schema: { type: string, pattern: "^\\d{4}-\\d{2}$" } }
+  /finance/recurring-templates:
+    get: { summary: List recurring Finance templates }
+    post: { summary: Create a recurring Finance template }
+  /finance/recurring-templates/{id}:
+    put:
+      summary: Edit a recurring Finance template with expectedVersion; processed occurrence snapshots remain immutable
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+  /finance/recurring-occurrences:
+    get: { summary: List prepared recurring occurrences without writing on GET }
+  /finance/recurring-occurrences/prepare:
+    post: { summary: Explicitly prepare idempotent pending occurrences for a date range }
+  /finance/recurring-occurrences/{id}/confirm:
+    post:
+      summary: Atomically post one pending occurrence through Finance transaction semantics
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+  /finance/recurring-occurrences/{id}/skip:
+    post:
+      summary: Explicitly skip one pending occurrence without creating a transaction
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+  /finance/imports/external/preview:
+    post:
+      summary: Stage and validate an external Finance CSV without posting ledger facts
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/FinanceExternalPreviewRequest" } }
+      responses:
+        "200": { description: Read-only preview batch with per-row validation and duplicate state }
+        "409": { description: operationId conflict or duplicate batch identity }
+  /finance/imports/{id}:
+    get:
+      summary: Read an isolated Finance import batch and row result report
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+  /finance/imports/{id}/rows/{rowId}:
+    put:
+      summary: Correct an unprocessed import row mapping or parsed value for retry
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+        - { in: path, name: rowId, required: true, schema: { type: integer, format: int64 } }
+  /finance/imports/{id}/confirm:
+    post:
+      summary: Explicitly post selected ready import rows through the Finance capability
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/FinanceImportConfirmRequest" } }
+  /finance/maintenance/export/json:
+    post:
+      summary: Explicit sensitive versioned Workbench Finance JSON backup export
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FinanceOperationRequest" } } } }
+  /finance/maintenance/export/csv:
+    post:
+      summary: Explicit sensitive human-readable Finance CSV export
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FinanceOperationRequest" } } } }
+  /finance/maintenance/restore/preview:
+    post:
+      summary: Validate a Workbench Finance backup before restore
+  /finance/maintenance/restore/confirm:
+    post:
+      summary: Atomically restore a validated Finance backup into an empty Finance domain
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: "#/components/schemas/FinanceRestoreConfirmRequest" } }
+  /finance/maintenance/reconciliation:
+    post:
+      summary: Read-only Finance account reconciliation and anomaly report
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FinanceOperationRequest" } } } }
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1266,6 +1993,226 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    FinanceOperationRequest:
+      type: object
+      required: [operationId]
+      properties:
+        operationId: { type: string, format: uuid }
+    FinanceExternalPreviewRequest:
+      type: object
+      required: [operationId, sourceName, csv, mapping, timezone]
+      properties:
+        operationId: { type: string, format: uuid }
+        sourceName: { type: string }
+        csv: { type: string }
+        timezone: { type: string }
+        mapping: { type: object, additionalProperties: { type: string } }
+    FinanceImportConfirmRequest:
+      type: object
+      required: [operationId]
+      properties:
+        operationId: { type: string, format: uuid }
+        rowIds: { type: array, items: { type: integer, format: int64 } }
+        allowPossibleDuplicates: { type: boolean, default: false }
+    FinanceRestoreConfirmRequest:
+      type: object
+      required: [operationId, backup]
+      properties:
+        operationId: { type: string, format: uuid }
+        backup: { type: object }
+    FinanceIntegerCents:
+      type: string
+      pattern: "^-?(0|[1-9]\\d*)$"
+      description: Exact signed integer cents within MySQL BIGINT range; never a floating-point amount.
+      example: "100000"
+    CreateFinanceAccountRequest:
+      type: object
+      required: [operationId, name, type, openingDate, openingBalanceCents, includeInOverview]
+      properties:
+        operationId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        type: { type: string, enum: [CASH, BANK, PAYMENT, CREDIT] }
+        currency: { type: string, enum: [CNY], default: CNY }
+        openingDate: { type: string, format: date }
+        openingBalanceCents: { $ref: "#/components/schemas/FinanceIntegerCents" }
+        includeInOverview: { type: boolean, default: true }
+    UpdateFinanceAccountRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        includeInOverview: { type: boolean }
+        archived: { type: boolean }
+    FinanceArchiveRequest:
+      type: object
+      required: [operationId, expectedVersion]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+    CreateFinanceCategoryRequest:
+      type: object
+      required: [kind, name, sortOrder]
+      properties:
+        kind: { type: string, enum: [INCOME, EXPENSE] }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+    UpdateFinanceCategoryRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+        enabled: { type: boolean }
+    CreateFinanceRecordRequest:
+      type: object
+      required: [operationId, accountId, categoryId, amountCents, occurredDate, occurredTime]
+      properties:
+        operationId: { type: string, format: uuid }
+        accountId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+        amountCents:
+          type: string
+          pattern: "^[1-9]\\d*$"
+          description: Positive integer cents; the Finance owner applies the Entry sign from the command type.
+        occurredDate: { type: string, format: date }
+        occurredTime: { type: string, example: "18:30" }
+        note: { type: string, maxLength: 500, nullable: true }
+    UpdateFinanceRecurringTemplateRequest:
+      type: object
+      required: [operationId, expectedVersion]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        enabled: { type: boolean }
+        amountCents: { type: string, pattern: "^[1-9]\\d*$" }
+        accountId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+        frequency: { type: string, enum: [MONTHLY, WEEKLY] }
+        scheduleValue: { type: integer, minimum: 0, maximum: 31 }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date, nullable: true }
+    CreateFinanceTransferRequest:
+      type: object
+      required: [operationId, sourceAccountId, targetAccountId, amountCents, occurredDate, occurredTime]
+      properties:
+        operationId: { type: string, format: uuid }
+        sourceAccountId: { type: integer, format: int64 }
+        targetAccountId: { type: integer, format: int64 }
+        amountCents: { type: string, pattern: "^[1-9]\\d*$" }
+        feeAmountCents: { type: string, pattern: "^[1-9]\\d*$" }
+        feeCategoryId: { type: integer, format: int64 }
+        occurredDate: { type: string, format: date }
+        occurredTime: { type: string, example: "18:30" }
+        note: { type: string, maxLength: 500, nullable: true }
+    CreateFinanceRefundRequest:
+      type: object
+      required: [operationId, expectedVersion, amountCents, occurredDate, occurredTime]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        amountCents: { type: string, pattern: "^[1-9]\\d*$" }
+        accountId: { type: integer, format: int64 }
+        occurredDate: { type: string, format: date }
+        occurredTime: { type: string, example: "18:30" }
+        note: { type: string, maxLength: 500, nullable: true }
+    CreateFinanceCorrectionRequest:
+      type: object
+      required: [operationId, expectedVersion, amountCents, occurredDate, occurredTime]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        amountCents: { type: string, pattern: "^[1-9]\\d*$" }
+        accountId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+        occurredDate: { type: string, format: date }
+        occurredTime: { type: string, example: "18:30" }
+        note: { type: string, maxLength: 500, nullable: true }
+    CreateFinanceVoidRequest:
+      type: object
+      required: [operationId, expectedVersion]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        occurredDate: { type: string, format: date }
+        occurredTime: { type: string, example: "18:30" }
+        note: { type: string, maxLength: 500, nullable: true }
+    UpdateFinanceTransactionNoteRequest:
+      type: object
+      required: [expectedVersion, note]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        note: { type: string, maxLength: 500, nullable: true }
+    HabitRuleInput:
+      type: object
+      required: [frequencyType]
+      properties:
+        frequencyType: { type: integer, enum: [0, 1, 2], description: "0 daily, 1 weekday mask, 2 weekly N" }
+        weekdayMask: { type: integer, minimum: 1, maximum: 127, nullable: true }
+        weeklyTarget: { type: integer, minimum: 1, maximum: 7, nullable: true }
+    CreateHabitRequest:
+      type: object
+      required: [operationId, name, startDate, recordMode, rule, targetValue]
+      properties:
+        operationId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        categoryId: { type: integer, format: int64, nullable: true }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date, nullable: true }
+        recordMode: { type: integer, enum: [0, 1, 2, 3], description: "completion, count, quantity, minutes" }
+        unit: { type: string, maxLength: 32, nullable: true }
+        taskCompletionEnabled: { type: boolean, default: false }
+        rule: { $ref: "#/components/schemas/HabitRuleInput" }
+        targetValue: { type: number, exclusiveMinimum: 0 }
+    HabitRevisionIdentity:
+      type: object
+      required: [operationId, expectedVersion, effectiveFrom]
+      properties:
+        operationId: { type: string, format: uuid }
+        expectedVersion: { type: integer, minimum: 1 }
+        effectiveFrom: { type: string, format: date }
+    HabitRuleRevisionRequest:
+      allOf:
+        - $ref: "#/components/schemas/HabitRevisionIdentity"
+        - type: object
+          required: [rule]
+          properties:
+            rule: { $ref: "#/components/schemas/HabitRuleInput" }
+    HabitGoalRevisionRequest:
+      allOf:
+        - $ref: "#/components/schemas/HabitRevisionIdentity"
+        - type: object
+          required: [targetValue]
+          properties:
+            targetValue: { type: number, exclusiveMinimum: 0 }
+    HabitStateRequest:
+      allOf:
+        - $ref: "#/components/schemas/HabitRevisionIdentity"
+        - type: object
+          required: [action]
+          properties:
+            action: { type: string, enum: [disable, enable, archive, restore] }
+    RecordHabitOccurrenceRequest:
+      type: object
+      required: [operationId, occurrenceDate, recordTimezone, expectedVersion]
+      properties:
+        operationId: { type: string, format: uuid }
+        occurrenceDate: { type: string, format: date }
+        recordTimezone: { type: string, example: Asia/Shanghai }
+        expectedVersion: { type: integer, minimum: 0 }
+        actualValue: { type: number, minimum: 0 }
+        skipped: { type: boolean, default: false }
+        skipReason: { type: string, maxLength: 500 }
+    PublishHabitTaskRequest:
+      type: object
+      required: [operationId, occurrenceDate, recordTimezone]
+      properties:
+        operationId: { type: string, format: uuid }
+        occurrenceDate: { type: string, format: date }
+        recordTimezone: { type: string, example: Asia/Shanghai }
     ApiResponse:
       type: object
       properties:
@@ -1407,6 +2354,10 @@ components:
           type: string
           nullable: true
         categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        projectId:
           type: integer
           format: int64
           nullable: true
@@ -1568,6 +2519,7 @@ components:
           type: string
         dimensionKey:
           type: string
+          nullable: true
           enum: [career, creative, learning, life, body, social, leisure, foundation]
           description: Ability dimension for grouping skills/topics
         color:
@@ -1822,6 +2774,9 @@ components:
         sleepDate:
           type: string
           format: date
+          description: Wake-date business attribution.
+        recordTimezone:
+          type: string
         sleepStart:
           type: string
           format: date-time
@@ -2033,11 +2988,12 @@ components:
           maxLength: 64
         dimensionKey:
           type: string
+          nullable: true
           enum: [career, creative, learning, life, body, social, leisure, foundation]
-          default: life
+          description: Optional future Growth mapping; null means not mapped.
         color:
           type: string
-          maxLength: 32
+          pattern: '^#[0-9A-Fa-f]{6}$'
         icon:
           type: string
           maxLength: 64
@@ -2053,15 +3009,55 @@ components:
           maxLength: 64
         dimensionKey:
           type: string
+          nullable: true
           enum: [career, creative, learning, life, body, social, leisure, foundation]
         color:
           type: string
-          maxLength: 32
+          pattern: '^#[0-9A-Fa-f]{6}$'
         icon:
           type: string
           maxLength: 64
         targetMinutes:
           type: integer
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        priority: { type: integer, enum: [1, 2, 3], default: 2 }
+        startDate: { type: string, format: date, nullable: true }
+        targetDate: { type: string, format: date, nullable: true }
+        notes: { type: string, maxLength: 10000, nullable: true }
+    UpdateProjectRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        priority: { type: integer, enum: [1, 2, 3] }
+        startDate: { type: string, format: date, nullable: true }
+        targetDate: { type: string, format: date, nullable: true }
+        notes: { type: string, maxLength: 10000, nullable: true }
+    ProjectVersionRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+    ProjectStatusRequest:
+      type: object
+      required: [expectedVersion, status]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        status:
+          type: integer
+          enum: [1, 2, 3]
+          description: 1 ACTIVE, 2 PAUSED, 3 DONE
+        unfinishedTaskPolicy:
+          type: string
+          enum: [KEEP]
+          description: Required for DONE when unfinished Tasks exist.
     CreateTaskRequest:
       type: object
       required: [title]
@@ -2116,6 +3112,9 @@ components:
     UpdateTaskRequest:
       type: object
       properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
         title:
           type: string
           minLength: 1
@@ -2128,6 +3127,11 @@ components:
           type: integer
           format: int64
           nullable: true
+        projectId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Rejected while the Task has an OPEN TimerSegment; changing it never rewrites occurrence history.
         priority:
           type: integer
           enum: [1, 2, 3]
@@ -2246,6 +3250,14 @@ components:
         scheduleDate:
           type: string
           format: date
+        startDate:
+          type: string
+          format: date
+          description: Manual Actual local start date; defaults to scheduleDate.
+        endDate:
+          type: string
+          format: date
+          description: Manual Actual local end date; defaults to scheduleDate.
         startTime:
           type: string
           example: "09:00"
@@ -2264,6 +3276,11 @@ components:
           type: integer
           format: int64
           nullable: true
+        projectIdAtOccurrence:
+          type: integer
+          format: int64
+          nullable: true
+          description: Explicit occurrence Project for Manual Actual; omitted values default to the linked Task current Project.
         kind:
           type: integer
           enum: [0, 1]
@@ -2297,6 +3314,12 @@ components:
           type: integer
           minimum: 1
         scheduleDate:
+          type: string
+          format: date
+        startDate:
+          type: string
+          format: date
+        endDate:
           type: string
           format: date
         startTime:
@@ -2406,17 +3429,24 @@ components:
           maxLength: 255
     SaveSleepRecordRequest:
       type: object
-      required: [sleepDate, sleepStart, wakeTime]
+      required: [sleepStartDate, sleepStartTime, wakeDate, wakeTime, recordTimezone]
       properties:
-        sleepDate:
+        sleepStartDate:
           type: string
           format: date
-        sleepStart:
+        sleepStartTime:
           type: string
           example: "23:30"
+        wakeDate:
+          type: string
+          format: date
+          description: Canonical Sleep business date.
         wakeTime:
           type: string
           example: "07:20"
+        recordTimezone:
+          type: string
+          example: Asia/Shanghai
         qualityScore:
           type: integer
           minimum: 1
@@ -2487,6 +3517,10 @@ components:
           type: string
           maxLength: 64
           nullable: true
+        projectId:
+          type: integer
+          format: int64
+          nullable: true
     UpdateQuickNoteRequest:
       type: object
       required: [expectedVersion]
@@ -2509,10 +3543,24 @@ components:
           type: string
           maxLength: 64
           nullable: true
+        projectId:
+          type: integer
+          format: int64
+          nullable: true
     QuickNoteVersionRequest:
       type: object
       required: [expectedVersion]
       properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+    RestoreQuickNoteRequest:
+      type: object
+      required: [operationId, expectedVersion]
+      properties:
+        operationId:
+          type: string
+          format: uuid
         expectedVersion:
           type: integer
           minimum: 1

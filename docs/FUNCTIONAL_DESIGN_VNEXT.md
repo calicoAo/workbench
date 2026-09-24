@@ -1,6 +1,6 @@
 # Workbench vNext 功能设计方案
 
-版本：v1.4 · 2026-09-18 · 目标设计（六项语义决策封口；路线结构保持）
+版本：v1.5 · 2026-09-21 · R2D0 后目标设计（Finance 优先、Hero/Familiar 分层）
 
 配套：[PRD](PRD_VNEXT.md) · [开发计划](DEVELOPMENT_PLAN_VNEXT.md) · [架构记录](ARCHITECTURE.md)
 
@@ -34,33 +34,39 @@ flowchart LR
 
 ### 2.1 Today：今日悬赏是执行中心
 
-桌面布局草图：
+R2D0 后桌面以 **Sidebar + Main Execution + Utility Rail** 为稳定布局，不再把生活记录埋在主内容底部，也不让任务区域形成独立 nested scroll。
 
 ```text
-┌ 日期 / 回到今天 ───────────────── 搜索 / 快速新增 / 用户 ┐
-│ 当前专注：第三章练习  00:24:10  [暂停] [结束本次]       │
-├─────────────────────────────┬─────────────────────────┤
-│ 今日悬赏        [接取悬赏]   │ 今日 Timeline           │
-│ 今日重点（最多 3 个）        │ [计划] [实际] [生活]    │
-│ □ 第三章练习  40%   [开始]   │ 09:00 计划 学习         │
-│ □ Workbench PRD     [开始]   │ 09:10–09:55 实际 学习   │
-│ 其余已接取 / 已完成折叠      │             [安排/补录] │
-│ [发布并接取] [查看完整悬赏板]│                         │
-├─────────────────────────────┴─────────────────────────┤
-│ 生活快照：睡眠 / 喝水 / 今日习惯                       │
-│ 今日摘要：已完成 2/5 · 专注 1h20m · 计划 3h            │
-│ 复盘入口：晨写已完成 / 日记待写 / 今日回顾              │
-└───────────────────────────────────────────────────────┘
+┌─ Sidebar ─┬──────────────── Main Execution ───────────────┬──── Utility Rail ────┐
+│ 今日      │ 日期 / 回到今天 / 搜索 / Quick Add          │ 喝水  当前/目标 [+1] │
+│ 悬赏      │ 当前专注：第三章练习 00:24:10 [暂停][结束]  │ 睡眠  时长/质量 [编辑]│
+│ 日历      │ 今日悬赏 / Top 3 / 已接取 / 已完成          │ 随手记 [记一条]      │
+│ 项目      │ Task 列表自然增长，页面整体滚动              │ 启用的 Writing Slots │
+│ ...       │ 今日摘要：完成 / 专注 / 实际投入            │ Habits / Timeline    │
+└───────────┴───────────────────────────────────────────────┴──────────────────────┘
 ```
 
-移动顺序：当前专注 → 今日悬赏 → Timeline → 生活快照 → 复盘；摘要保持紧凑。页面不展开商店、决策器、股票复盘编辑器或所有项目。
+- Sidebar 展开约 140–160px，可折叠到约 56–64px；折叠偏好只存浏览器本地。
+- Main 是最大的内容列，Task 列表自然增长；页面整体滚动，不用固定高度让 5–6 条普通 Task 立即出现内部滚动条。
+- Utility Rail 约 300–340px；第一屏优先看见 Water、Sleep、QuickNote，之后是 enabled Writing Slots、Habits 与 Timeline。
+- Water 是提醒／快速记录，不再放在页面底部；Sleep 可直接编辑；QuickNote 只提供轻量捕捉，不展开完整 Library。
+- Today 仍只做 composition，不拥有 Water、Sleep、QuickNote、Writing、Habit 或 Timeline 的真值。
+
+移动端保持固定五个 bottom tabs，并使用 **一个统一 Quick Action FAB** 打开 Bottom Sheet：
+
+```text
+生活快速记录：喝水 / 睡眠 / 随手记 / 已启用 Writing Slots
+任务与时间：发布悬赏 / 安排计划 / 补录实际
+```
+
+不创建第二个 FAB，不让 bottom nav / MiniTimer 遮挡操作。
 
 - 默认当天；历史日期显示“查看 9 月 16 日”，补录和日记可写历史，实时开始始终属于真实当前时间。
 - 查看历史时点击开始，提示“将接取到今天并开始”，不伪造历史开始时间。
 - 今日重点存在 Assignment 上，最多 3 个；Task pinned 仍表示长期重要，两者不相互覆盖。
 - 无任务：显示“去接取悬赏”和“发布第一个悬赏”。全部完成：显示完成摘要和可选复盘入口。
 - 跨页当前计时器固定；日期切换不改变活跃 Session。
-- “随手记”快捷按钮打开轻量输入抽屉；当日最近 3 条可在复盘入口旁紧凑展示，点击进入灵感库，更多记录不堆进首页。
+- 移动 TaskCard 以标题、状态、紧凑 Category、主要执行动作与 More 为主；低价值 metadata 进入详情，44px 是 hit-area 约束而非视觉按钮尺寸。
 
 ### 2.2 悬赏板
 
@@ -110,11 +116,13 @@ MVP 字段：名称、描述、状态、优先级、开始日期、目标日期�
 
 项目投入按时间事实的 `projectIdAtOccurrence` 归属，不 join Task 当前 projectId 回推历史。例：9 月 Task A 在 X 投入 10h，10 月移到 Y 后，原 10h 仍属 X；之后的新片段才属 Y。类别使用同样的 occurrence snapshot。详细的片段切换、补录与旧数据处理见 4.1。
 
-R6 再增加里程碑（名称、目标日期、关联任务与完成条件），不加入甘特图、依赖图或 OKR 引擎。
+Project 本身不增加单一 `categoryId`。`TaskCategory` 表示跨 Project 的投入分类与可选 Growth mapping；“学习 / 实践 / 资料 / 实战”这类项目内部组织属于未来 `ProjectSection / Workstream`，不得拿全局 Category 替代。
+
+R6 再考虑 ProjectSection / 里程碑（名称、目标日期、关联任务与完成条件），不加入甘特图、依赖图或 OKR 引擎。
 
 ### 2.5 Routines / Habits
 
-R1.5 统一入口，保留现有 Sleep / Water 表；Morning Writing 从此处快速进入 Journal 的晨写编辑器。
+Routines 保留现有 Sleep / Water 专用真值，并组合 Habits。Morning Writing 只有在对应 Writing Slot 启用时才从这里提供快捷入口；关闭 Slot 不影响历史正文或 Habit 对已保存晨写的只读达成判断。
 
 R2 通用习惯支持：名称、是否启用、开始／结束日期、频率（每日／指定星期／每周 N 次）、记录模式（完成／次数／数量／分钟）、目标、单位、可选关联类别。历史按日／周显示达成、部分达成、跳过、未达成。跳过必须有明确状态，可写原因，不强迫补签。
 
@@ -126,7 +134,9 @@ R2 通用习惯支持：名称、是否启用、开始／结束日期、频率�
 
 ### 2.6 Journal / Review
 
-统一入口下有日记、晨间书写、随手记／灵感库、复盘和归档。按日期打开原领域记录，不强行合表；随手记在导航上归入此处，但有独立 QuickNote 数据与前端 owner，不塞入已有 Writing / Reflection 的三类草稿。
+统一入口下按用户配置展示日记、晨间书写、股市复盘、随手记／灵感库、周期复盘和归档。按日期打开原领域记录，不强行合表；随手记在导航上归入此处，但有独立 QuickNote 数据与前端 owner，不塞入已有 Writing / Reflection 的三类草稿。
+
+Writing Slot 只控制 **主入口是否出现与排序**，不拥有正文。目标默认策略为：新用户 `MORNING_WRITING`、`JOURNAL`、`STOCK_REVIEW` 全部 disabled，由 Settings 显式 opt-in；既有用户的偏好和历史记录不通过迁移强改。关闭 Slot 后，History / Search / Export 仍可访问历史，重新开启后恢复主入口。
 
 - 日记保留自由文字、开心的事、成果、学习、明日重点、心情；今日任务与时间摘要以可引用卡片显示。
 - 晨写保持 daily ritual；正文由用户保存，Habit 只读达成状态。
@@ -154,25 +164,33 @@ R2 通用习惯支持：名称、是否启用、开始／结束日期、频率�
 
 R1.5 的 Search 首版基于各域普通数据库查询：关键词、类型、日期、分页；任务查标题／描述，文字记录查正文，随手记查标题／正文／单标签，日历查标题／备注。限定当前用户、排除删除记录，返回类型、摘要和深链。R2 纳入 Projects、Habits、Reviews，R3 才接入 Finance，财务结果默认隐藏金额直到展开。
 
-R1D 的 Quick Add 先提供任务、计划和实际补录，R1.5 扩展随手记、日记、喝水；新领域上线后增加习惯记录、支出。随手记使用“先记下来”的独立输入，不先问是否转任务。它调用各域 API，不创建 Universal Workbench Item。
+移动端与桌面的快速新增继续作为 **一个 launcher**，调用各域 API，不创建 Universal Workbench Item。当前包含任务、计划、实际补录、Water、Sleep、QuickNote 与 enabled Writing Slots；R3 Finance 上线后增加“记一笔支出/收入”，仍复用同一个 Quick Action FAB / Bottom Sheet，不另建财务浮动入口。随手记保持“先记下来”，不先问是否转任务。
 
-Settings：资料、任务分类、能力维度、习惯目标、奖励展示／规则说明、外观、结转偏好、集成、数据。分类停用不删除历史投入；原分类名／颜色作为历史快照保留，能力报表可按当前映射重算并注明口径。
+Settings：资料、任务分类、Writing Slots、习惯目标、奖励展示／规则说明、外观、结转偏好、集成、数据。
+
+- 新用户默认 Task Category 为 `工作 / 学习 / 创作 / 生活 / 健康 / 社交 / 其他`；不默认创建 Stock / Investment 类别。
+- Category 管理必须有明显的 `+ 新增分类`；Task 创建/编辑的 Category selector 底部也提供 inline create，成功后自动选中。
+- Category 支持预设色板 + 自定义 color picker / Hex；颜色只是 presentation metadata，不参与身份、权限、历史归属或 Growth 计算。
+- Category → GrowthDimension 映射可空；`暂不映射` 是一等状态。
+- 分类停用不删除历史投入；原分类名／颜色作为历史快照保留。
+- Writing Slots 在“文字与复盘”设置中独立启用/关闭/排序；关闭不删除正文。
+
 
 Data：分域 JSON / CSV 导出，文字额外支持 Markdown；敏感导出由用户主动操作。R2 导入先预览、校验、报告重复／失败行，再以批次键提交；不能因一行错误悄悄丢其他数据。备份恢复先做独立环境演练，回收站与数据库备份不是同一能力。
 
 ### 2.9 随手记／灵感库
 
-**定位：随时捕捉尚未整理的想法、片段和行动线索。** 一天可以有多条；日记是按日的反思，Task 是行动承诺，QuickNote 保存原始记录。沿用已有 `quick_notes`，不引入另一张 Inspiration 表。
+**定位：随时捕捉尚未整理的想法、片段和行动线索。** 一天可以有多条；日记是按日的反思，Task 是行动承诺，QuickNote 保存原始记录。灵感库是 Writing 的整理入口：`writing_inspirations` 只保存收藏、置顶、归档等用户级元数据，正文、标题、日期和项目关系继续由 `quick_notes` 作为唯一事实源；不引入通用 `InspirationCategory`。
 
-当前已核验实现：GET 列表支持可选 date、limit（默认 20、最大 100）；POST 必填 noteDate 与 1–5,000 字正文，可选 120 字标题和 64 字单标签；DELETE 为硬删除；创建后单独发放 6 XP / 2 金币。表与 OpenAPI 已存在，当前 Web 源码仅发现相关 CSS，未发现 API 调用／编辑器。这是补齐现有能力的计划，不是已完成页面的迁移声明。
+当前已交付：Quick Notes 已有独立 Web owner、列表／详情／编辑、cursor pagination、关键词/日期/标签筛选、archive、recoverable delete/restore、幂等创建与同事务奖励；每条手工新建记录仍为 6 XP / 2 金币。Note→Task 转换、Journal 草稿引用、Project 素材关联、Search/Export/Trash 已接入；Task/Project DTO 不反向展开私人正文。后续 R2E 只补通用导入，不重做捕捉与生命周期。
 
 #### 入口与记录
 
-- 桌面全局 Quick Add、Today 轻入口、移动端快速新增都可打开同一个随手记 feature 的输入表面；导航归于“日记与复盘 → 随手记／灵感库”，路由 `/notes` 和 `/notes/:noteId`，不占新一级 Tab。
+- 桌面全局 Quick Add、Today 轻入口、移动端快速新增都可打开同一个随手记 feature 的输入表面；导航归于“日记与复盘 → 随手记／灵感库”，路由 `/notes`、`/notes/:noteId` 和 `/inspirations`，不占新一级 Tab。QuickNote 详情通过显式“加入灵感库”进入 Writing owner。
 - 先输入正文即可保存；标题和单标签可选，标题为空时列表显示正文首行摘要，不把派生摘要强行写回标题。
 - 全局新增默认真实今天；从历史日期的 Journal／Today 新增时，表单明确显示并允许修改“记录日期”，保存真实 createdAt，不能把历史日期伪装成捕捉时刻。
 - 成功后确认已保存并提供“查看”“转为悬赏”；失败保留正文和同一提交键。草稿属于 Quick Notes feature，切换页面／日期前提醒或保留按用户隔离的本设备草稿，退出登录不暴露给下一用户。
-- 灵感库默认按创建时间倒序；支持记录日期范围、单标签、关键词、全部／已归档；以 cursor 分页，不能把现有 limit=100 当作完整历史。归档不等于已转任务。
+- 灵感库默认按更新时间倒序；支持标题/正文/标签搜索、未打标签、收藏、置顶、归档和多标签 AND；标签经过 NFKC、空白折叠和大小写无关规范化，不扫描正文 hashtag，不引入隐式分类。归档不等于已转任务。
 - 编辑使用 version 检查，冲突保留草稿。归档／取消归档只改变整理状态；删除进入回收站，恢复不重复奖励。R1.5 提供最小恢复入口，R2 再归入统一 Data 页面。
 
 #### 从想法进入悬赏闭环
@@ -272,6 +290,82 @@ Growth 拥有维度、目标配置、个人展示偏好与派生统计；Rewards
 数据落点：Journal / Review 拥有周期正文、事实快照和修订，Growth / Insights 提供事实投影。已有 `weekly_summaries` 先核验数据与部署状态，再以前向迁移归并／扩展到周月共同的 Period Review；迁移后只保留一个写入 owner，不能新建月报同时遗留另一份活跃周报正文。
 
 目标接口：纯读 `/api/growth/profile`、`/api/growth/summary?period=&start=`；维度／目标配置接口；`/api/period-reviews` 查询、保存、确认和版本化更新；AI 草稿生成与下一步转任务为显式 POST。具体契约在 B30 / B15 落地时更新 OpenAPI，聚合 GET 不顺手补发成就或初始化账本。
+
+### 2.12 Finance：真实财务真值域
+
+Finance 的完整设计以 `PERSONAL_WORKBENCH_FINANCE_PRD.md` 为准。当前路线中它在剩余 Growth / AI 之前交付。
+
+- FinanceAccount / Transaction / Entry 是独立核心域；余额从有效 Entry 派生，不维护第二份可手填余额。
+- Workbench Coins、Finance Money、Agent Wallet 永久分账。
+- 移动快速记账接入现有统一 Quick Action FAB，不能再建第二个浮动入口。
+- 财务 Search 在 R3 接入现有 Search owner；默认结果隐藏金额直到用户展开。
+- Finance 导入由 FIN-04 自己拥有 FinanceImportBatch / source-row identity，不等待通用 R2E Import 平台。
+- Finance 事实之后可供 Review / AI 以最小投影消费，但普通 Today/Tasks 授权与内部 AI 都不得隐式获得敏感财务全文。
+
+### 2.13 Internal AI / 指引魔法使 Familiar
+
+Workbench 内部 AI 与 R4 Agent Bridge 是两条不同能力：
+
+- **Internal AI**：帮助用户理解自己的文字与事实，呈现为指引魔法使 Familiar。
+- **Agent Bridge**：让外部 Agent 以 Grant / scope 受控读取和提交候选动作。
+
+AI 的稳定原则：
+
+```text
+业务事实 → deterministic query / code
+        → 最小 Context Builder
+        → Jev（仅在需要判断/分类/筛选时）
+        → cheap LLM（梳理/生成）
+        → reasoning LLM（复杂决策，用户主动）
+        → AI Artifact
+        → 用户确认
+        → Domain Owner
+```
+
+#### 成本层
+
+| Tier | 手段 | 负责 |
+| --- | --- | --- |
+| 0 | SQL / Code / Template | 统计、金额、日期、完成率、固定日报；不调用 AI |
+| 1 | Jev | actionable 判断、分类、筛选、routing、是否升级模型 |
+| 2 | Cheap generative LLM | 晨写梳理、日记主题、Task 候选、短解释 |
+| 3 | Reasoning LLM | 心理桥梁、复杂决策、深度复盘；默认用户主动触发 |
+
+Jev 不是日报引擎，也不用于算术、日期比较或账本计算。确定性事实一律由代码提供。
+
+#### AI Artifact
+
+AI 输出保存为可删除／可重生的派生物，至少记录：
+
+- artifactType
+- source refs + source versions
+- generatedAt
+- provider / model
+- promptVersion
+- token / cost metadata
+- stale 状态
+- result payload
+
+源正文修改后 artifact 可标 stale；不会修改或覆盖 Journal / Morning Writing / Task / Finance 原记录。
+
+#### 第一批 AI 能力
+
+1. Morning Writing → 整理思绪、今日关注、行动候选。
+2. Journal Insight → 主题、反复出现的念头、与近 7/30 天的联系、变化证据。
+3. Text → Task candidates → 只生成候选，用户确认后调用 Tasks public capability。
+4. Psychological Bridge → 把混杂感受拆成事实/担忧/冲突/真正问题/下一步。
+5. Decision Assistant → 重构问题、生成选项、criteria、Jev/code 评分、LLM trade-off / premortem。
+6. Weekly Review AI → 只解释确定性事实与精选文字，不让模型重新计算统计。
+7. Project Copilot / Ask My Workbench / Stuck Insight → 通过最小查询与检索读取相关事实，不把整库塞进 prompt。
+
+#### Familiar presentation
+
+Familiar 是 AI 的统一 UI 人格，不是业务 owner。第一版状态由本地事件驱动：
+
+`IDLE / THINKING / WRITING / CELEBRATING / SLEEPING / WAITING`
+
+角色动画本身不调用模型。视觉遵循 **Modern Productivity Core + Pixel Fantasy Skin**：角色、Icon、Badge、Progress、Empty State 像素化；编辑器、表单、日期控件与长文本保持现代可用性。
+
 
 ## 3. 生命周期与异常规则
 
@@ -390,7 +484,8 @@ R1B 采用轻量 `mutation_receipts`，唯一 `(userId, operationId)`；保存 c
 | Growth | 可配置维度／目标、个人展示偏好、可重算成长统计与展示性成就 | 成长页读投影、维度配置；XP 只读 Rewards，不能再维护余额 |
 | Journal / Period Review | 周／月总结正文、确认时事实快照与修订 | 周期查询、编辑、确认、归档；Growth 页面复用同一记录与公开入口 |
 | Rewards | reward_events、成长、兑换 | 同事务幂等奖励与冲正；不决定 Task 是否完成 |
-| Finance | 账户、分类、账本、预算等 | 独立财务命令／查询，见 Finance PRD |
+| Finance | 账户、分类、Transaction/Entry、预算、周期与导入批次 | 独立财务命令／查询，见 Finance PRD；余额只由有效 Entry 派生 |
+| Internal AI orchestration | provider routing、预算/成本遥测、AI Artifact、来源版本/stale、prompt version；Familiar presentation | 只读最小事实并产生派生结果；不得拥有 Task/Journal/Finance 真值，写入必须经用户确认后调用领域 owner |
 | Integrations | Grant、Candidate、操作审计 | 授权检查、候选确认，调用业务 owner；不直接改其他领域表 |
 | API mutation infrastructure | mutation_receipts 身份／fingerprint／结果引用 | 提供 transaction-aware 回执能力；不拥有领域状态转换或执行业务命令 |
 

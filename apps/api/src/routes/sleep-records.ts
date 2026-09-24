@@ -7,6 +7,8 @@ import { sleepRecords } from "../db/schema.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { grantRecordReward } from "../rewards.js";
+import { isValidTimezone, localDateTimeToUtc } from "../time.js";
+import { BusinessError, ErrorCode } from "../errors.js";
 
 
 const querySchema = z.object({
@@ -14,16 +16,14 @@ const querySchema = z.object({
 });
 
 const saveSleepSchema = z.object({
-  sleepDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  sleepStart: z.string().regex(/^\d{2}:\d{2}$/),
+  sleepStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sleepStartTime: z.string().regex(/^\d{2}:\d{2}$/),
+  wakeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   wakeTime: z.string().regex(/^\d{2}:\d{2}$/),
+  recordTimezone: z.string().refine(isValidTimezone),
   qualityScore: z.number().int().min(1).max(5).optional(),
   note: z.string().max(500).optional()
 });
-
-function dateTimeFor(date: string, time: string) {
-  return new Date(`${date}T${time}:00+08:00`);
-}
 
 function minutesBetween(start: Date, end: Date) {
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
@@ -41,16 +41,15 @@ export const sleepRecordsRoute = new Hono()
   })
   .post("/", async (c) => {
     const body = saveSleepSchema.parse(await c.req.json());
-    const sleepStart = dateTimeFor(body.sleepDate, body.sleepStart);
-    const wakeTime = dateTimeFor(body.sleepDate, body.wakeTime);
-    if (wakeTime <= sleepStart) {
-      wakeTime.setDate(wakeTime.getDate() + 1);
-    }
+    const sleepStart = localDateTimeToUtc(body.sleepStartDate, body.sleepStartTime, body.recordTimezone);
+    const wakeTime = localDateTimeToUtc(body.wakeDate, body.wakeTime, body.recordTimezone);
+    if (wakeTime <= sleepStart) throw new BusinessError(ErrorCode.PARAM_ERROR, "wake time must be later than sleep start", 400);
 
     const now = new Date();
     const values = {
       userId: getCurrentUserId(c),
-      sleepDate: body.sleepDate,
+      sleepDate: body.wakeDate,
+      recordTimezone: body.recordTimezone,
       sleepStart,
       wakeTime,
       durationMinutes: minutesBetween(sleepStart, wakeTime),
@@ -67,6 +66,7 @@ export const sleepRecordsRoute = new Hono()
         set: {
           sleepStart: values.sleepStart,
           wakeTime: values.wakeTime,
+          recordTimezone: values.recordTimezone,
           durationMinutes: values.durationMinutes,
           qualityScore: values.qualityScore,
           note: values.note,
@@ -75,8 +75,7 @@ export const sleepRecordsRoute = new Hono()
         }
       });
 
-    const reward = await grantRecordReward(getCurrentUserId(c), "sleep", body.sleepDate, "记录睡眠");
-    log.info({ userId: getCurrentUserId(c), sleepDate: body.sleepDate }, "[sleep_record_saved]");
-    return ok(c, { sleepDate: body.sleepDate, durationMinutes: values.durationMinutes, reward });
+    const reward = await grantRecordReward(getCurrentUserId(c), "sleep", body.wakeDate, "记录睡眠");
+    log.info({ userId: getCurrentUserId(c), sleepDate: body.wakeDate }, "[sleep_record_saved]");
+    return ok(c, { sleepDate: body.wakeDate, durationMinutes: values.durationMinutes, reward });
   });
-

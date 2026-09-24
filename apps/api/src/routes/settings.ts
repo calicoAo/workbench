@@ -3,23 +3,32 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { taskCategories, users, userSettings } from "../db/schema.js";
+import { taskCategories, users, userSettings, writingSlots } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { isValidTimezone } from "../time.js";
+import { WRITING_SLOT_KEYS, writingSlotsForUser } from "../writing-slots.js";
+
+const writingSlotSchema = z.object({
+  slotKey: z.enum(WRITING_SLOT_KEYS),
+  enabled: z.boolean(),
+  sortOrder: z.number().int().min(0).max(100)
+});
 
 const updateSchema = z.object({
   displayName: z.string().trim().min(1).max(64).optional(),
   timezone: z.string().refine(isValidTimezone).optional(),
   reducedMotion: z.boolean().optional(),
-  showRewards: z.boolean().optional()
+  showRewards: z.boolean().optional(),
+  writingSlots: z.array(writingSlotSchema).length(3).optional()
 }).refine((value) => Object.values(value).some((item) => item !== undefined), { message: "at least one setting is required" });
 
 async function settingsFor(userId: number) {
-  const [[user], [preferences], categories] = await Promise.all([
+  const [[user], [preferences], categories, writingSlotPreferences] = await Promise.all([
     db.select({ id: users.id, username: users.username, displayName: users.displayName, timezone: users.timezone }).from(users).where(and(eq(users.id, userId), isNull(users.deletedAt))),
     db.select().from(userSettings).where(eq(userSettings.userId, userId)),
-    db.select().from(taskCategories).where(and(eq(taskCategories.userId, userId), isNull(taskCategories.deletedAt))).orderBy(asc(taskCategories.sortOrder), asc(taskCategories.id))
+    db.select().from(taskCategories).where(and(eq(taskCategories.userId, userId), isNull(taskCategories.deletedAt))).orderBy(asc(taskCategories.sortOrder), asc(taskCategories.id)),
+    writingSlotsForUser(db, userId)
   ]);
   if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
   return {
@@ -27,7 +36,8 @@ async function settingsFor(userId: number) {
     appearance: { theme: "light" as const, reducedMotion: Boolean(preferences?.reducedMotion) },
     rewards: { show: preferences ? Boolean(preferences.showRewards) : true },
     continuation: { mode: "manual" as const, automaticAvailable: false },
-    categories
+    categories,
+    writingSlots: writingSlotPreferences
   };
 }
 
@@ -45,6 +55,14 @@ export const settingsRoute = new Hono()
         const values = { reducedMotion: body.reducedMotion === undefined ? current?.reducedMotion ?? 0 : body.reducedMotion ? 1 : 0, showRewards: body.showRewards === undefined ? current?.showRewards ?? 1 : body.showRewards ? 1 : 0, updatedAt: new Date() };
         if (current) await tx.update(userSettings).set(values).where(eq(userSettings.userId, userId));
         else await tx.insert(userSettings).values({ userId, ...values });
+      }
+      if (body.writingSlots) {
+        const keys = new Set(body.writingSlots.map((slot) => slot.slotKey));
+        if (keys.size !== WRITING_SLOT_KEYS.length) throw new BusinessError(ErrorCode.PARAM_ERROR, "each writing slot is required", 400);
+        const now = new Date();
+        for (const slot of body.writingSlots) {
+          await tx.insert(writingSlots).values({ userId, slotKey: slot.slotKey, enabled: slot.enabled ? 1 : 0, sortOrder: slot.sortOrder, createdAt: now, updatedAt: now }).onDuplicateKeyUpdate({ set: { enabled: slot.enabled ? 1 : 0, sortOrder: slot.sortOrder, updatedAt: now } });
+        }
       }
     });
     return ok(c, await settingsFor(userId));

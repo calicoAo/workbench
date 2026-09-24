@@ -174,7 +174,7 @@ if (!testDatabaseUrl) {
     await pool.query("DROP TRIGGER IF EXISTS fail_reward_insert");
     await pool.query("DROP TRIGGER IF EXISTS fail_carryover_marker_insert");
     await pool.query("UPDATE user_execution_slots SET active_session_id = NULL WHERE user_id = 1");
-    for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedule_carryovers", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks"]) {
+    for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedule_carryovers", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks", "projects"]) {
       await pool.query(`DELETE FROM ${table}`);
     }
   });

@@ -136,7 +136,7 @@ describe("WritingReflectionFeature draft ownership", () => {
     };
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => insight);
     const request = requestMock as FeatureProps["request"];
-    render(feature(emptySnapshot, { request, children: <WritingReflectionShortcuts /> }));
+    render(feature(emptySnapshot, { request, children: <WritingReflectionShortcuts enabledSlots={["JOURNAL"]} /> }));
     fireEvent.click(screen.getByRole("button", { name: "日记" }));
     fireEvent.change(input("日记内容"), { target: { value: "日记 B" } });
 
@@ -162,5 +162,28 @@ describe("WritingReflectionFeature draft ownership", () => {
     fireEvent.change(input("日记内容"), { target: { value: "Unsaved text" } }); fireEvent.click(screen.getByRole("button", { name: "quote" }));
     expect(input("日记内容").value).toContain("Unsaved text"); expect(input("日记内容").value).toContain("[来自随手记 #44]\nQuoted text");
     fireEvent.click(screen.getByRole("button", { name: "repeat" })); expect(document.body.dataset.duplicate).toBe("duplicate"); expect(input("日记内容").value.match(/Quoted text/g)).toHaveLength(1);
+  });
+
+  it("shows Journal only after opt-in and removes its primary entry after opt-out", () => {
+    const view = render(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={[]} /> }));
+    expect(screen.queryByLabelText("日记内容")).toBeNull();
+    view.rerender(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={["JOURNAL"]} /> }));
+    expect(screen.getByLabelText("日记内容")).toBeTruthy();
+    expect(screen.queryByLabelText("晨写内容")).toBeNull();
+    expect(screen.queryByLabelText("大盘结论")).toBeNull();
+    view.rerender(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={[]} /> }));
+    expect(screen.queryByLabelText("日记内容")).toBeNull();
+  });
+
+  it("shows no global writing shortcut until a slot is enabled", () => {
+    const view = render(feature(emptySnapshot, { children: <WritingReflectionShortcuts /> }));
+    expect(screen.queryByRole("button", { name: "晨写" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "日记" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "复盘" })).toBeNull();
+
+    view.rerender(feature(emptySnapshot, { children: <WritingReflectionShortcuts enabledSlots={["JOURNAL"]} /> }));
+    expect(screen.getByRole("button", { name: "日记" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "晨写" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "复盘" })).toBeNull();
   });
 });

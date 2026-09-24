@@ -70,7 +70,7 @@ beforeEach(async () => {
   await pool.query("DROP TRIGGER IF EXISTS r1b_fail_session_insert");
   await pool.query("DROP TRIGGER IF EXISTS r1b_fail_reward_insert");
   await pool.query("UPDATE user_execution_slots SET active_session_id = NULL, version = version + 1 WHERE user_id = 1");
-  for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedule_carryovers", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks"]) {
+  for (const table of ["reward_events", "user_growth", "mutation_receipts", "task_completion_events", "schedule_carryovers", "schedules", "timer_segments", "timer_sessions", "task_daily_assignments", "tasks", "projects"]) {
     await pool.query(`DELETE FROM ${table}`);
   }
   await pool.query("UPDATE users SET timezone = 'Asia/Shanghai' WHERE id = 1");
@@ -140,11 +140,11 @@ test("paused sessions retain the slot while finish and cancel release it", async
     (error: unknown) => (error as { status?: number }).status === 409
   );
   await finishWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: paused.version, now: at("2026-09-18T01:12:00Z") });
-  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE active_session_id IS NULL"), 1);
+  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE user_id = 1 AND active_session_id IS NULL"), 1);
 
   const second = await acceptAndStartTask({ userId: 1, operationId: op(), taskId: await insertTask("cancelled"), expectedTaskVersion: 1, taskDate: "2026-09-18", now: at("2026-09-18T02:00:00Z") });
   await cancelWorkSession({ userId: 1, operationId: op(), sessionId: second.id, expectedVersion: 1, now: at("2026-09-18T02:05:00Z") });
-  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE active_session_id IS NULL"), 1);
+  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE user_id = 1 AND active_session_id IS NULL"), 1);
   assert.equal(await scalar("SELECT COUNT(*) FROM timer_segments WHERE timer_session_id = ? AND status = 2", [second.id]), 1);
   assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE source_id = ?", [String(second.id)]), 0);
 });
@@ -248,7 +248,7 @@ test("complete-and-finish commits time, completion, rewards, and slot release at
   assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [taskId]), TaskStatus.DONE);
   assert.equal(await scalar("SELECT COUNT(*) FROM task_completion_events WHERE task_id = ?", [taskId]), 1);
   assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE source_id IN (?, ?)", [String(taskId), String(started.id)]), 2);
-  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE active_session_id IS NULL"), 1);
+  assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE user_id = 1 AND active_session_id IS NULL"), 1);
 });
 
 test("failure inside complete-and-finish rolls back every fact and receipt", async () => {

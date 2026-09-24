@@ -1,8 +1,8 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import { db } from "./db/index.js";
+import { and, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+import { db, type DatabaseClient } from "./db/index.js";
 import { schedules, taskDailyAssignments, tasks, timerSegments, timerSessions, userExecutionSlots } from "./db/schema.js";
 import { ActualTimeClass, AssignmentStatus, ScheduleKind, ScheduleLifecycle, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
-import { businessDayBoundsUtc, parseUtcDateTime } from "./time.js";
+import { businessDayBoundsUtc, formatUtcDateTime, parseUtcDateTime } from "./time.js";
 
 export async function currentSessionForUser(userId: number) {
   const [session] = await db
@@ -40,26 +40,35 @@ export type ActualTimeEntry = {
   categoryAttributionStatus: number;
 };
 
-function clippedEntry(entry: Omit<ActualTimeEntry, "durationSeconds">, queryDate: string, queryTimezone: string): ActualTimeEntry | null {
-  const bounds = businessDayBoundsUtc(queryDate, queryTimezone);
-  const startedAt = new Date(Math.max(entry.startedAt.getTime(), bounds.start.getTime()));
-  const endedAt = new Date(Math.min(entry.endedAt.getTime(), bounds.end.getTime()));
+function clippedEntry(entry: Omit<ActualTimeEntry, "durationSeconds">, start: Date, end: Date): ActualTimeEntry | null {
+  const startedAt = new Date(Math.max(entry.startedAt.getTime(), start.getTime()));
+  const endedAt = new Date(Math.min(entry.endedAt.getTime(), end.getTime()));
   if (endedAt <= startedAt) return null;
   return { ...entry, startedAt, endedAt, durationSeconds: (endedAt.getTime() - startedAt.getTime()) / 1000 };
 }
 
-export async function actualTimeForUser(userId: number, businessDate: string, queryTimezone: string) {
-  const segmentRows = await db
+export async function actualTimeForRange(userId: number, fromDate: string, toDate: string, queryTimezone: string, client: DatabaseClient = db) {
+  const start = businessDayBoundsUtc(fromDate, queryTimezone).start;
+  const end = businessDayBoundsUtc(toDate, queryTimezone).end;
+  const segmentRows = await client
     .select()
     .from(timerSegments)
-    .where(and(eq(timerSegments.userId, userId), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt)));
-  const scheduleRows = await db
+    .where(and(
+      eq(timerSegments.userId, userId),
+      eq(timerSegments.status, TimerSegmentStatus.CLOSED),
+      lt(timerSegments.startedAt, formatUtcDateTime(end)),
+      gt(timerSegments.endedAt, formatUtcDateTime(start)),
+      isNull(timerSegments.deletedAt)
+    ));
+  const scheduleRows = await client
     .select()
     .from(schedules)
     .where(and(
       eq(schedules.userId, userId),
       inArray(schedules.actualTimeClass, [ActualTimeClass.MANUAL_ACTUAL, ActualTimeClass.LEGACY_ACTUAL]),
       eq(schedules.includeInActualTime, 1),
+      lt(schedules.actualStartedAt, formatUtcDateTime(end)),
+      gt(schedules.actualEndedAt, formatUtcDateTime(start)),
       isNull(schedules.deletedAt)
     ));
 
@@ -78,7 +87,7 @@ export async function actualTimeForUser(userId: number, businessDate: string, qu
         projectAttributionStatus: row.projectAttributionStatus,
         categoryIdAtOccurrence: row.categoryIdAtOccurrence,
         categoryAttributionStatus: row.categoryAttributionStatus
-      }, businessDate, queryTimezone);
+      }, start, end);
       return entry ? [entry] : [];
     }),
     ...scheduleRows.flatMap((row) => {
@@ -95,10 +104,14 @@ export async function actualTimeForUser(userId: number, businessDate: string, qu
         projectAttributionStatus: row.projectAttributionStatus,
         categoryIdAtOccurrence: row.categoryIdAtOccurrence,
         categoryAttributionStatus: row.categoryAttributionStatus
-      }, businessDate, queryTimezone);
+      }, start, end);
       return entry ? [entry] : [];
     })
   ].sort((left, right) => left.startedAt.getTime() - right.startedAt.getTime());
+}
+
+export function actualTimeForUser(userId: number, businessDate: string, queryTimezone: string) {
+  return actualTimeForRange(userId, businessDate, businessDate, queryTimezone);
 }
 
 export async function dailyExecutionForUser(userId: number, businessDate: string, queryTimezone: string) {

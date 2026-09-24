@@ -1,4 +1,6 @@
 import { Droplets } from "lucide-react";
+import { useState } from "react";
+import { Button } from "../../shared/ui";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type SleepWindow = { sleepStart: string; wakeTime: string };
@@ -26,6 +28,15 @@ export type WaterTimelineItem = {
   marker: "water";
 };
 
+export async function recordWaterCups(request: Request, waterDate: string, cups: number) {
+  const nextCups = Math.max(0, Math.min(8, cups));
+  await request("/api/water-records", {
+    method: "POST",
+    body: JSON.stringify({ waterDate, cups: nextCups, targetCups: 8 })
+  });
+  return nextCups;
+}
+
 export function WaterFeature({
   request,
   selectedDate,
@@ -43,13 +54,12 @@ export function WaterFeature({
 }) {
   const water = record ?? emptyWaterRecord(selectedDate);
   const plan = hydrationPlan(water, sleep, selectedDate);
+  const [manualCups, setManualCups] = useState(String(water.cups));
 
   async function saveCups(cups: number) {
     try {
-      await request("/api/water-records", {
-        method: "POST",
-        body: JSON.stringify({ waterDate: selectedDate, cups: Math.max(0, Math.min(8, cups)), targetCups: 8 })
-      });
+      const nextCups = await recordWaterCups(request, selectedDate, cups);
+      setManualCups(String(nextCups));
       await onChanged();
     } catch (error) {
       onError(errorMessage(error), "操作没有成功");
@@ -77,26 +87,7 @@ export function WaterFeature({
             <p>{plan.rhythmText}</p>
           </div>
         </div>
-        <div className="grid grid-cols-8 gap-1.5">
-          {Array.from({ length: 8 }, (_, index) => {
-            const filled = index < water.cups;
-            return (
-              <button
-                aria-label={`标记到第 ${index + 1} 杯`}
-                className={`flex h-8 items-end justify-center rounded-card border transition hover:-translate-y-0.5 ${filled ? "border-mint-300 bg-mint-100 text-mint-700" : "border-white/80 bg-white/60 text-soft"}`}
-                key={index}
-                type="button"
-                title={`标记到第 ${index + 1} 杯`}
-                onClick={() => saveCups(index + 1)}
-              >
-                <span className={`mb-1 h-4 w-3 rounded-b-full border ${filled ? "border-mint-500 bg-mint-500/70" : "border-soft/40"}`} />
-              </button>
-            );
-          })}
-        </div>
-        <button className="w-full text-[11px] text-soft transition hover:text-pink-500" type="button" onClick={() => saveCups(water.cups - 1)}>
-          点错了，退一杯
-        </button>
+        <div className="water-compact-actions"><Button variant="primary" type="button" onClick={() => void saveCups(water.cups + 1)}>+1 杯</Button><label>修正杯数<input aria-label="手动修正喝水杯数" className="field" min="0" max="8" type="number" value={manualCups} onChange={(event) => setManualCups(event.target.value)} /></label><Button size="sm" type="button" onClick={() => void saveCups(Number(manualCups))}>保存</Button></div>
       </div>
     </section>
   );
