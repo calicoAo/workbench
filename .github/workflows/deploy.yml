@@ -48,8 +48,19 @@ jobs:
         run: |
           test -n "$DEPLOY_HOST"
           test -n "$DEPLOY_USER"
-          tar --exclude=.git --exclude=node_modules --exclude=dist -czf - . \
-            | ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+          tar \
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=docs \
+            --exclude=.github \
+            --exclude=scripts \
+            -czf - . \
+            | timeout 10m ssh \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=4 \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
               "mkdir -p /opt/personal-workbench.release-$RELEASE_SHA && tar -xzf - -C /opt/personal-workbench.release-$RELEASE_SHA"
       - name: Migrate, restart, and health-check
         env:
@@ -57,5 +68,9 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+          timeout 10m ssh \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
             "sh '/opt/personal-workbench.release-$RELEASE_SHA/deploy/release.sh' '$RELEASE_SHA'"

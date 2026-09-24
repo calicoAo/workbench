@@ -68,6 +68,8 @@ type WorkspaceContext = {
   refresh: () => Promise<void>;
 };
 
+const DAILY_CARRYOVER_TIMEOUT_MS = 5_000;
+
 export function WorkspaceRouter({ request, session, feedback }: { request: Request; session: AuthSession; feedback: FeedbackActions }) {
   return <Routes>
     <Route path="/" element={<Navigate replace to={`/today?date=${todayString()}`} />} />
@@ -112,10 +114,37 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
     let current = true;
     if (date !== todayString()) { setPreparedDate(date); return () => { current = false; }; }
     setPreparedDate(null);
-    void request("/api/daily-carryovers", { method: "POST", body: JSON.stringify({ targetDate: date }) })
-      .then(() => { if (current) setPreparedDate(date); })
-      .catch((error) => feedback.notice(error instanceof Error ? error.message : "日期准备失败", "日期准备没有成功"));
-    return () => { current = false; };
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, DAILY_CARRYOVER_TIMEOUT_MS);
+    void request("/api/daily-carryovers", {
+      method: "POST",
+      body: JSON.stringify({ targetDate: date }),
+      signal: controller.signal
+    })
+      .catch((error) => {
+        if (!current) return;
+        feedback.notice(
+          timedOut
+            ? "日期准备超时，先加载今日数据"
+            : error instanceof Error
+              ? error.message
+              : "日期准备失败",
+          "日期准备没有成功"
+        );
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        if (current) setPreparedDate(date);
+      });
+    return () => {
+      current = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [date, feedback.notice, request]);
 
   const dashboardQuery = useQuery({ queryKey: queryKeys.today(session.user.id, date), enabled: preparedDate === date, queryFn: () => request<Dashboard>(`/api/dashboard?date=${date}`) });

@@ -70,6 +70,23 @@ describe("R1C router and AppShell", () => {
     expect(document.title).toContain("今日");
   });
 
+  it("does not block the Dashboard when daily carryover preparation fails", async () => {
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/daily-carryovers" && init?.method === "POST") {
+        throw new Error("日期准备暂时不可用");
+      }
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/today", request);
+
+    await waitFor(() => {
+      expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.startsWith("/api/dashboard?date="))).toBe(true);
+    });
+    expect(feedback.notice).toHaveBeenCalledWith("日期准备暂时不可用", "日期准备没有成功");
+  });
+
   it("uses URL navigation rather than pageMode", async () => {
     renderShell("/today?date=2026-09-19");
     fireEvent.click((await screen.findAllByRole("link", { name: "任务" }))[0]);

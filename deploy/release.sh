@@ -24,7 +24,7 @@ test "$(docker inspect --format '{{.State.Health.Status}}' personal-workbench-my
 
 old_api_image=$(docker inspect --format '{{.Image}}' personal-workbench-api 2>/dev/null || true)
 old_web_image=$(docker inspect --format '{{.Image}}' personal-workbench-web 2>/dev/null || true)
-$compose build api web
+$compose build --parallel api web
 
 set -a
 . deploy/.env
