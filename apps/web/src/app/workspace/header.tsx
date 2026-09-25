@@ -26,7 +26,7 @@ export function WorkspaceHeader({ user, pageMode, selectedDate, growth, stats, o
 
   return (
     <header className="glass-panel top-workbench-header sticky top-2.5 z-10">
-      <div className="top-title-block"><p className="text-xs text-soft">个人工作台</p><h1 className="text-lg font-bold leading-tight">今日记录</h1></div>
+      <div className="top-title-block"><p className="text-xs text-soft">养成系统</p><h1 className="text-lg font-bold leading-tight">今日记录</h1></div>
       <div className="top-control-bar">
         <div className="inline-flex rounded-full border border-white/80 bg-white/70 p-0.5">
           <NavButton active={pageMode === "workspace"} onClick={() => onPageChange("workspace")}>工作台</NavButton>

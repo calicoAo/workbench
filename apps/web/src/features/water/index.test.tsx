@@ -35,51 +35,47 @@ function feature(options: Partial<FeatureProps> = {}) {
 
 describe("WaterFeature workflow ownership", () => {
   it("renders the snapshot and derives the historical rhythm from sleep", () => {
-    render(feature({ selectedDate: "2026-09-18" }));
+    const view = render(feature({ selectedDate: "2026-09-18" }));
 
-    expect(screen.getByText("3/8 杯")).toBeTruthy();
-    expect(screen.getByText("历史记录")).toBeTruthy();
-    expect(screen.getByText("约每 2h 一杯，当前应到 8/8 杯")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "+1 杯" })).toBeTruthy();
-    expect(screen.getByLabelText("手动修正喝水杯数")).toBeTruthy();
+    expect(view.container.querySelectorAll(".water-cup")).toHaveLength(8);
+    expect(screen.getByRole("button", { name: "再喝一杯" })).toBeTruthy();
+    expect(screen.queryByText("历史记录")).toBeNull();
+    expect(screen.queryByLabelText("手动修正喝水杯数")).toBeNull();
   });
 
-  it("saves a selected cup count and refreshes on success", async () => {
+  it("saves an inline extra cup and refreshes on success", async () => {
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
     const onChanged = vi.fn(async () => undefined);
     render(feature({ request: requestMock as FeatureProps["request"], onChanged }));
 
-    fireEvent.change(screen.getByLabelText("手动修正喝水杯数"), { target: { value: "6" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(screen.getByRole("button", { name: "再喝一杯" }));
 
     await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
     expect(requestMock).toHaveBeenCalledWith("/api/water-records", {
       method: "POST",
-      body: JSON.stringify({ waterDate: "2026-09-19", cups: 6, targetCups: 8 })
+      body: JSON.stringify({ waterDate: "2026-09-19", cups: 4, targetCups: 8 })
     });
     expect(onChanged).toHaveBeenCalledOnce();
-  });
-
-  it("clamps manual correction at zero", async () => {
-    const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
-    render(feature({ request: requestMock as FeatureProps["request"], record: { ...record, cups: 0 } }));
-
-    fireEvent.change(screen.getByLabelText("手动修正喝水杯数"), { target: { value: "-2" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-
-    await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(0);
   });
 
   it("keeps the recommended eight-cup display while allowing extra cups", async () => {
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
     render(feature({ request: requestMock as FeatureProps["request"], record: { ...record, cups: 8 } }));
 
-    expect(screen.getByLabelText("饮水杯数 8 杯").querySelectorAll("svg")).toHaveLength(8);
-    fireEvent.click(screen.getByRole("button", { name: "+1 杯" }));
+    expect(screen.getByLabelText("饮水进度 8 杯").querySelectorAll("svg")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("button", { name: "再喝一杯" }));
 
     await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(9);
+  });
+
+  it("marks the next cup with a reminder animation when today's rhythm is behind", () => {
+    const now = new Date();
+    vi.setSystemTime(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0));
+    const selectedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const view = render(feature({ selectedDate, record: { ...record, waterDate: selectedDate, cups: 0 } }));
+
+    expect(view.container.querySelector(".water-cup.is-reminder")).toBeTruthy();
   });
 
   it("reports a failed mutation without refreshing", async () => {
@@ -88,7 +84,7 @@ describe("WaterFeature workflow ownership", () => {
     const onChanged = vi.fn();
     render(feature({ request, onError, onChanged }));
 
-    fireEvent.click(screen.getByRole("button", { name: "+1 杯" }));
+    fireEvent.click(screen.getByRole("button", { name: "再喝一杯" }));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith("保存失败", "操作没有成功"));
     expect(onChanged).not.toHaveBeenCalled();

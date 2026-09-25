@@ -1251,6 +1251,7 @@ paths:
                 timezone: { type: string, example: Asia/Shanghai }
                 reducedMotion: { type: boolean }
                 showRewards: { type: boolean }
+                fontScale: { type: integer, enum: [90, 100, 110], default: 100 }
                 writingSlots:
                   type: array
                   minItems: 3

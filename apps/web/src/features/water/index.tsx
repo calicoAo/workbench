@@ -1,5 +1,4 @@
 import { Droplets, GlassWater } from "lucide-react";
-import { useState } from "react";
 import { Button } from "../../shared/ui";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -54,12 +53,10 @@ export function WaterFeature({
 }) {
   const water = record ?? emptyWaterRecord(selectedDate);
   const plan = hydrationPlan(water, sleep, selectedDate);
-  const [manualCups, setManualCups] = useState(String(water.cups));
 
   async function saveCups(cups: number) {
     try {
-      const nextCups = await recordWaterCups(request, selectedDate, cups);
-      setManualCups(String(nextCups));
+      await recordWaterCups(request, selectedDate, cups);
       await onChanged();
     } catch (error) {
       onError(errorMessage(error), "操作没有成功");
@@ -73,25 +70,16 @@ export function WaterFeature({
         <h2 className="section-title">喝水</h2>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <div className="mb-1 flex items-center justify-between text-[11px] text-soft">
-            <span>{water.cups}/{water.targetCups} 杯</span>
-            <span>{plan.statusText}</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full border border-white/80 bg-white/70">
-            <div className={`h-full rounded-full transition-all duration-500 ${plan.percent >= 100 ? "bg-mint-500" : "bg-pink-300"}`} style={{ width: `${plan.percent}%` }} />
-          </div>
-          <div className="water-cups" aria-label={`饮水杯数 ${water.cups} 杯`}>
-            {Array.from({ length: 8 }, (_, index) => <GlassWater aria-hidden="true" className={`water-cup ${index < water.cups ? "is-filled" : ""}`} key={index} size={18} />)}
-            {water.cups > 8 ? <span className="water-cup-extra">+{water.cups - 8}</span> : null}
-          </div>
-          <div className="mt-1.5 space-y-0.5 text-[10px] leading-4 text-soft">
-            <p>{plan.lastDrinkText}</p>
-            <p>{plan.rhythmText}</p>
-          </div>
+      <div className="water-progress-wrap">
+        <div className={`water-progress ${plan.isDue ? "is-due" : ""}`} aria-label={`饮水进度 ${water.cups} 杯`}>
+          {Array.from({ length: 8 }, (_, index) => {
+            const filled = index < water.cups;
+            const reminder = plan.isDue && !filled && index === Math.min(water.cups, 7);
+            return <GlassWater aria-hidden="true" className={`water-cup ${filled ? "is-filled" : ""} ${reminder ? "is-reminder" : ""}`} key={index} size={20} />;
+          })}
+          {water.cups > 8 ? <span className={`water-cup-extra ${plan.isDue ? "is-reminder" : ""}`}>+{water.cups - 8}</span> : null}
+          <Button className="water-add-button" size="sm" variant="primary" type="button" aria-label="再喝一杯" onClick={() => void saveCups(water.cups + 1)}>+1</Button>
         </div>
-        <div className="water-compact-actions"><Button variant="primary" type="button" onClick={() => void saveCups(water.cups + 1)}>+1 杯</Button><label>修正杯数<input aria-label="手动修正喝水杯数" className="field" min="0" max="127" type="number" value={manualCups} onChange={(event) => setManualCups(event.target.value)} /></label><Button size="sm" type="button" onClick={() => void saveCups(Number(manualCups))}>保存</Button></div>
       </div>
     </section>
   );
@@ -130,24 +118,8 @@ function hydrationPlan(water: WaterRecord, sleep: SleepWindow | null, date: stri
   const currentMinutes = clockMinutes + (clockMinutes < startMinutes ? 24 * 60 : 0);
   const elapsed = Math.max(0, Math.min(endMinutes - startMinutes, currentMinutes - startMinutes));
   const expectedCups = date === todayString() ? Math.min(targetCups, Math.ceil(elapsed / intervalMinutes)) : targetCups;
-  const percent = expectedCups <= 0 ? 100 : Math.min(100, Math.round((water.cups / expectedCups) * 100));
-  const nextDueMinutes = startMinutes + water.cups * intervalMinutes;
-  const overdueMinutes = Math.max(0, currentMinutes - nextDueMinutes);
-  const statusText =
-    date !== todayString()
-      ? "历史记录"
-      : water.cups >= targetCups
-        ? "今日完成"
-        : expectedCups === 0
-          ? "还没到开始时间"
-          : percent >= 100
-            ? "节奏正常"
-            : `慢了 ${formatDuration(overdueMinutes || intervalMinutes)}`;
   return {
-    percent,
-    statusText,
-    rhythmText: `约每 ${formatDuration(intervalMinutes)} 一杯，当前应到 ${expectedCups}/${targetCups} 杯`,
-    lastDrinkText: lastDrinkText(water.lastDrinkAt)
+    isDue: date === todayString() && water.cups < targetCups && expectedCups > water.cups
   };
 }
 
@@ -168,17 +140,6 @@ function emptyWaterRecord(date: string): WaterRecord {
   return { waterDate: date, cups: 0, targetCups: 8, lastDrinkAt: null, drinkTimes: "[]" };
 }
 
-function lastDrinkText(value?: string | null) {
-  if (!value) return "今天还没记录喝水";
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 1) return "上次喝水：刚刚";
-  if (minutes < 60) return `上次喝水：${minutes} 分钟前`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours < 24) return `上次喝水：${hours} 小时${rest ? ` ${rest} 分钟` : ""}前`;
-  return `上次喝水：${Math.floor(hours / 24)} 天前`;
-}
-
 function todayString() {
   const now = new Date();
   const year = now.getFullYear();
@@ -196,13 +157,6 @@ function timeText(value: string) {
 function timeToMinutes(value: string) {
   const [hour, minute] = value.slice(0, 5).split(":").map(Number);
   return hour * 60 + minute;
-}
-
-function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
 function errorMessage(error: unknown) {

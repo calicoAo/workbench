@@ -8,9 +8,22 @@ import type { Request } from "../../app/api";
 import { SettingsFeature } from ".";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
-const snapshot = { profile: { id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" }, appearance: { theme: "light" as const, reducedMotion: false }, rewards: { show: true }, continuation: { mode: "manual" as const, automaticAvailable: false as const }, categories: [{ id: 3, name: "Coding", color: "#35C99A", dimensionKey: "career", targetMinutes: 6000, enabled: 1 }], writingSlots: [{ slotKey: "MORNING_WRITING" as const, enabled: false, sortOrder: 10 }, { slotKey: "JOURNAL" as const, enabled: false, sortOrder: 20 }, { slotKey: "STOCK_REVIEW" as const, enabled: false, sortOrder: 30 }] };
+const snapshot = { profile: { id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" }, appearance: { theme: "light" as const, reducedMotion: false, fontScale: 100 as const }, rewards: { show: true }, continuation: { mode: "manual" as const, automaticAvailable: false as const }, categories: [{ id: 3, name: "Coding", color: "#35C99A", dimensionKey: "career", targetMinutes: 6000, enabled: 1 }], writingSlots: [{ slotKey: "MORNING_WRITING" as const, enabled: false, sortOrder: 10 }, { slotKey: "JOURNAL" as const, enabled: false, sortOrder: 20 }, { slotKey: "STOCK_REVIEW" as const, enabled: false, sortOrder: 30 }] };
 
 describe("Settings", () => {
+  it("persists the selected font scale", async () => {
+    const request = vi.fn(async (_path: string, init?: RequestInit) => {
+      if (init?.method === "PATCH") return { ...snapshot, appearance: { ...snapshot.appearance, fontScale: 110 as const } };
+      return snapshot;
+    }) as Request;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "110%" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/settings", expect.objectContaining({ method: "PATCH" })));
+    const call = (request as ReturnType<typeof vi.fn>).mock.calls.find(([path, init]) => path === "/api/settings" && init?.method === "PATCH");
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ fontScale: 110 });
+  });
+
   it("presents every writing module as an independent explicit opt-in with ordering", async () => {
     const enabledJournal = { ...snapshot, writingSlots: snapshot.writingSlots.map((slot) => slot.slotKey === "JOURNAL" ? { ...slot, enabled: true } : slot) };
     const request = vi.fn(async (_path: string, init?: RequestInit) => init?.method === "PATCH" ? enabledJournal : snapshot) as Request;

@@ -27,7 +27,7 @@ describe("onboarding runtime", () => {
       return { flowId: "core-loop", flowVersion: 1, status: "SKIPPED", currentStepId: null };
     }) as unknown as Request;
     renderOnboarding(request);
-    expect(await screen.findByRole("heading", { name: "欢迎来到 Workbench" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "欢迎来到养成系统" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "直接进入" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/flows/core-loop/skip", expect.objectContaining({ method: "POST" })));
   });
@@ -36,7 +36,7 @@ describe("onboarding runtime", () => {
     const request = vi.fn(async () => ({ eligible: false, flow: null, hints: [] })) as unknown as Request;
     renderOnboarding(request);
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/status"));
-    expect(screen.queryByRole("heading", { name: "欢迎来到 Workbench" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "欢迎来到养成系统" })).toBeNull();
     expect(screen.getByRole("button", { name: "发布" })).toBeTruthy();
   });
 
@@ -54,7 +54,7 @@ describe("onboarding runtime", () => {
     renderOnboarding(request);
     expect(screen.getByRole("button", { name: "发布" })).toBeTruthy();
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/status"));
-    expect(screen.queryByRole("heading", { name: "欢迎来到 Workbench" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "欢迎来到养成系统" })).toBeNull();
   });
 
   it("recovers an accepted task after refresh and advances from business truth", async () => {

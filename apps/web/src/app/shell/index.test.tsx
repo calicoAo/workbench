@@ -28,7 +28,7 @@ function requestFor(active: boolean | null = null, writingSlots: Array<{ slotKey
     if (path.startsWith("/api/task-days?")) return { taskDate: "2026-09-19", taskIds: [11] };
     if (path === "/api/timer-sessions/current") return active ? current : null;
     if (path.startsWith("/api/timer-sessions/actual-time")) return { date: "2026-09-19", timezone: "Asia/Shanghai", entries: [] };
-    if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
+    if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false, fontScale: 100 }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
     if (path === "/api/rewards") return { growth: dashboard("2026-09-19").growth, items: [], events: [], redemptions: [] };
     if (path.startsWith("/api/growth/overview")) return { period: { days: 30, from: "2026-08-21", to: "2026-09-19", timezone: "Asia/Shanghai" }, hero: dashboard("2026-09-19").growth, summary: { actualMinutes: 0, mappedActualMinutes: 0, completedTaskCount: 0, habitCompletedCount: 0 }, dimensions: [], unmapped: { actualMinutes: 0, completedTaskCount: 0, lastActivityDate: null }, recent: [] };
     if (path === "/api/growth/dimensions") return { dimensions: [], categories: [] };
@@ -68,6 +68,11 @@ describe("R1C router and AppShell", () => {
     renderShell("/");
     expect(await screen.findByRole("heading", { name: "今日" })).toBeTruthy();
     expect(document.title).toContain("今日");
+  });
+
+  it("applies the Settings font scale to the document root", async () => {
+    renderShell("/today?date=2026-09-19");
+    await waitFor(() => expect(document.documentElement.dataset.fontScale).toBe("100"));
   });
 
   it("does not block the Dashboard when daily carryover preparation fails", async () => {
@@ -127,6 +132,25 @@ describe("R1C router and AppShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "月" }));
     const monthGrid = await screen.findByRole("grid", { name: "月视图" });
     expect(monthGrid.querySelector(".is-selected")?.getAttribute("href")).toBe("/calendar?date=2026-09-19");
+  });
+
+  it("shows a yearly heatmap using actual-time minutes without inventing an activity score", async () => {
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/schedules?from=2026-01-01&to=2026-12-31")) return { schedules: [{ id: 91, scheduleDate: "2026-09-19", startTime: "09:00:00", endTime: "10:30:00", title: "专注", kind: 1, source: 2 }] };
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+    renderShell("/calendar?date=2026-09-19", request);
+    await screen.findByRole("heading", { name: "日历", level: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "年" }));
+    await screen.findByRole("grid", { name: "年度热力图" });
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.startsWith("/api/schedules?from=2026-01-01&to=2026-12-31"))).toBe(true));
+    await waitFor(() => expect(screen.getByRole("grid", { name: "年度热力图" }).querySelectorAll(".calendar-year-cell")).toHaveLength(365));
+    const selectedDay = screen.getByRole("grid", { name: "年度热力图" }).querySelector(".calendar-year-cell.is-selected") as HTMLAnchorElement;
+    expect(selectedDay.getAttribute("aria-label")).toBe("2026-09-19，实际投入 90 分钟");
+    expect(selectedDay.getAttribute("href")).toBe("/calendar?date=2026-09-19");
+    expect(screen.getByText("全年 90 分钟")).toBeTruthy();
+    expect(screen.queryByText(/活跃度/)).toBeNull();
   });
 
   it("isolates date query caches", async () => {

@@ -37,6 +37,7 @@ export function SleepFeature({
   recordTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
   openEditorSignal,
   initiallyOpen = false,
+  compact = false,
   onError,
   onChanged
 }: {
@@ -47,6 +48,7 @@ export function SleepFeature({
   recordTimezone?: string;
   openEditorSignal?: number;
   initiallyOpen?: boolean;
+  compact?: boolean;
   onError: (message: string, title?: string) => void;
   onChanged: () => void | Promise<void>;
 }) {
@@ -91,8 +93,8 @@ export function SleepFeature({
   const disabled = !currentState.initialized;
   return (
     <>
-      <section className="glass-panel p-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <section className={compact ? "sleep-utility" : "glass-panel p-3"}>
+        <div className={compact ? "sleep-utility-main" : "mb-3 flex items-center justify-between gap-2"}>
           <div className="flex items-center gap-2">
             <span className="text-mint-700"><Moon size={17} /></span>
             <h2 className="section-title">睡眠</h2>
@@ -108,13 +110,13 @@ export function SleepFeature({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        {compact ? <p className="sleep-utility-summary">{record ? `${(record.durationMinutes / 60).toFixed(1)}h · ${record.qualityScore ? `${record.qualityScore}/5` : "-/5"}` : disabled ? "加载中..." : "未记录"}</p> : <div className="grid grid-cols-2 gap-2">
           <SleepMetric label="时长" value={record ? `${(record.durationMinutes / 60).toFixed(1)}h` : "0h"} />
           <SleepMetric label="质量" value={record?.qualityScore ? `${record.qualityScore}/5` : "-/5"} />
-        </div>
-        <p className="mt-2 truncate text-[11px] text-soft">
+        </div>}
+        {!compact && <p className="mt-2 truncate text-[11px] text-soft">
           {record ? `${timeText(record.sleepStart, record.recordTimezone)} - ${timeText(record.wakeTime, record.recordTimezone)}` : disabled ? "加载中..." : "还没有睡眠记录"}
-        </p>
+        </p>}
       </section>
 
       {currentState.editorOpen && (

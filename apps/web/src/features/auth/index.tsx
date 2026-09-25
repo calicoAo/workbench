@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Request } from "../../app/api";
+import { APP_BRAND } from "../../app/brand";
 
 export type AuthUser = { id: number; username: string; displayName: string; timezone: string };
 export type AuthSession = { user: AuthUser; logout: () => void; updateUser?: (user: AuthUser) => void };
@@ -84,7 +85,7 @@ function AuthLoading() {
   return (
     <main className="page-shell min-h-screen p-4 text-ink">
       <div className="mx-auto flex min-h-[calc(100vh-32px)] max-w-md items-center">
-        <section className="glass-panel w-full p-5 text-center"><p className="text-xs text-soft">个人工作台</p><h1 className="mt-1 text-lg font-bold">正在同步登录状态</h1></section>
+        <section className="glass-panel w-full p-5 text-center"><p className="text-xs text-soft">{APP_BRAND.name}</p><h1 className="mt-1 text-lg font-bold">正在同步登录状态</h1></section>
       </div>
     </main>
   );
@@ -106,7 +107,7 @@ function AuthPage({ mode, username, displayName, password, onModeChange, onUsern
     <main className="page-shell min-h-screen p-4 text-ink">
       <div className="mx-auto grid min-h-[calc(100vh-32px)] max-w-5xl items-center gap-4 lg:grid-cols-[1fr_420px]">
         <section className="hidden lg:block">
-          <p className="text-xs font-semibold text-mint-700">Personal Workbench</p>
+          <p className="text-xs font-semibold text-mint-700">{APP_BRAND.icon} {APP_BRAND.name}</p>
           <h1 className="mt-2 text-3xl font-bold leading-tight">同一套记录，多端实时同步</h1>
           <p className="mt-3 max-w-xl text-sm leading-7 text-soft">每个人都有独立账号和独立数据。登录后，任务、时间轴、睡眠、喝水、晨写、日记和复盘都会保存到服务器数据库。</p>
           <div className="mt-5 grid max-w-xl grid-cols-3 gap-2"><MiniStat label="数据" value="隔离" /><MiniStat label="同步" value="多端" /><MiniStat label="部署" value="自有服务器" /></div>

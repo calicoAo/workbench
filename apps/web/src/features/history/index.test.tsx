@@ -15,11 +15,12 @@ function feature(overrides: Partial<Props> = {}) {
 }
 
 describe("HistoryFeature ownership", () => {
-  it("loads the active archive and renders derived time statistics", async () => {
+  it("loads the active archive without mixing Growth statistics into Review", async () => {
     render(feature());
     await waitFor(() => expect(screen.getByText("晨写内容")).toBeTruthy());
-    expect(screen.getAllByText("1h 30m").length).toBeGreaterThan(0);
-    expect(screen.getByText("编程")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "过去记录" })).toBeTruthy();
+    expect(screen.queryByText("能力总统计")).toBeNull();
+    expect(screen.queryByText("时间饼图 · 9月19日")).toBeNull();
   });
 
   it("loads only the selected archive tab", async () => {

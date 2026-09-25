@@ -344,6 +344,7 @@ export const userSettings = mysqlTable("user_settings", {
   userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
   reducedMotion: tinyint("reduced_motion").notNull().default(0),
   showRewards: tinyint("show_rewards").notNull().default(1),
+  fontScale: tinyint("font_scale").notNull().default(100),
   updatedAt: datetime("updated_at").notNull()
 });
 

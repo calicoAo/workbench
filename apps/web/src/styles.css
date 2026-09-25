@@ -8,7 +8,8 @@
   color: #263238;
   background: #fffdf8;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 13px;
+  --font-scale: 1;
+  font-size: calc(13px * var(--font-scale));
   --mobile-bottom-nav-height: 56px;
   --mobile-mini-timer-height: 56px;
   --mobile-floating-action-size: 48px;
@@ -16,6 +17,10 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --mobile-bottom-spacing: 16px;
 }
+
+html[data-font-scale="90"] { --font-scale: .9; }
+html[data-font-scale="100"] { --font-scale: 1; }
+html[data-font-scale="110"] { --font-scale: 1.1; }
 
 @layer components {
   .growth-route { @apply mx-auto grid w-full max-w-6xl content-start gap-3; }
@@ -41,6 +46,13 @@
   .pixel-xp-track i { @apply block h-full bg-mint-500; image-rendering: pixelated; }
   .growth-hero-copy > small { @apply text-[10px] text-soft; }
   .growth-main-grid { @apply grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,.55fr)]; }
+  .growth-charts { @apply grid gap-3 lg:grid-cols-2; }
+  .growth-chart-panel { @apply grid min-w-0 content-start gap-3 rounded-card border border-white/80 bg-white/70 p-4 shadow-glass; }
+  .growth-donut, .growth-radar { @apply mx-auto h-44 w-44; }
+  .growth-chart-legend { @apply grid gap-1 text-[11px] text-soft; }
+  .growth-chart-legend span { @apply inline-flex items-center gap-2; }
+  .growth-chart-legend i { @apply h-2.5 w-2.5 shrink-0 rounded-full; }
+  .growth-chart-note { @apply text-[11px] text-soft; }
   .growth-distribution, .growth-summary-card, .growth-recent, .growth-manager { @apply rounded-card border border-white/80 bg-white/70 p-4 shadow-glass; }
   .growth-section-title { @apply mb-3 flex items-center gap-2; }
   .growth-section-title h2, .growth-manager h2 { @apply text-sm font-bold; }
@@ -630,6 +642,12 @@ select {
 
   .today-main, .today-utility { @apply min-w-0; }
   .today-utility { @apply grid content-start gap-2.5; }
+  .today-utility-strip { @apply grid min-w-0 grid-cols-2 gap-2.5; }
+  .sleep-utility, .utility-capture { @apply flex min-h-14 min-w-0 items-center gap-2 rounded-card border border-white/80 bg-white/70 p-2 shadow-glass; }
+  .sleep-utility-main { @apply flex min-w-0 flex-1 items-center gap-2; }
+  .sleep-utility-main > div { @apply min-w-0; }
+  .sleep-utility-summary { @apply truncate text-[11px] text-soft; }
+  .today-utility-strip .utility-capture { @apply flex-wrap justify-start; }
 
   .today-side,
   .journal-route {
@@ -817,12 +835,13 @@ select {
   .utility-capture { @apply min-h-0 flex-wrap justify-start; }
   .writing-utility-actions { @apply flex flex-wrap gap-1; }
   .writing-utility-actions button { @apply min-h-9 rounded-card bg-white px-3 text-xs font-semibold text-mint-700; }
-  .water-compact-actions { @apply grid grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-2; }
-  .water-compact-actions label { @apply grid gap-1 text-[10px] text-soft; }
-  .water-cups { @apply mt-2 flex flex-wrap items-center gap-1; }
+  .water-progress-wrap { @apply mt-2; }
+  .water-progress { @apply flex min-h-10 flex-wrap items-center gap-1.5; }
   .water-cup { @apply text-soft/40; }
   .water-cup.is-filled { @apply text-mint-500; }
   .water-cup-extra { @apply ml-1 text-[11px] font-bold text-mint-700; }
+  .water-add-button { @apply ml-1; }
+  .water-cup.is-reminder, .water-cup-extra.is-reminder { animation: water-cup-pulse 1.8s ease-in-out infinite; }
 
   .execution-summary { @apply mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4; }
   .execution-summary span { @apply grid rounded-card bg-white/75 p-2 text-[10px] text-soft; }
@@ -914,14 +933,34 @@ select {
   .calendar-week-grid article.is-actual { @apply border-mint-500; }
   .calendar-week-grid article span, .calendar-week-grid article small { @apply text-soft; }
   .calendar-month-grid { @apply overflow-hidden rounded-card border border-white/80 bg-white/65; }
+  .calendar-month-view { @apply grid gap-2; }
+  .calendar-month-note { @apply text-[11px] font-semibold text-soft; }
   .calendar-month-weekdays { @apply grid grid-cols-7 border-b border-white/80 bg-white/55 text-center text-[10px] font-semibold text-soft; }
   .calendar-month-weekdays span { @apply px-2 py-2; }
   .calendar-month-grid > a { @apply grid min-h-20 content-start gap-1 border-b border-r border-white/70 p-2 text-left text-xs text-ink transition hover:bg-mint-50; }
   .calendar-month-grid > a:nth-of-type(7n) { @apply border-r-0; }
   .calendar-month-grid > a.is-selected { @apply bg-mint-50 ring-2 ring-inset ring-mint-300; }
   .calendar-month-grid > a.is-outside { @apply bg-white/30 text-soft; }
-  .calendar-month-markers { @apply flex items-center gap-1 text-[10px] text-mint-700; }
-  .calendar-month-dot { @apply h-1.5 w-1.5 rounded-full bg-mint-500; }
+  .calendar-month-markers { @apply flex min-h-5 items-center gap-1 rounded-card px-1 text-[9px] text-soft; }
+  .calendar-month-markers.heat-level-1 { @apply bg-mint-50; }
+  .calendar-month-markers.heat-level-2 { @apply bg-mint-100 text-mint-700; }
+  .calendar-month-markers.heat-level-3 { @apply bg-mint-300 text-mint-700; }
+  .calendar-month-markers.heat-level-4 { @apply bg-mint-500 text-white; }
+  .calendar-year-view { @apply grid gap-3 rounded-card border border-white/80 bg-white/65 p-4; }
+  .calendar-year-heading { @apply flex items-start justify-between gap-3; }
+  .calendar-year-heading > div { @apply grid gap-0.5; }
+  .calendar-year-heading strong { @apply text-sm; }
+  .calendar-year-heading small, .calendar-year-heading > span { @apply text-[11px] text-soft; }
+  .calendar-year-scroll { @apply max-w-full overflow-x-auto pb-1; }
+  .calendar-year-grid { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; min-width: max-content; }
+  .calendar-year-cell, .calendar-year-spacer, .calendar-heat-legend i { @apply block h-3 w-3 rounded-[3px] bg-white/80; }
+  .calendar-year-cell { @apply border border-mint-100 transition hover:ring-2 hover:ring-mint-300; }
+  .calendar-year-cell.is-selected { @apply ring-2 ring-mint-500; }
+  .calendar-year-cell.heat-level-1, .calendar-heat-legend .heat-level-1 { @apply bg-mint-50; }
+  .calendar-year-cell.heat-level-2, .calendar-heat-legend .heat-level-2 { @apply bg-mint-100; }
+  .calendar-year-cell.heat-level-3, .calendar-heat-legend .heat-level-3 { @apply bg-mint-300; }
+  .calendar-year-cell.heat-level-4, .calendar-heat-legend .heat-level-4 { @apply bg-mint-500; }
+  .calendar-heat-legend { @apply flex items-center justify-end gap-1 text-[10px] text-soft; }
   .timeline-block-actions { @apply flex shrink-0 gap-0.5; }
   .timeline-block-actions .ui-icon-button { @apply h-8 w-8; }
   .manual-complete-option { @apply mt-2 flex items-center gap-2 text-[11px] font-semibold; }
@@ -1096,6 +1135,7 @@ select {
 
   .topbar-search { @apply grid h-10 w-10 shrink-0 place-items-center rounded-card border border-white/80 bg-white/70 text-soft transition hover:bg-white hover:text-mint-700; }
   .search-route, .settings-route { @apply mx-auto grid w-full max-w-6xl content-start gap-3; }
+  .history-browser-route { @apply mx-auto grid w-full max-w-6xl content-start gap-3; }
   .global-search-form { @apply grid gap-2 rounded-card border border-white/80 bg-white/65 p-3 shadow-glass; }
   .search-main-row { @apply grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2; }
   .search-field { @apply flex min-h-11 items-center gap-2 rounded-card border border-white/90 bg-white px-3 text-soft; }
@@ -1111,8 +1151,8 @@ select {
   .search-result small { @apply line-clamp-2 text-xs leading-5 text-soft; }
   .search-result em { @apply text-[10px] not-italic text-soft; }
 
-  .settings-grid { @apply grid items-start gap-3 lg:grid-cols-2; }
-  .settings-section { @apply grid gap-3 rounded-card border border-white/80 bg-white/70 p-4 shadow-glass; }
+  .settings-grid { @apply grid items-start gap-0; }
+  .settings-section { @apply grid gap-3 border-b border-white/80 py-5 first:pt-0 last:border-b-0; }
   .settings-section h2 { @apply text-sm font-bold; }
   .settings-section h3 { @apply mt-1 text-xs font-bold; }
   .settings-section-head { @apply flex items-start justify-between gap-3; }
@@ -1135,6 +1175,7 @@ select {
   .category-color-control { @apply grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:col-span-2; }
   .category-color-control.is-compact { @apply flex shrink-0; }
   .category-color-control input[type="color"] { @apply h-9 w-12 cursor-pointer rounded-card border-0 bg-transparent p-0; }
+  .category-color-control.is-compact input[type="color"] { @apply h-7 w-7 rounded-full; }
   .color-presets { @apply flex flex-wrap gap-1.5; }
   .color-presets button { @apply h-7 w-7 rounded-full border-2 border-white shadow-sm; }
   .color-presets button.is-active { @apply ring-2 ring-mint-500; }
@@ -1228,8 +1269,7 @@ select {
   .time-editor-date-grid,
   .time-editor-primary-grid { grid-template-columns: minmax(0, 1fr); }
   .time-modal { padding-bottom: calc(16px + var(--safe-bottom)); }
-  .water-compact-actions { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-  .water-compact-actions > .ui-button:last-child { grid-column: 1 / -1; }
+  .today-utility-strip { grid-template-columns: minmax(0, 1fr); }
   .settings-section-head { flex-direction: column; }
   .settings-section-head .ui-button { width: 100%; }
   .category-create-form { grid-template-columns: minmax(0,1fr); }
@@ -1305,6 +1345,12 @@ select {
 }
 
 html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, html[data-reduced-motion="true"] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+
+.settings-font-scale { @apply mt-3 flex flex-wrap items-center justify-between gap-3; }
+.settings-font-scale > span { @apply text-xs font-semibold; }
+.segmented-control { @apply inline-flex overflow-hidden rounded-card border border-white/80 bg-white/70 p-0.5; }
+.segmented-control button { @apply min-h-8 min-w-14 px-3 text-xs font-semibold text-soft transition; }
+.segmented-control button.is-active { @apply bg-mint-100 text-mint-700; }
 
 @layer components {
   .finance-route { @apply mx-auto grid w-full max-w-7xl content-start gap-3; }
@@ -1488,6 +1534,11 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   50% {
     box-shadow: 0 0 0 7px rgba(53, 201, 154, 0);
   }
+}
+
+@keyframes water-cup-pulse {
+  0%, 100% { opacity: .45; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
 }
 
 @keyframes progress-grow {
