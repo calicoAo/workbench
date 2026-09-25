@@ -8,7 +8,7 @@ import { queryKeys } from "../query";
 import { CalendarFeature, type Schedule, type TimelineItem } from "../../features/calendar";
 import { CategoriesFeature, type Category } from "../../features/categories";
 import { DecisionToolsFeature } from "../../features/decision-tools";
-import { ArchiveBrowser, HistoryFeature, type SleepSeriesItem, type WeeklySeriesItem } from "../../features/history";
+import { HistoryFeature, type SleepSeriesItem, type WeeklySeriesItem } from "../../features/history";
 import { QuickNoteCaptureButton, QuickNoteDetailPage, QuickNotesPage } from "../../features/quick-notes";
 import { RewardsFeature, type Growth, type RewardEvent } from "../../features/rewards";
 import { SleepFeature, type SleepRecord } from "../../features/sleep";
@@ -16,7 +16,7 @@ import { BountyBoard, TaskDetailPage, TasksFeature, TasksPanel, type TaskSnapsho
 import { CurrentFocusCard, FinishSessionButton, MiniTimer, type CurrentSession, useCurrentSession, useTimerCommands } from "../../features/timer";
 import { useTimeline, type ExecutionSummary, type TimelineViewItem } from "../../features/timeline";
 import { recordWaterCups, WaterFeature, type WaterRecord, waterTimelineItems } from "../../features/water";
-import { type AiInsight, type JournalRecord, type MorningWritingRecord, type StockReviewRecord, useJournalDraftBridge, useWritingInspirationBridge, WritingQuickActions, WritingReflectionFeature, WritingReflectionHistory, WritingReflectionShortcuts } from "../../features/writing-reflection";
+import { type AiInsight, type JournalRecord, type MorningWritingRecord, type StockReviewRecord, useJournalDraftBridge, WritingQuickActions, WritingReflectionFeature, WritingReflectionHistory, WritingReflectionShortcuts } from "../../features/writing-reflection";
 import { ContinuationPanel, type Assignment, type ContinuationCandidate, useAssignments, useContinuationCandidates } from "../../features/assignments";
 import { SearchFeature } from "../../features/search";
 import { SettingsFeature, type SettingsSnapshot, useSettings } from "../../features/settings";
@@ -26,7 +26,9 @@ import { HabitTodaySnapshot, RoutinesFeature } from "../../features/habits";
 import { FinancePage } from "../../features/finance";
 import type { AuthSession } from "../../features/auth";
 import { GrowthPage, TodayGrowthEntry } from "../../features/growth";
-import { InspirationLibraryPage, InspirationWritingPanel } from "../../features/inspirations";
+import { InspirationLibraryPage } from "../../features/inspirations";
+import { OnboardingFeature } from "../../features/onboarding";
+import { defaultWritingTab, enabledWritingPlugins, pluginForTab, WritingShell, type WritingPluginId } from "../../features/writing-shell";
 
 type Dashboard = {
   date: string;
@@ -82,7 +84,7 @@ export function WorkspaceRouter({ request, session, feedback }: { request: Reque
       <Route path="/calendar" element={<CalendarRoute />} />
       <Route path="/journal" element={<JournalRoute />} />
       <Route path="/journal/:date" element={<JournalDateRoute />} />
-      <Route path="/writing" element={<JournalRoute />} />
+      <Route path="/writing" element={<WritingLandingRoute />} />
       <Route path="/notes" element={<NotesRoute />} />
       <Route path="/notes/:noteId" element={<NoteDetailRoute />} />
       <Route path="/inspirations" element={<InspirationsRoute />} />
@@ -205,7 +207,9 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
       onReward={showRewardUi ? (task, reward) => feedback.taskReward(task, reward ? [reward] : []) : () => undefined}
       onStartTimer={(taskId) => { const task = tasks.find((item) => item.id === taskId); if (task) void timer.start(task, appContext.assignments.includes(taskId)); }}
     >
-      <AppShell context={appContext} />
+      <OnboardingFeature request={request} userId={session.user.id} tasks={tasks} assignments={appContext.assignments} currentSession={currentSession} hasActualTime={(appContext.summary?.actualSeconds ?? 0) > 0} onError={feedback.notice}>
+        <AppShell context={appContext} />
+      </OnboardingFeature>
     </TasksFeature>
   </WritingReflectionFeature>;
 }
@@ -253,7 +257,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
         <ShellLink to={link("/tasks")} icon={<CheckSquare2 size={17} />}>任务</ShellLink>
         <ShellLink to={link("/projects")} icon={<FolderKanban size={17} />}>项目</ShellLink>
         <ShellLink to={link("/calendar")} icon={<CalendarDays size={17} />}>日历</ShellLink>
-        <ShellLink to={link("/journal")} icon={<NotebookPen size={17} />}>文字</ShellLink>
+        <ShellLink to={link("/writing")} activePaths={["/writing", "/journal", "/notes", "/inspirations"]} icon={<NotebookPen size={17} />}>文字</ShellLink>
         <ShellLink to={link("/routines")} icon={<Activity size={17} />}>生活</ShellLink>
         <ShellLink to={link("/finance")} icon={<CircleDollarSign size={17} />}>财务</ShellLink>
         <ShellLink to={link("/insights")} icon={<BarChart3 size={17} />}>回看</ShellLink>
@@ -274,11 +278,11 @@ function AppShell({ context }: { context: WorkspaceContext }) {
         </div>
       </header>
       <div className={`quick-add-wrap ${location.pathname.startsWith("/settings") ? "is-mobile-hidden" : ""}`} ref={quickMenuRef}>
-        <button type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label="打开快捷操作" onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>Quick Action</span></button>
+        <button data-guide-anchor="quick-action.task.publish.entry" type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label="打开快捷操作" onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>Quick Action</span></button>
         {quickOpen ? <div className={`quick-add-menu ${quickMoreOpen ? "is-more-open" : ""}`} id="quick-add-menu" role="menu">
           <strong>{quickMoreOpen ? "更多操作" : "快捷操作"}</strong>
           <div className="quick-add-primary">
-            <button onClick={() => { closeQuickMenu(); taskSurfaces.openCreate(); }}><CheckSquare2 size={17} /><span>发布悬赏</span></button>
+            <button data-guide-anchor="quick-action.task.publish" onClick={() => { closeQuickMenu(); taskSurfaces.openCreate(); }}><CheckSquare2 size={17} /><span>发布悬赏</span></button>
             <QuickNoteCaptureButton compact label="随手记" request={context.request} userId={context.session.user.id} selectedDate={context.date} onOpen={closeQuickMenu} onCreated={context.refresh} />
             <button onClick={() => { closeQuickMenu(); navigate(`/finance?date=${context.date}&action=expense&nonce=${crypto.randomUUID()}`); }}><ArrowDownCircle size={17} /><span>记一笔支出</span></button>
             <button onClick={() => void addWater()}><Droplets size={17} /><span>喝水</span></button>
@@ -299,7 +303,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
       {context.currentSession && location.pathname !== "/today" ? <MiniTimer session={context.currentSession} taskTitle={timerTitle} taskVersion={timerTaskVersion} date={context.date} commands={context.timer} /> : null}
       {context.queryError ? <p className="query-error" role="alert">同步失败，正在显示可保留的旧快照：{context.queryError}</p> : null}
       <main ref={mainRef} tabIndex={-1} className="app-content"><Outlet context={context} /></main>
-      <nav className="mobile-nav" aria-label="移动端主导航"><ShellLink to={link("/today")} icon={<Home size={18} />}>今日</ShellLink><ShellLink to={link("/tasks")} icon={<CheckSquare2 size={18} />}>任务</ShellLink><ShellLink to={link("/calendar")} icon={<CalendarDays size={18} />}>日历</ShellLink><ShellLink to={link("/journal")} icon={<NotebookPen size={18} />}>文字</ShellLink><ShellLink to={link("/settings")} icon={<Settings size={18} />}>设置</ShellLink></nav>
+      <nav className="mobile-nav" aria-label="移动端主导航"><ShellLink to={link("/today")} icon={<Home size={18} />}>今日</ShellLink><ShellLink to={link("/tasks")} icon={<CheckSquare2 size={18} />}>任务</ShellLink><ShellLink to={link("/calendar")} icon={<CalendarDays size={18} />}>日历</ShellLink><ShellLink to={link("/writing")} activePaths={["/writing", "/journal", "/notes", "/inspirations"]} icon={<NotebookPen size={18} />}>文字</ShellLink><ShellLink to={link("/settings")} icon={<Settings size={18} />}>设置</ShellLink></nav>
     </div>
   </div>;
 }
@@ -316,6 +320,7 @@ function TodayRoute() {
     return [...(dashboard?.schedules ?? []), ...sleepItems, ...waterTimelineItems(dashboard?.waterRecord ?? null)].sort((a, b) => a.startTime.localeCompare(b.startTime));
   }, [dashboard?.schedules, dashboard?.waterRecord, sleep]);
   return <section className="today-boundary">
+    <div data-guide-anchor="onboarding.checklist" />
     {value.date !== todayString() ? <div className="historical-banner"><strong>查看 {formatBusinessDate(value.date)}</strong><span>当前计时仍属于真实今天；从历史页开始会接取到今天并启动。</span><Link to={`/today?date=${todayString()}`}>回到今天</Link></div> : null}
     <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
     <ContinuationPanel candidates={value.continuations} targetDate={value.date} timezone={value.session.user.timezone} request={value.request} pending={continuationPending} onPending={setContinuationPending} onError={value.feedback.notice} onChanged={value.refresh} />
@@ -359,24 +364,64 @@ function CalendarRoute() {
   const weekItems = (weekQuery.data?.schedules ?? []).map((item) => ({ ...item, color: item.color ?? "#35C99A" }));
   return <section className="calendar-route"><header className="calendar-route-head"><div><p className="route-eyebrow">计划与真实投入</p><h1>日历</h1></div><div className="segmented-control"><button className={mode === "day" ? "is-active" : ""} onClick={() => setMode("day")}>日</button><button className={mode === "week" ? "is-active" : ""} onClick={() => setMode("week")}>周</button></div></header>{mode === "day" ? <CalendarFeature key={`${value.date}:${params.get("add") ?? "view"}:${params.get("nonce") ?? ""}`} request={value.request} selectedDate={value.date} loading={value.loading} items={value.dashboard?.schedules ?? []} tasks={value.tasks} acceptedTaskIds={value.assignments} categories={value.dashboard?.categories ?? []} projects={value.projects} recordTimezone={value.session.user.timezone} actualSeconds={value.summary?.actualSeconds} initialKind={params.get("add") === "plan" ? "plan" : params.get("add") === "actual" ? "actual" : undefined} onError={value.feedback.notice} onChanged={value.refresh} /> : <WeekCalendar from={range.from} items={weekItems} loading={weekQuery.isPending} date={value.date} />}</section>;
 }
-function JournalRoute() { const value = useWorkspace(); const bridge = useWritingInspirationBridge(); const enabledWritingSlots = (value.settings?.writingSlots ?? []).filter((slot) => slot.enabled).sort((a, b) => a.sortOrder - b.sortOrder).map((slot) => slot.slotKey); return <section className="journal-route"><header className="journal-route-head"><div><p className="route-eyebrow">日记与复盘</p><h1>文字记录</h1><p>晨写、日记与复盘仍按所选日期独立保存。</p></div><QuickNoteCaptureButton compact label="随手记" request={value.request} userId={value.session.user.id} selectedDate={value.date} onCreated={value.refresh} /></header><nav className="journal-subnav" aria-label="文字记录导航"><Link className="is-active" to={`/journal?date=${value.date}`}>今日书写</Link><Link to={`/notes?date=${value.date}`}>随手记</Link><Link to={`/inspirations?date=${value.date}`}>灵感库</Link><Link to={`/insights?date=${value.date}`}>归档与洞察</Link></nav><div className="writing-inspiration-dock"><InspirationWritingPanel request={value.request} userId={value.session.user.id} onInsert={bridge.insertIntoJournal} /></div><WritingReflectionHistory loading={value.loading} enabledSlots={enabledWritingSlots} /><section className="glass-panel p-3"><div className="mb-3"><p className="route-eyebrow">历史可达</p><h2 className="section-title">书写归档</h2></div><ArchiveBrowser request={value.request} refreshRevision={0} onError={value.feedback.notice} /></section></section>; }
+function writingSlots(value: WorkspaceContext) {
+  if (!value.settings) return ["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"];
+  return value.settings.writingSlots.filter((slot) => slot.enabled).sort((a, b) => a.sortOrder - b.sortOrder).map((slot) => slot.slotKey);
+}
+function WritingLandingRoute() {
+  const value = useWorkspace();
+  const plugins = enabledWritingPlugins(value.date, writingSlots(value));
+  const target = defaultWritingTab(value.session.user.id, plugins);
+  const plugin = plugins.find((item) => item.id === target) ?? plugins[0];
+  return <Navigate replace to={plugin?.route ?? `/journal?date=${value.date}&tab=journal`} />;
+}
+function JournalRoute() {
+  const value = useWorkspace();
+  const enabledSlots = writingSlots(value);
+  const [params] = useSearchParams();
+  const requested = pluginForTab(params.get("tab"));
+  const plugins = enabledWritingPlugins(value.date, enabledSlots);
+  const requestedSlot = requested === "morning" || requested === "journal" || requested === "review" ? requested : null;
+  if (requestedSlot && !plugins.some((plugin) => plugin.id === requestedSlot)) {
+    return <Navigate replace to={plugins[0]?.route ?? `/notes?date=${value.date}`} />;
+  }
+  const activeId: WritingPluginId = requested && plugins.some((plugin) => plugin.id === requested) ? requested : "journal";
+  if (!requested && !plugins.some((plugin) => plugin.id === activeId)) {
+    return <Navigate replace to={plugins[0]?.route ?? `/notes?date=${value.date}`} />;
+  }
+  if (requested && requested !== "morning" && requested !== "journal" && requested !== "review") {
+    const target = plugins.find((plugin) => plugin.id === requested);
+    if (target) return <Navigate replace to={target.route} />;
+  }
+  const slotKey = activeId === "morning" ? "MORNING_WRITING" : activeId === "review" ? "STOCK_REVIEW" : "JOURNAL";
+  return <WritingShell userId={value.session.user.id} date={value.date} activeId={activeId} enabledSlots={enabledSlots}>
+    <section className="journal-route">
+      <header className="journal-route-head"><div><p className="route-eyebrow">文字 / Writing</p><h1>{activeId === "morning" ? "晨写" : activeId === "review" ? "复盘" : "日记"}</h1><p>内容按所选日期独立保存。</p></div></header>
+      <WritingReflectionHistory loading={value.loading} enabledSlots={enabledSlots} onlySlot={slotKey} />
+    </section>
+  </WritingShell>;
+}
 function JournalDateRoute() { const date = useParams().date; return validDate(date ?? null) ? <Navigate replace to={`/journal?date=${date}`} /> : <NotFoundRoute />; }
-function NotesRoute() { const value = useWorkspace(); return <QuickNotesPage request={value.request} userId={value.session.user.id} selectedDate={value.date} onCreated={value.refresh} />; }
-function InspirationsRoute() { const value = useWorkspace(); return <InspirationLibraryPage request={value.request} userId={value.session.user.id} selectedDate={value.date} projects={value.projects} onError={value.feedback.notice} />; }
-function NoteDetailRoute() { const value = useWorkspace(); const noteId = Number(useParams().noteId); const journal = useJournalDraftBridge(); return <QuickNoteDetailPage request={value.request} userId={value.session.user.id} noteId={noteId} selectedDate={value.date} recordTimezone={value.session.user.timezone} categories={value.dashboard?.categories ?? []} projects={value.projects} onQuoteToJournal={journal.stageJournalReference} />; }
+function NotesRoute() { const value = useWorkspace(); return <WritingShell userId={value.session.user.id} date={value.date} activeId="notes" enabledSlots={writingSlots(value)}><QuickNotesPage request={value.request} userId={value.session.user.id} selectedDate={value.date} onCreated={value.refresh} /></WritingShell>; }
+function InspirationsRoute() { const value = useWorkspace(); return <WritingShell userId={value.session.user.id} date={value.date} activeId="inspirations" enabledSlots={writingSlots(value)}><InspirationLibraryPage request={value.request} userId={value.session.user.id} selectedDate={value.date} projects={value.projects} onError={value.feedback.notice} /></WritingShell>; }
+function NoteDetailRoute() { const value = useWorkspace(); const noteId = Number(useParams().noteId); const journal = useJournalDraftBridge(); return <WritingShell userId={value.session.user.id} date={value.date} activeId="notes" enabledSlots={writingSlots(value)}><QuickNoteDetailPage request={value.request} userId={value.session.user.id} noteId={noteId} selectedDate={value.date} recordTimezone={value.session.user.timezone} categories={value.dashboard?.categories ?? []} projects={value.projects} onQuoteToJournal={journal.stageJournalReference} /></WritingShell>; }
 function RoutinesRoute() { const value = useWorkspace(); const [params] = useSearchParams(); const sleep = value.dashboard?.sleepRecord ?? null; return <RoutinesFeature request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} categories={value.dashboard?.categories ?? []} onError={value.feedback.notice} lifeContent={<><SleepFeature request={value.request} selectedDate={value.date} record={sleep} recordTimezone={value.session.user.timezone} snapshotReady={Boolean(value.dashboard)} initiallyOpen={params.get("action") === "sleep"} onError={value.feedback.notice} onChanged={value.refresh} /><WaterFeature request={value.request} selectedDate={value.date} record={value.dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /><section className="review-handoff"><div><p className="route-eyebrow">晨写</p><strong>{value.dashboard?.morningWritingRecord?.content?.trim() ? "今日正文已保存" : "今日尚未完成"}</strong></div><Link to={`/journal?date=${value.date}`}>打开晨写</Link></section></>} />; }
 function FinanceRoute() { const value = useWorkspace(); const [params] = useSearchParams(); const action = params.get("action"); return <FinancePage key={params.get("nonce") ?? "finance"} request={value.request} userId={value.session.user.id} date={value.date} initialAction={action === "income" || action === "expense" || action === "transfer" ? action : undefined} onError={value.feedback.notice} />; }
 function RewardsRoute() { const value = useWorkspace(); return value.settings?.rewards?.show === false ? <section className="route-panel"><h1>奖励展示已隐藏</h1><p>奖励仍会照常结算，可在设置中恢复展示。</p><Link to={`/settings?date=${value.date}`}>打开设置</Link></section> : <RewardsFeature request={value.request} initialGrowth={value.dashboard?.growth ?? null} initialEvents={value.dashboard?.rewardEvents ?? []} onError={value.feedback.notice} onGrowthChanged={value.refresh} />; }
 function GrowthRoute() { const value = useWorkspace(); return <GrowthPage request={value.request} userId={value.session.user.id} date={value.date} onError={value.feedback.notice} />; }
 function ToolsRoute() { const value = useWorkspace(); return <section className="route-panel"><div className="route-panel-heading"><div><p className="route-eyebrow">既有能力</p><h1>决策工具</h1></div><Sparkles size={18} /></div><DecisionToolsFeature request={value.request} selectedDate={value.date} onError={value.feedback.notice} onChanged={value.refresh} onReward={value.settings?.rewards?.show === false ? () => undefined : value.feedback.recordReward} /></section>; }
-function InsightsRoute() { const value = useWorkspace(); const navigate = useNavigate(); const d = value.dashboard; return <HistoryFeature request={value.request} selectedDate={value.date} refreshRevision={0} loading={value.loading} stats={d?.weeklyStats} sleep={d?.sleepRecord ?? null} categories={d?.categoryTotals ?? d?.categories ?? []} schedules={d?.schedules ?? []} weeklySeries={d?.weeklySeries ?? []} monthlySleepSeries={d?.monthlySleepSeries ?? []} onError={value.feedback.notice} onBack={() => navigate(`/today?date=${value.date}`)} />; }
+function InsightsRoute() { const value = useWorkspace(); const navigate = useNavigate(); const d = value.dashboard; return <WritingShell userId={value.session.user.id} date={value.date} activeId="archive" enabledSlots={writingSlots(value)}><HistoryFeature request={value.request} selectedDate={value.date} refreshRevision={0} loading={value.loading} stats={d?.weeklyStats} sleep={d?.sleepRecord ?? null} categories={d?.categoryTotals ?? d?.categories ?? []} schedules={d?.schedules ?? []} weeklySeries={d?.weeklySeries ?? []} monthlySleepSeries={d?.monthlySleepSeries ?? []} onError={value.feedback.notice} onBack={() => navigate(`/today?date=${value.date}`)} /></WritingShell>; }
 function SearchRoute() { const value = useWorkspace(); return <SearchFeature request={value.request} userId={value.session.user.id} />; }
 function SettingsRoute() { const { session, request, feedback } = useWorkspace(); return <SettingsFeature request={request} userId={session.user.id} logout={session.logout} onProfileChanged={(profile) => session.updateUser?.(profile)} onError={feedback.notice} />; }
 function TrashRoute() { const { session, request } = useWorkspace(); return <TrashPage request={request} userId={session.user.id} />; }
 function NotFoundRoute() { const { date } = useWorkspace(); return <section className="route-panel"><h1>页面不存在</h1><Link to={`/today?date=${date}`}>返回今日</Link></section>; }
 
 function TimelineSummary({ items, summary }: { items: TimelineViewItem[]; summary: ExecutionSummary | null }) { return <section className="glass-panel p-3"><h2 className="section-title">今日摘要</h2><div className="execution-summary"><span><strong>{summary?.completedAssignments ?? 0}/{summary?.totalAssignments ?? 0}</strong>今日完成</span><span><strong>{formatSeconds(summary?.focusedSeconds ?? 0)}</strong>专注</span><span><strong>{formatSeconds(summary?.actualSeconds ?? 0)}</strong>实际投入</span><span><strong>{formatSeconds(summary?.plannedSeconds ?? 0)}</strong>计划</span></div><div className="timeline-legend">{(["PLANNED", "TIMER_ACTUAL", "MANUAL_ACTUAL", "LEGACY_ACTUAL"] as const).map((kind) => <span key={kind}>{kindLabel(kind)} {items.filter((item) => item.kind === kind).length}</span>)}</div></section>; }
-function ShellLink({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) { return <NavLink className={({ isActive }) => `shell-link ${isActive ? "is-active" : ""}`} title={typeof children === "string" ? children : undefined} to={to}>{icon}<span>{children}</span></NavLink>; }
+function ShellLink({ to, icon, children, activePaths }: { to: string; icon: ReactNode; children: ReactNode; activePaths?: string[] }) {
+  const location = useLocation();
+  const routeActive = activePaths?.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
+  return <NavLink className={({ isActive }) => `shell-link ${isActive || routeActive ? "is-active" : ""}`} title={typeof children === "string" ? children : undefined} to={to}>{icon}<span>{children}</span></NavLink>;
+}
 function useWorkspace() { return useOutletContext<WorkspaceContext>(); }
 function routeTitle(path: string) { if (path.startsWith("/tasks/")) return "任务详情"; if (path.startsWith("/projects/")) return "项目详情"; if (path.startsWith("/notes/")) return "随手记详情"; if (path.startsWith("/journal/")) return "文字"; if (path.startsWith("/settings/")) return "数据维护"; return ({ "/today": "今日", "/tasks": "任务", "/projects": "项目", "/calendar": "日历", "/journal": "文字", "/writing": "文字", "/notes": "随手记", "/inspirations": "灵感库", "/routines": "生活", "/finance": "财务", "/growth": "成长", "/rewards": "奖励", "/tools": "工具", "/insights": "回看", "/search": "搜索", "/settings": "设置" } as Record<string, string>)[path] ?? "工作台"; }
 function validDate(value: string | null): value is string { return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value)); }

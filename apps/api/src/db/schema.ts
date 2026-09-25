@@ -11,6 +11,28 @@ export const users = mysqlTable("users", {
   deletedAt: datetime("deleted_at")
 });
 
+export const onboardingFlowProgress = mysqlTable("onboarding_flow_progress", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  flowId: varchar("flow_id", { length: 64 }).notNull(),
+  flowVersion: int("flow_version", { unsigned: true }).notNull(),
+  status: varchar("status", { length: 24 }).notNull(),
+  currentStepId: varchar("current_step_id", { length: 64 }),
+  startedAt: datetime("started_at"),
+  completedAt: datetime("completed_at"),
+  skippedAt: datetime("skipped_at"),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const onboardingHintState = mysqlTable("onboarding_hint_state", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  hintKey: varchar("hint_key", { length: 96 }).notNull(),
+  hintVersion: int("hint_version", { unsigned: true }).notNull(),
+  seenAt: datetime("seen_at"),
+  dismissedAt: datetime("dismissed_at")
+});
+
 export const taskCategories = mysqlTable("task_categories", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),

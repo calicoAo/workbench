@@ -45,6 +45,7 @@ deploy/* -> production container and reverse-proxy composition
 | Web Router / server-state composition | route tree、按 URL date 执行显式日期准备、按 user/resource/date/id 隔离 Query snapshot、精确 invalidation、跨 route feature composition；日期准备失败或超时不得阻塞 Dashboard 只读快照 | feature draft、领域写语义、第二份 Session 真值 | `app/shell/index.tsx`, `app/query.ts`; `app/workspace/index.tsx` 仅保留兼容导出 |
 | Web API client | bearer header、HTTP/envelope decode、typed `ApiError`、409/retryable/requestId/field-error metadata | feature query key、领域 command payload、UI feedback policy | `app/api.ts` exports `api`, `ApiError`, `Request`, token storage |
 | Web application feedback | global notice/confirm/reward popup state and presentation; narrow callbacks injected into Auth/Workspace/features | feature validation, feature drafts, domain policy | `app/feedback.tsx` exports `ApplicationFeedback` and `FeedbackActions` |
+| Web Onboarding feature | versioned typed tutorial definitions, first-run runtime, guide anchors, checklist and contextual hint presentation; isolated progress/hint API calls | Task/Assignment/Timer/Completion/Reward/Growth/Finance truth, domain mutations, domain callbacks | `features/onboarding/index.ts` exports `OnboardingFeature`, `coreLoopFlow`, and `resolveGuideAnchor` |
 | Web shared UI primitives | 跨 feature 的 Button、IconButton、Badge、FilterChip 交互、可访问性和稳定视觉 variants/sizes | Task/Timer 等领域语义、页面布局、业务状态 | `shared/ui/index.tsx` exports the minimal primitive surface |
 | Web Rewards feature | Rewards 页面 UI、成长摘要、奖励预估规则、远端 snapshot、奖励创建 draft、奖励项 mutations | session、顶层 navigation、其他 feature 的奖励触发 workflow | `features/rewards/index.ts` exports the feature UI and reward contracts |
 | Web Growth feature | Hero Growth 页面、7/30/90 天投入分布、维度配置/分类映射交互、Today 紧凑入口、Pixel Visual V1 asset slots/fallback | XP/Level 公式、ActualTime、Task completion、Habit occurrence、Finance truth、AppShell navigation ownership | `features/growth/index.tsx`；`pixel-assets.tsx`；`docs/PIXEL_ASSET_CONTRACT_V1.md` |
@@ -60,9 +61,11 @@ deploy/* -> production container and reverse-proxy composition
 | Web History feature | 归档标签和远端记录、详情弹窗、睡眠区间、时间/能力/周统计的只读组合 | 各记录的 canonical writes、Dashboard fetch、顶层 navigation | `features/history/index.tsx` exports `HistoryFeature` and History series contracts；`archive.tsx` 为私有实现 |
 | Web Quick Notes feature | 随手记 capture/list/detail/edit/archive/recovery、可选 Project 素材关联、转 Task 确认草稿、引用 Journal 的用户意图 | Project 正文、Task 发布事务、Journal server record、跨域 Search 真值 | `features/quick-notes/index.tsx` exports capture/list/detail surfaces；只经 Projects、Tasks 与 Writing 的公开能力连接 |
 | Web Writing Inspiration feature | 灵感库列表/搜索/状态筛选、显式标签 picker/管理、QuickNote 加入灵感库、直接创建、Writing 面板插入当前正文的交互 | QuickNote 正文/标题/项目关系、通用分类体系、Task/Finance truth、自动扫描正文 hashtag | `features/inspirations/index.tsx` exports `InspirationLibraryPage`, `TagPicker`, `QuickNoteInspirationDialog`, `InspirationWritingPanel`；AppShell 只做 Writing 路由组合 |
+| Web Writing Shell | Writing peer Tab metadata, enabled-slot filtering, date-aware routes, last-opened-tab browser preference, and responsive host navigation for Morning Writing, Journal, Review, QuickNote, Inspiration, and Archive | All writing content/data owners, editor visuals, archive persistence, generic plugin runtime/SDK/marketplace | `features/writing-shell/index.tsx` exports `WritingShell`, `createWritingPlugins`, and tab preference helpers; routes compose the existing Writing Reflection, Quick Notes, Inspirations, and History public surfaces |
 | Web Search / Settings / Trash features | Search 查询与 URL filters；个人资料、时区、类别启停、展示偏好、主动导出 UI；可恢复删除记录的组合列表与 owner restore 调用 | 各领域记录真值、删除生命周期、奖励结算、历史日期重算、导出持久副本 | `features/search/index.tsx`、`features/settings/index.tsx`、`features/trash/index.tsx`；AppShell 只组合路由与展示开关 |
 | Web Finance feature | Finance Overview、Accounts、Transactions、Budgets、Recurring、Reports 六个视图，账户/分类/记账草稿、页面级金额隐藏、筛选与详情交互；`index.tsx` 只负责 URL/query snapshot、全局刷新和弹窗组合，Accounts/Categories、Transactions、Budgets、Recurring、Reports 分别拥有自己的交互状态与 mutations | 余额计算、账本事务、Workbench Coins、Agent Wallet、全局 privacy framework；AppShell 只挂路由和 launcher | `features/finance/index.tsx` public surface；公开 Finance-owned cents presentation formatter 供 Settings 的 Finance 数据维护 UI 使用，Account/Record dialogs 保持 feature-private；内部 workflow modules 不对 feature 外公开 |
 | Authentication | 登录/注册 UI、token persistence、session validation；API 的 token/password/auth middleware | tasks、records 等业务状态 | `/api/auth/*`；API `auth.ts` helpers |
+| Onboarding metadata API | versioned flow progress、hint seen/dismissed state、new-user eligibility and explicit restart; user-scoped idempotent transitions | all domain facts and domain command semantics | `/api/onboarding/*`; `onboarding.ts` and V34 isolated tables |
 | Dashboard / history read model | 指定日期的跨 feature 聚合、统计和展示组合 | 各 feature 的 canonical writes；长期业务规则 | `GET /api/dashboard`；Dashboard response contract |
 | Daily carryover workflow | 把前一日未完成的 daily assignments 与 planned schedules 准备到目标日期；幂等与事务边界 | Dashboard 聚合、Task lifecycle、generic Schedule CRUD、Growth 初始化 | `POST /api/daily-carryovers`；`applyDailyCarryover` |
 | Tasks and daily assignments | task lifecycle、原子发布/发布并接取、今日接取、重点排序、完成反思；`completeTask` 拥有完成 transition 与完成奖励的事务组合 | generic rewards policy、Timer lifecycle、无关记录 | `/api/tasks/*`、`/api/task-days/*`；`task-publishing.ts`、`task-completion.ts` |
@@ -101,6 +104,15 @@ apps/web/main.tsx
             -> feature UI/workflows
             -> web-local shared primitives/contracts
             -> HTTP API
+
+Onboarding is a peripheral presentation/workflow layer:
+
+```text
+Onboarding -> Workbench public UI / read / command surfaces
+Workbench domain -X-> Onboarding
+```
+
+Onboarding progress and hint tables are non-authoritative metadata. Removing them must not change Task, Assignment, Timer, ActualTime, Completion, Reward, Growth, Finance, Writing, QuickNote, or Inspiration facts. New users receive a `NOT_STARTED` `core-loop:v1` row during registration; existing users have no row and never auto-trigger after deployment. Settings may explicitly create/reset that row.
 
 apps/api/index.ts
   -> apps/api/app.ts
@@ -207,6 +219,7 @@ Current intentional surfaces:
 - `apps/web/src/features/rewards/index.ts`: the Rewards feature public surface. It exports `RewardsFeature`, the header growth summary, the task reward estimate contract, and reward types required by application composition and task/reward presentation; implementation details remain internal.
 - `apps/web/src/features/decision-tools/index.tsx`: the Decision Tools feature public surface. It exports `DecisionToolsFeature`; application composition injects authenticated HTTP access, selected date, global error/reward presentation, and Dashboard refresh without owning the feature's drafts or mutations.
 - `apps/web/src/features/writing-reflection/index.tsx`: the Writing / Reflection public surface. It exports the feature owner plus header-shortcut and history-editor composition surfaces, along with the remote record types required by Dashboard and cross-feature archive composition. Drafts, save behavior, AI analysis policy, dialogs, and same-date refresh behavior remain internal.
+- `apps/web/src/features/writing-shell/index.tsx`: the Writing host public surface. It exports only first-party peer-tab metadata, responsive navigation, date-aware route construction, and versioned last-tab preference helpers. It does not own content, drafts, mutations, archive persistence, or a generic plugin runtime.
 - `apps/web/src/features/tasks/index.tsx`: the Web Tasks public surface. It exports the workflow owner and its panel composition surface. Application composition injects Dashboard snapshots, authenticated HTTP access, refresh/feedback capabilities, and narrow Timer callbacks; feature-private modules own create, daily-selection, edit, and direct-completion lifecycles, while their models and dialog primitives are not cross-feature surfaces.
 - `apps/web/src/features/sleep/index.tsx`: the Sleep public surface. It exports the complete summary/editor workflow and the remote record type needed by Dashboard, Timeline, Water derivation, and History. Application composition injects the matching-date snapshot, authenticated HTTP access, and refresh/error capabilities; draft, dialog, and save behavior remain internal.
 - `apps/web/src/features/calendar/index.tsx`: the Calendar public surface. It exports the Schedule workflow owner plus the `Schedule` and `TimelineItem` contracts needed for cross-feature composition. Application composition injects normalized timeline items, Dashboard snapshots, authenticated HTTP access, and refresh/error capabilities; Schedule drafts, mutations, dialog state, and timeline layout remain internal.

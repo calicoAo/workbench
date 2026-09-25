@@ -4,7 +4,7 @@ import { authMiddleware } from "./auth.js";
 import { env } from "./env.js";
 import { handleError } from "./http.js";
 import { aiInsightsRoute } from "./routes/ai-insights.js";
-import { authRoute } from "./routes/auth.js";
+import { createAuthRoute } from "./routes/auth.js";
 import { dashboardRoute } from "./routes/dashboard.js";
 import { dailyCarryoversRoute } from "./routes/daily-carryovers.js";
 import { decisionToolsRoute } from "./routes/decision-tools.js";
@@ -30,6 +30,8 @@ import { habitsRoute } from "./routes/habits.js";
 import { financeRoute } from "./routes/finance.js";
 import { growthRoute } from "./routes/growth.js";
 import { inspirationRoute } from "./routes/inspiration.js";
+import { onboardingRoute } from "./routes/onboarding.js";
+import { seedOnboardingForNewUser } from "./onboarding.js";
 
 export const app = new Hono();
 
@@ -38,7 +40,7 @@ app.onError(handleError);
 app.use("/api/*", authMiddleware);
 
 app.route("/api/health", healthRoute);
-app.route("/api/auth", authRoute);
+app.route("/api/auth", createAuthRoute(seedOnboardingForNewUser));
 app.route("/api/ai-insights", aiInsightsRoute);
 app.route("/api/dashboard", dashboardRoute);
 app.route("/api/daily-carryovers", dailyCarryoversRoute);
@@ -64,3 +66,4 @@ app.route("/api/habits", habitsRoute);
 app.route("/api/finance", financeRoute);
 app.route("/api/growth", growthRoute);
 app.route("/api/writing", inspirationRoute);
+app.route("/api/onboarding", onboardingRoute);

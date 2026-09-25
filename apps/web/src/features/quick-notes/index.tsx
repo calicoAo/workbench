@@ -42,7 +42,6 @@ export function QuickNotesPage({ request, userId, selectedDate, onCreated }: { r
 
   return <section className="quick-notes-route">
     <header className="quick-notes-head"><div><p className="route-eyebrow">日记与复盘 / 灵感库</p><h1>随手记</h1><p>先捕捉，再决定它是否需要被整理。</p></div><QuickNoteCaptureButton request={request} userId={userId} selectedDate={selectedDate} onCreated={async () => { await onCreated?.(); }} /></header>
-    <nav className="journal-subnav" aria-label="文字记录导航"><Link to={`/journal?date=${selectedDate}`}>今日书写</Link><Link className="is-active" to={`/notes?date=${selectedDate}`}>随手记</Link><Link to={`/insights?date=${selectedDate}`}>归档与洞察</Link></nav>
     <div className="notes-state-tabs" aria-label="随手记状态"><FilterChip active={state === "active"} onClick={() => setState("active")}>活跃</FilterChip><FilterChip active={state === "archived"} onClick={() => setState("archived")}><Archive size={13} />归档</FilterChip><FilterChip active={state === "deleted"} onClick={() => setState("deleted")}><Trash2 size={13} />回收</FilterChip></div>
     <form className="notes-filter" onSubmit={applyFilters}>
       <div className="notes-filter-main"><label><Search size={14} /><input aria-label="搜索随手记" placeholder="搜索正文或标题" value={form.keyword} onChange={(event) => setForm({ ...form, keyword: event.target.value })} /></label><Button size="sm" type="button" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}><SlidersHorizontal size={14} />筛选</Button><Button size="sm" variant="primary" type="submit">搜索</Button></div>

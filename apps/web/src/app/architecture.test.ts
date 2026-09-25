@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -20,4 +20,24 @@ describe("R1C frontend boundaries", () => {
     expect(shell).not.toContain("function CurrentFocus(");
     expect(shell).toContain('location.pathname !== "/today"');
   });
+
+  it("keeps onboarding as a removable peripheral dependency", () => {
+    const apiRoot = resolve(process.cwd(), "../api/src");
+    const webRoot = resolve(process.cwd(), "src");
+    const files = [...sourceFiles(apiRoot), ...sourceFiles(webRoot)].filter((file) =>
+      !file.endsWith("/app.ts") &&
+      !file.endsWith("/app/shell/index.tsx") &&
+      !file.includes("/features/onboarding/") &&
+      !file.endsWith("/onboarding.ts") &&
+      !file.endsWith("/routes/onboarding.ts")
+    );
+    for (const file of files) expect(readFileSync(file, "utf8"), file).not.toMatch(/(?:from|import\()\s*["'][^"']*onboarding/);
+  });
 });
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((name) => {
+    const path = resolve(directory, name);
+    return statSync(path).isDirectory() ? sourceFiles(path) : /\.(?:ts|tsx)$/.test(name) ? [path] : [];
+  });
+}

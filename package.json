@@ -21,6 +21,7 @@
     "test:fin01": "npm run test:fin01 -w apps/api",
     "test:fin04": "npm run test:fin04 -w apps/api",
     "test:r2d1": "npm run test:r2d1 -w apps/api",
+    "test:onboarding": "npm run test:onboarding -w apps/api",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspaces",
     "db:up": "docker compose -p personal-workbench up -d mysql",

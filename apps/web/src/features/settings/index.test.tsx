@@ -40,6 +40,15 @@ describe("Settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "停用" })); await waitFor(() => expect(request).toHaveBeenCalledWith("/api/task-categories/3", expect.objectContaining({ method: "PUT" }))); expect(String((request as ReturnType<typeof vi.fn>).mock.calls.find(([path]) => path === "/api/task-categories/3")?.[1]?.body)).toContain('"enabled":false');
   });
 
+  it("restarts only the onboarding core loop from Settings", async () => {
+    const request = vi.fn(async (path: string, init?: RequestInit) => path === "/api/onboarding/flows/core-loop/restart" && init?.method === "POST" ? { status: "IN_PROGRESS" } : snapshot) as Request;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "重新开始新手教学" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/flows/core-loop/restart", { method: "POST" }));
+    expect(await screen.findByText("新手教学已重置，下次进入今日时会重新开始。")).toBeTruthy();
+  });
+
   it("downloads an explicitly requested domain export and reports success", async () => {
     const request = vi.fn(async (path: string) => path.startsWith("/api/exports/") ? { fileName: "notes.md", contentType: "text/markdown", recordCount: 2, content: "# Export" } : snapshot) as Request;
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:test") }); Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() }); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);

@@ -92,3 +92,167 @@ Before executing a non-trivial work package:
 - Do not resume an older report, branch of work, or previously blocked task merely because similarly named files exist.
 - Treat earlier reports as evidence/history, not as the current instruction.
 - When the latest task is explicitly a closure or acceptance task, continue from the existing implementation instead of re-running an older implementation/audit package.
+
+## Bug Fix Governance
+
+Bug fixing is corrective work, not an invitation to redesign the surrounding system.
+
+Scope discipline
+
+Before modifying code, reproduce the reported issue when reasonably possible and identify the actual root cause.
+
+Prefer the smallest owner-scoped fix that restores the intended behavior.
+
+Do not use a bug fix as an opportunity to refactor unrelated modules, redesign adjacent flows, rename broad surfaces, or introduce new abstractions unless the defect cannot be fixed safely without doing so.
+
+Preserve existing architecture, ownership, public contracts, and business semantics unless the bug itself demonstrates that one of them is incorrect.
+
+If fixing the defect requires a durable architecture, API, schema, ownership, or business-semantics change, state that explicitly before treating it as an ordinary bug fix. Update the relevant architecture/API documentation in the same change when authorized.
+
+Do not turn a local workaround into a new architectural pattern.
+
+Do not add a generic framework, shared layer, event system, or dependency merely to fix one isolated defect.
+
+Product-semantic boundary
+
+Do not silently decide product or domain semantics while fixing a bug.
+
+Treat an issue as requiring an explicit product/domain decision when the expected behavior is not already established by the current architecture, specification, tests, or surrounding implementation.
+
+Examples include questions such as:
+
+whether completing a Task should automatically stop an active Timer;
+
+whether a refund should be represented as negative expense, income, or another accounting semantic;
+
+whether deleting or archiving a Project should affect related Inspiration content;
+
+whether historical Growth attribution should follow current mappings;
+
+which module owns a piece of state or derived data.
+
+When the expected semantic is ambiguous:
+
+report the ambiguity;
+
+identify the competing interpretations and affected owners;
+
+do not choose a new business rule merely to make the failing case pass;
+
+wait for an explicit decision unless an existing source of truth already resolves it.
+
+Straightforward implementation defects may be fixed directly, including:
+
+layout/overflow/collision bugs;
+
+stale UI state;
+
+incorrect rendering or formatting;
+
+duplicate requests or accidental duplicate writes contrary to existing invariants;
+
+crashes and exceptions;
+
+broken navigation;
+
+incorrect API wiring;
+
+regression-test failures whose expected behavior is already defined.
+
+Database and migration safety
+
+If the fix does not require a schema change, do not modify migration history.
+
+If a schema change is genuinely required, use a new forward-only migration from the current migration head.
+
+Never edit an already-applied historical migration merely to repair the current environment.
+
+Do not weaken constraints, ownership boundaries, idempotency guarantees, transaction boundaries, or production safety checks just to make a test pass.
+
+Use the repository's isolated database-verification process when database semantics are involved.
+
+UI bug fixes
+
+For UI-only defects:
+
+Fix the actual interaction or presentation defect without opportunistically redesigning the page.
+
+Reuse the existing design system and component ownership.
+
+Do not modify global Button/Input/Modal/AppShell behavior unless the root cause is actually global.
+
+For responsive defects, verify the real target viewport instead of resizing a desktop screenshot.
+
+Check for overlap with fixed UI such as bottom navigation, FABs, drawers, sticky headers, and safe areas.
+
+Preserve desktop/mobile behavior outside the affected surface unless the root cause is shared.
+
+Regression strategy
+
+Every bug fix should add or strengthen evidence that would have caught the defect before the fix.
+
+Run, as applicable:
+
+a focused reproduction/regression test for the exact bug;
+
+tests for the affected owner/module;
+
+tests for directly adjacent integration surfaces when the fix crosses a boundary;
+
+full regression when the change has broad impact or the task explicitly requires it;
+
+typecheck, lint, build, and git diff --check according to repository convention.
+
+When a UI/browser defect materially depends on viewport or real interaction, add browser evidence or an automated browser assertion instead of relying only on component tests.
+
+When database behavior is involved, Web/unit tests do not substitute for real database integration.
+
+Root-cause reporting
+
+A completed bug-fix report should distinguish at least:
+
+ROOT_CAUSE
+FIX
+REGRESSION_RISK
+TESTS_RUN
+REMAINING_BLOCKERS
+
+ROOT_CAUSE should explain why the defect occurred, not merely restate the visible symptom.
+
+FIX should identify the owner and the smallest behavior changed.
+
+REGRESSION_RISK should identify nearby behavior that could plausibly be affected.
+
+TESTS_RUN should state what actually ran and its result.
+
+REMAINING_BLOCKERS should be NONE when no blocker remains. Do not describe unexecuted verification as PASS.
+
+Blocker handling
+
+The existing Verification Environment Governance applies equally to bug fixes.
+
+In particular:
+
+an unset TEST_DATABASE_URL;
+
+an inactive default MySQL port;
+
+a stale temporary QA database;
+
+an unstable reused browser profile;
+
+are not sufficient reasons by themselves to stop a bug-fix closure.
+
+Resolve or provision the isolated verification environment when reasonably possible before reporting BLOCKED.
+
+Stop condition
+
+Once the reported defect is fixed and the necessary regression evidence is green:
+
+stop;
+
+do not continue into unrelated cleanup;
+
+do not implement nearby feature requests unless explicitly requested;
+
+record any newly discovered unrelated issue separately instead of silently expanding the current patch.

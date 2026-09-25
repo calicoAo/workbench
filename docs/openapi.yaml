@@ -7,6 +7,73 @@ servers:
 security:
   - BearerAuth: []
 paths:
+  /onboarding/status:
+    get:
+      summary: Read isolated onboarding progress and hint state
+      responses:
+        "200":
+          description: Progress is eligible only for newly registered users; existing users opt in via restart
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingStatusResponse" }
+  /onboarding/flows/{flowId}/start:
+    post:
+      summary: Start a versioned onboarding flow
+      parameters: [{ in: path, name: flowId, required: true, schema: { type: string, example: core-loop } }]
+      responses:
+        "200":
+          description: Started flow
+          content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingProgressResponse" } } }
+  /onboarding/flows/{flowId}/advance:
+    post:
+      summary: Advance a typed onboarding flow after a real product action
+      parameters: [{ in: path, name: flowId, required: true, schema: { type: string, example: core-loop } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stepId]
+              properties:
+                stepId: { type: string, enum: [publish, create, accept, start] }
+      responses:
+        "200":
+          description: Updated flow progress
+          content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingProgressResponse" } } }
+        "409": { description: Step is not the current ordered flow step }
+  /onboarding/flows/{flowId}/skip:
+    post:
+      summary: Skip an onboarding flow without domain side effects
+      parameters: [{ in: path, name: flowId, required: true, schema: { type: string, example: core-loop } }]
+      responses:
+        "200":
+          description: Skipped flow
+          content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingProgressResponse" } } }
+  /onboarding/flows/{flowId}/restart:
+    post:
+      summary: Explicitly restart onboarding without changing business data
+      parameters: [{ in: path, name: flowId, required: true, schema: { type: string, example: core-loop } }]
+      responses:
+        "200":
+          description: Restarted flow
+          content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingProgressResponse" } } }
+  /onboarding/hints/{hintKey}/seen:
+    post:
+      summary: Mark a versioned contextual hint as seen
+      parameters: [{ in: path, name: hintKey, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingHintRequest" } } }
+      responses: { "200": { description: Hint state updated } }
+  /onboarding/hints/{hintKey}/dismiss:
+    post:
+      summary: Dismiss a versioned contextual hint
+      parameters: [{ in: path, name: hintKey, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/OnboardingHintRequest" } } }
+      responses: { "200": { description: Hint state updated } }
   /writing/inspirations:
     get:
       summary: List the authenticated user's Writing inspiration library
@@ -1993,6 +2060,63 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    OnboardingProgress:
+      type: object
+      required: [flowId, flowVersion, status, currentStepId, updatedAt]
+      properties:
+        flowId: { type: string, example: core-loop }
+        flowVersion: { type: integer, minimum: 1, example: 1 }
+        status: { type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, SKIPPED] }
+        currentStepId: { type: string, enum: [publish, create, accept, start], nullable: true }
+        startedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        skippedAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time }
+    OnboardingHintState:
+      type: object
+      required: [hintKey, hintVersion]
+      properties:
+        hintKey: { type: string }
+        hintVersion: { type: integer, minimum: 1 }
+        seenAt: { type: string, format: date-time, nullable: true }
+        dismissedAt: { type: string, format: date-time, nullable: true }
+    OnboardingChecklist:
+      type: object
+      required: [published, accepted, started, completed, note]
+      properties:
+        published: { type: boolean }
+        accepted: { type: boolean }
+        started: { type: boolean }
+        completed: { type: boolean }
+        note: { type: boolean }
+    OnboardingStatusResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: { type: integer, example: 0 }
+        message: { type: string, example: ok }
+        data:
+          type: object
+          required: [eligible, flow, hints, checklist]
+          properties:
+            eligible: { type: boolean }
+            flow: { $ref: "#/components/schemas/OnboardingProgress", nullable: true }
+            hints:
+              type: array
+              items: { $ref: "#/components/schemas/OnboardingHintState" }
+            checklist: { $ref: "#/components/schemas/OnboardingChecklist" }
+    OnboardingProgressResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: { type: integer, example: 0 }
+        message: { type: string, example: ok }
+        data: { $ref: "#/components/schemas/OnboardingProgress" }
+    OnboardingHintRequest:
+      type: object
+      required: [hintVersion]
+      properties:
+        hintVersion: { type: integer, minimum: 1, example: 1 }
     FinanceOperationRequest:
       type: object
       required: [operationId]

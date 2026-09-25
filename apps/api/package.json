@@ -20,6 +20,7 @@
     "test:r2c": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r2c-habits.test.ts",
     "test:r2d0": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r2d0-core-ux.test.ts",
     "test:r2d1": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r2d1-growth.test.ts",
+    "test:onboarding": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/onboarding.test.ts",
     "test:fin01": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r3-fin01-core-ledger.test.ts",
     "test:fin02": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r3-fin02-transfer-refund-reversal.test.ts",
     "test:fin04": "TZ=UTC tsc -p tsconfig.test.json --noEmit && TZ=UTC tsx --test --test-concurrency=1 tests/r3-fin04-import-export-reconciliation.test.ts",

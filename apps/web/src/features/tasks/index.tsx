@@ -205,10 +205,10 @@ export function TasksFeature({
           <Button variant="ghost" size="sm" type="button" aria-label="查看已完成任务" onClick={() => setCompletedOpen(true)}>
             <CheckCircle2 size={14} />已完成
           </Button>
-          <Button variant="secondary" size="sm" type="button" aria-label="接取今日任务" onClick={openSelector}>
+          <Button data-guide-anchor="task.accept" variant="secondary" size="sm" type="button" aria-label="接取今日任务" onClick={openSelector}>
             <Gift size={14} />接取
           </Button>
-          <Button variant="primary" size="sm" type="button" onClick={openCreate}>
+          <Button data-guide-anchor="task.publish" variant="primary" size="sm" type="button" onClick={openCreate}>
             <Plus size={14} />新增
           </Button>
         </div>
@@ -389,7 +389,7 @@ function TaskRow(props: {
       </details>
       <div className="task-row-controls">
         {props.activeTimer ? <Badge tone="success" className="task-row-execution-badge">{props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · {elapsedText(props.activeTimer.startTime)}</Badge> : null}
-        {props.task.status < 2 && !props.activeTimer ? <IconButton size="sm" className="task-row-primary-action" label="开始计时" onClick={props.onStart}><Play size={16} /></IconButton> : null}
+        {props.task.status < 2 && !props.activeTimer ? <IconButton data-guide-anchor="task.start" data-guide-task-id={props.task.id} size="sm" className="task-row-primary-action" label="开始计时" onClick={props.onStart}><Play size={16} /></IconButton> : null}
       </div>
     </div>
   );

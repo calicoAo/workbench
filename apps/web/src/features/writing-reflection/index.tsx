@@ -303,12 +303,12 @@ export function WritingReflectionShortcuts({ enabledSlots }: { enabledSlots?: st
 
 export function WritingQuickActions({ enabledSlots, onSelect, showIcons = false }: { enabledSlots: string[]; onSelect?: () => void; showIcons?: boolean }) { const feature = useWritingReflection(); const entries = { MORNING_WRITING: { kind: "morning" as const, label: "晨写", icon: SunMedium }, JOURNAL: { kind: "journal" as const, label: "日记", icon: BookOpenText }, STOCK_REVIEW: { kind: "review" as const, label: "股市复盘", icon: TrendingUp } }; return <>{enabledSlots.map((key) => ({ key, entry: entries[key as keyof typeof entries] })).filter(({ entry }) => entry).map(({ key, entry }) => { const Icon = entry.icon; return <button key={key} type="button" onClick={() => { feature.setModal(entry.kind); onSelect?.(); }}>{showIcons ? <Icon size={17} /> : null}<span>{entry.label}</span></button>; })}</>; }
 
-export function WritingReflectionHistory({ loading, enabledSlots }: { loading: boolean; enabledSlots?: string[] }) {
+export function WritingReflectionHistory({ loading, enabledSlots, onlySlot }: { loading: boolean; enabledSlots?: string[]; onlySlot?: "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW" }) {
   const feature = useWritingReflection();
   const enabled = new Set(enabledSlots ?? ["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"]);
   return (
     <>
-      {enabled.has("MORNING_WRITING") ? <FeaturePanel
+      {enabled.has("MORNING_WRITING") && (!onlySlot || onlySlot === "MORNING_WRITING") ? <FeaturePanel
         title={`晨写 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<SunMedium size={17} />}
         action={<ExpandButton label="打开晨写编辑" disabled={feature.disabled} onClick={() => feature.setModal("morning")} />}
@@ -318,7 +318,7 @@ export function WritingReflectionHistory({ loading, enabledSlots }: { loading: b
         </form>
       </FeaturePanel> : null}
 
-      {enabled.has("JOURNAL") ? <FeaturePanel
+      {enabled.has("JOURNAL") && (!onlySlot || onlySlot === "JOURNAL") ? <FeaturePanel
         title={`睡前日记 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<BookOpenText size={17} />}
         action={<ExpandButton label="打开日记编辑" disabled={feature.disabled} onClick={() => feature.setModal("journal")} />}
@@ -329,7 +329,7 @@ export function WritingReflectionHistory({ loading, enabledSlots }: { loading: b
         </form>
       </FeaturePanel> : null}
 
-      {enabled.has("STOCK_REVIEW") ? <FeaturePanel
+      {enabled.has("STOCK_REVIEW") && (!onlySlot || onlySlot === "STOCK_REVIEW") ? <FeaturePanel
         title={`股市复盘 · ${formatDayLabel(feature.selectedDate)}`}
         icon={<TrendingUp size={17} />}
         action={<ExpandButton label="打开复盘编辑" disabled={feature.disabled} onClick={() => feature.setModal("review")} />}
