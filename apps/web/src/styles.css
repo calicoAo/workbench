@@ -497,7 +497,7 @@ select {
   .app-shell.sidebar-collapsed { @apply md:grid-cols-[60px_minmax(0,1fr)]; }
 
   .app-sidebar {
-    @apply hidden border-r border-white/70 bg-white/65 p-3 backdrop-blur-xl md:sticky md:top-0 md:flex md:h-screen md:flex-col;
+    @apply relative hidden border-r border-white/70 bg-white/65 p-3 backdrop-blur-xl md:sticky md:top-0 md:flex md:h-screen md:flex-col;
   }
 
   .app-brand {
@@ -512,14 +512,13 @@ select {
     @apply grid gap-1;
   }
 
-  .sidebar-toggle { @apply mb-3 flex h-9 items-center gap-2 rounded-card px-3 text-xs font-semibold text-soft hover:bg-white/80 hover:text-ink; }
+  .sidebar-toggle { @apply absolute right-[-12px] top-20 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-white text-soft shadow-glass hover:bg-mint-50 hover:text-mint-700; }
   .sidebar-collapsed .app-sidebar { @apply px-2; }
   .sidebar-collapsed .app-brand { @apply justify-center px-0; }
   .sidebar-collapsed .app-brand strong,
   .sidebar-collapsed .sidebar-toggle span,
   .sidebar-collapsed .app-sidebar .shell-link span,
   .sidebar-collapsed .shell-settings span { display: none; }
-  .sidebar-collapsed .sidebar-toggle,
   .sidebar-collapsed .app-sidebar .shell-link,
   .sidebar-collapsed .shell-settings { @apply justify-center px-0; }
 
@@ -559,6 +558,12 @@ select {
   .app-top-actions {
     @apply mr-32 flex min-w-0 items-center justify-end gap-2;
   }
+
+  .growth-header-link { @apply hidden min-w-28 items-center gap-1.5 rounded-card border border-white/80 bg-white/70 px-2 py-1 text-[10px] font-semibold text-ink transition hover:bg-mint-50 lg:inline-flex; }
+  .growth-header-level { @apply shrink-0 text-mint-700; }
+  .growth-header-track { @apply h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-mint-50; }
+  .growth-header-track i { @apply block h-full rounded-full bg-mint-500; }
+  .growth-header-link small { @apply shrink-0 text-[9px] font-normal text-soft; }
 
   .app-top-actions .writing-shortcut-wrap {
     @apply hidden lg:grid;
@@ -806,13 +811,18 @@ select {
   .review-handoff {
     @apply flex min-h-24 items-center justify-between gap-3 rounded-card border border-white/80 bg-white/70 p-3 shadow-glass;
   }
-  .review-handoff a { @apply rounded-card bg-ink px-3 py-2 text-xs font-semibold text-white; }
+  .review-handoff a { @apply rounded-card bg-mint-500 px-3 py-2 text-xs font-semibold text-white; }
+  .review-handoff a:hover { @apply bg-mint-700; }
   .review-handoff-actions { @apply flex flex-wrap items-center justify-end gap-2; }
   .utility-capture { @apply min-h-0 flex-wrap justify-start; }
   .writing-utility-actions { @apply flex flex-wrap gap-1; }
   .writing-utility-actions button { @apply min-h-9 rounded-card bg-white px-3 text-xs font-semibold text-mint-700; }
   .water-compact-actions { @apply grid grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-2; }
   .water-compact-actions label { @apply grid gap-1 text-[10px] text-soft; }
+  .water-cups { @apply mt-2 flex flex-wrap items-center gap-1; }
+  .water-cup { @apply text-soft/40; }
+  .water-cup.is-filled { @apply text-mint-500; }
+  .water-cup-extra { @apply ml-1 text-[11px] font-bold text-mint-700; }
 
   .execution-summary { @apply mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4; }
   .execution-summary span { @apply grid rounded-card bg-white/75 p-2 text-[10px] text-soft; }
@@ -903,6 +913,15 @@ select {
   .calendar-week-grid article.is-plan { @apply border-pink-300; }
   .calendar-week-grid article.is-actual { @apply border-mint-500; }
   .calendar-week-grid article span, .calendar-week-grid article small { @apply text-soft; }
+  .calendar-month-grid { @apply overflow-hidden rounded-card border border-white/80 bg-white/65; }
+  .calendar-month-weekdays { @apply grid grid-cols-7 border-b border-white/80 bg-white/55 text-center text-[10px] font-semibold text-soft; }
+  .calendar-month-weekdays span { @apply px-2 py-2; }
+  .calendar-month-grid > a { @apply grid min-h-20 content-start gap-1 border-b border-r border-white/70 p-2 text-left text-xs text-ink transition hover:bg-mint-50; }
+  .calendar-month-grid > a:nth-of-type(7n) { @apply border-r-0; }
+  .calendar-month-grid > a.is-selected { @apply bg-mint-50 ring-2 ring-inset ring-mint-300; }
+  .calendar-month-grid > a.is-outside { @apply bg-white/30 text-soft; }
+  .calendar-month-markers { @apply flex items-center gap-1 text-[10px] text-mint-700; }
+  .calendar-month-dot { @apply h-1.5 w-1.5 rounded-full bg-mint-500; }
   .timeline-block-actions { @apply flex shrink-0 gap-0.5; }
   .timeline-block-actions .ui-icon-button { @apply h-8 w-8; }
   .manual-complete-option { @apply mt-2 flex items-center gap-2 text-[11px] font-semibold; }
@@ -926,6 +945,20 @@ select {
   .writing-plugin-tabs { @apply flex max-w-full gap-1 overflow-x-auto rounded-card border border-white/80 bg-white/65 p-1; scrollbar-width: thin; }
   .writing-plugin-tab { @apply inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-card px-3 text-xs font-semibold text-soft transition hover:bg-white hover:text-ink; }
   .writing-plugin-tab.is-active { @apply bg-mint-100 text-mint-700; }
+  .writing-archive-route { @apply grid gap-4; }
+  .writing-archive-head { @apply flex items-start justify-between gap-3; }
+  .writing-archive-head h1 { @apply mt-1 text-2xl font-bold; }
+  .writing-archive-list { @apply grid gap-2; }
+  .writing-archive-item { @apply grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-card border border-white/80 bg-white/70 p-3 shadow-glass; }
+  .writing-archive-icon { @apply mt-0.5 flex h-8 w-8 items-center justify-center rounded-card bg-mint-50 text-mint-700; }
+  .writing-archive-content { @apply min-w-0; }
+  .writing-archive-content > div { @apply flex items-center gap-2 text-[10px] text-soft; }
+  .writing-archive-kind { @apply font-semibold text-mint-700; }
+  .writing-archive-content h2 { @apply mt-1 truncate text-sm font-semibold text-ink; }
+  .writing-archive-content p { @apply mt-1 line-clamp-2 text-xs leading-5 text-soft; }
+  .writing-archive-content small { @apply mt-1 inline-block text-[10px] text-soft; }
+  .writing-archive-empty { @apply grid justify-items-center gap-2 rounded-card border border-dashed border-white/80 bg-white/50 p-8 text-center text-soft; }
+  .writing-archive-empty h2 { @apply text-sm font-semibold text-ink; }
   .routines-grid { @apply grid gap-2.5 lg:grid-cols-2; }
   .routines-head { @apply flex items-start justify-between gap-4 rounded-card border border-white/75 bg-white/65 p-4 shadow-glass; }
   .routines-head h1 { @apply mt-0.5 text-lg font-bold; }
@@ -2294,11 +2327,12 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .inspiration-create { @apply grid gap-3; }
   .inspiration-create-head { @apply flex items-center justify-between gap-3; }
   .inspiration-create-head h2, .inspiration-tag-manager h2 { @apply text-sm font-bold; }
-  .inspiration-create-body { @apply min-h-36 resize-y; }
+  .inspiration-create-body { @apply min-h-36 resize-y rounded-card; }
   .inspiration-tag-manager { @apply grid gap-3; }
   .inspiration-tag-manager > header { @apply flex items-center justify-between gap-3; }
   .inspiration-tag-row { @apply grid items-center gap-2 border-t border-white/70 pt-2 sm:grid-cols-[minmax(100px,1fr)_auto_auto_auto_auto]; }
   .inspiration-tag-row input, .inspiration-tag-row select { @apply min-h-9 rounded-card border border-white/80 bg-white/80 px-2 text-xs; }
+  .inspiration-tag-row strong, .inspiration-tag-row small { @apply min-w-0 truncate; }
   .inspiration-tag-row button { @apply min-h-9 rounded-card border border-white/80 bg-white/80 px-2 text-xs; }
   .inspiration-dialog { @apply grid max-h-[calc(100dvh-32px)] gap-4 overflow-y-auto rounded-card border border-white/80 bg-white p-4 shadow-glass; width: min(560px, calc(100vw - 32px)); }
   .inspiration-dialog > header { @apply flex items-start justify-between gap-3; }

@@ -71,6 +71,17 @@ describe("WaterFeature workflow ownership", () => {
     expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(0);
   });
 
+  it("keeps the recommended eight-cup display while allowing extra cups", async () => {
+    const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
+    render(feature({ request: requestMock as FeatureProps["request"], record: { ...record, cups: 8 } }));
+
+    expect(screen.getByLabelText("饮水杯数 8 杯").querySelectorAll("svg")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("button", { name: "+1 杯" }));
+
+    await waitFor(() => expect(requestMock).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(9);
+  });
+
   it("reports a failed mutation without refreshing", async () => {
     const request = vi.fn(async () => { throw new Error("保存失败"); }) as FeatureProps["request"];
     const onError = vi.fn();

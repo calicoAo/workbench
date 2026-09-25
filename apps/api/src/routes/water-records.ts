@@ -15,14 +15,14 @@ const querySchema = z.object({
 
 const saveWaterSchema = z.object({
   waterDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  cups: z.number().int().min(0).max(8),
+  cups: z.number().int().min(0).max(127),
   targetCups: z.number().int().min(1).max(12).default(8)
 });
 
 function parseDrinkTimes(value?: string | null, fallback?: Date | null) {
   try {
     const parsed = JSON.parse(value ?? "[]");
-    if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string").slice(0, 12);
+    if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string").slice(0, 127);
   } catch {
     // fall back to the legacy single timestamp below
   }
@@ -84,4 +84,3 @@ export const waterRecordsRoute = new Hono()
     log.info({ userId: getCurrentUserId(c), waterDate: body.waterDate, cups: body.cups }, "[water_record_saved]");
     return ok(c, { waterDate: body.waterDate, cups: body.cups, targetCups: body.targetCups, lastDrinkAt, drinkTimes: values.drinkTimes, reward });
   });
-

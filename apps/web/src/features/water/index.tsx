@@ -1,4 +1,4 @@
-import { Droplets } from "lucide-react";
+import { Droplets, GlassWater } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../../shared/ui";
 
@@ -29,7 +29,7 @@ export type WaterTimelineItem = {
 };
 
 export async function recordWaterCups(request: Request, waterDate: string, cups: number) {
-  const nextCups = Math.max(0, Math.min(8, cups));
+  const nextCups = Math.max(0, Math.min(127, cups));
   await request("/api/water-records", {
     method: "POST",
     body: JSON.stringify({ waterDate, cups: nextCups, targetCups: 8 })
@@ -82,12 +82,16 @@ export function WaterFeature({
           <div className="h-3 overflow-hidden rounded-full border border-white/80 bg-white/70">
             <div className={`h-full rounded-full transition-all duration-500 ${plan.percent >= 100 ? "bg-mint-500" : "bg-pink-300"}`} style={{ width: `${plan.percent}%` }} />
           </div>
+          <div className="water-cups" aria-label={`饮水杯数 ${water.cups} 杯`}>
+            {Array.from({ length: 8 }, (_, index) => <GlassWater aria-hidden="true" className={`water-cup ${index < water.cups ? "is-filled" : ""}`} key={index} size={18} />)}
+            {water.cups > 8 ? <span className="water-cup-extra">+{water.cups - 8}</span> : null}
+          </div>
           <div className="mt-1.5 space-y-0.5 text-[10px] leading-4 text-soft">
             <p>{plan.lastDrinkText}</p>
             <p>{plan.rhythmText}</p>
           </div>
         </div>
-        <div className="water-compact-actions"><Button variant="primary" type="button" onClick={() => void saveCups(water.cups + 1)}>+1 杯</Button><label>修正杯数<input aria-label="手动修正喝水杯数" className="field" min="0" max="8" type="number" value={manualCups} onChange={(event) => setManualCups(event.target.value)} /></label><Button size="sm" type="button" onClick={() => void saveCups(Number(manualCups))}>保存</Button></div>
+        <div className="water-compact-actions"><Button variant="primary" type="button" onClick={() => void saveCups(water.cups + 1)}>+1 杯</Button><label>修正杯数<input aria-label="手动修正喝水杯数" className="field" min="0" max="127" type="number" value={manualCups} onChange={(event) => setManualCups(event.target.value)} /></label><Button size="sm" type="button" onClick={() => void saveCups(Number(manualCups))}>保存</Button></div>
       </div>
     </section>
   );

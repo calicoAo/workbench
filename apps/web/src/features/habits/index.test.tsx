@@ -67,7 +67,7 @@ describe("Habits", () => {
   it("keeps specialized life controls in their owning composition", async () => {
     const request = vi.fn(async (path: string) => path.startsWith("/api/habits/summary") ? summary : [habit]) as Request;
     render(<Feature request={request} />); await screen.findByText("阅读"); fireEvent.click(screen.getByRole("button", { name: "生活记录" }));
-    expect(await screen.findByText("专用生活组件")).toBeTruthy(); expect(screen.getByText("专用记录保持唯一真值")).toBeTruthy();
+    expect(await screen.findByText("专用生活组件")).toBeTruthy(); expect(screen.queryByText("专用记录保持唯一真值")).toBeNull();
   });
 
   it("hides archived definitions until explicitly requested", async () => {

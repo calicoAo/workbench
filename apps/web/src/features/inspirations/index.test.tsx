@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../../app/api";
@@ -26,6 +26,21 @@ describe("Writing inspiration library", () => {
     fireEvent.click(await screen.findByRole("button", { name: "#Agent" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(expect.stringContaining("tags=Agent")));
     expect(screen.getByText("查看原文")).toBeTruthy();
+  });
+
+  it("uses a filled heart for a favorited inspiration", async () => {
+    const request = vi.fn(async (path: string) => path.includes("inspiration-tags") ? { items: [tag] } : { items: [{ ...item, favorite: 1 }] }) as unknown as Request;
+    render(wrapper(<InspirationLibraryPage request={request} userId={7} selectedDate="2026-09-20" onError={vi.fn()} />));
+    const favorite = await screen.findByRole("button", { name: "取消收藏" });
+    expect(favorite.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
+  });
+
+  it("uses the archive command route without falling back to PUT", async () => {
+    const request = vi.fn(async (path: string) => path.includes("inspiration-tags") ? { items: [tag] } : { items: [{ ...item, archivedAt: null }] }) as unknown as Request;
+    render(wrapper(<InspirationLibraryPage request={request} userId={7} selectedDate="2026-09-20" onError={vi.fn()} />));
+    const card = (await screen.findByRole("heading", { name: "模型想法" })).closest("article");
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "归档" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/writing/inspirations/4/archive", expect.objectContaining({ method: "POST" })));
   });
 
   it("creates a direct inspiration while keeping tag creation explicit", async () => {

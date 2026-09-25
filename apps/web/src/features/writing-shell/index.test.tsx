@@ -19,6 +19,7 @@ describe("Writing Shell peer navigation", () => {
     render(<MemoryRouter><WritingShell userId={7} date="2026-09-25" activeId="journal" enabledSlots={["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"]}><p>content owner</p></WritingShell></MemoryRouter>);
     expect(screen.getByRole("tab", { name: "晨写" }).getAttribute("href")).toBe("/journal?date=2026-09-25&tab=morning");
     expect(screen.getByRole("tab", { name: "随手记" }).getAttribute("href")).toBe("/notes?date=2026-09-25");
+    expect(screen.getByRole("tab", { name: "归档" }).getAttribute("href")).toBe("/writing/archive?date=2026-09-25");
     expect(screen.getByText("content owner")).toBeTruthy();
   });
 

@@ -1,6 +1,7 @@
 import { Archive, BookOpenText, Lightbulb, NotebookPen, SunMedium, TrendingUp } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { NavLink } from "react-router";
+export { WritingArchivePage } from "./archive";
 
 export type WritingPluginId = "morning" | "journal" | "review" | "notes" | "inspirations" | "archive";
 export type WritingSlotKey = "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW";
@@ -34,7 +35,7 @@ export function createWritingPlugins(date: string, enabledSlots: string[] = []):
     ...slotPlugins,
     { id: "notes", label: "随手记", icon: "notes", order: 40, enabled: true, route: `/notes${dateQuery}` },
     { id: "inspirations", label: "灵感库", icon: "inspirations", order: 50, enabled: true, route: `/inspirations${dateQuery}` },
-    { id: "archive", label: "归档", icon: "archive", order: 60, enabled: true, route: `/insights${dateQuery}` }
+    { id: "archive", label: "归档", icon: "archive", order: 60, enabled: true, route: `/writing/archive${dateQuery}` }
   ];
   return plugins.sort((a, b) => a.order - b.order);
 }

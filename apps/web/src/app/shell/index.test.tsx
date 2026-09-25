@@ -121,6 +121,14 @@ describe("R1C router and AppShell", () => {
     expect(screen.getByRole("main")).toBeTruthy();
   });
 
+  it("opens the calendar month view without changing the selected date", async () => {
+    renderShell("/calendar?date=2026-09-19");
+    await screen.findByRole("heading", { name: "日历", level: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "月" }));
+    const monthGrid = await screen.findByRole("grid", { name: "月视图" });
+    expect(monthGrid.querySelector(".is-selected")?.getAttribute("href")).toBe("/calendar?date=2026-09-19");
+  });
+
   it("isolates date query caches", async () => {
     const { client } = renderShell("/tasks?date=2026-09-19");
     await screen.findByRole("heading", { name: "任务", level: 1 });
@@ -171,6 +179,32 @@ describe("R1C router and AppShell", () => {
     expect(await screen.findByRole("heading", { name: "我的成长" })).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "成长" })).toHaveLength(1);
     expect(document.querySelectorAll(".mobile-nav .shell-link")).toHaveLength(5);
+  });
+
+  it("keeps Writing actions inside the Writing surface and exposes the sidebar handle", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "今日" });
+    expect(document.querySelector(".app-top-actions .writing-shortcut-wrap")).toBeNull();
+    expect(screen.getByRole("button", { name: "收起侧栏" })).toBeTruthy();
+  });
+
+  it("keeps the hourly record in the fixed-width right utility column while moving it above the other cards", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "小时记录" });
+    const utility = document.querySelector(".today-utility");
+    expect(utility).toBeTruthy();
+    expect(utility?.querySelector("h2")?.textContent).toBe("喝水");
+    const headings = [...utility!.querySelectorAll("h2")].map((heading) => heading.textContent?.trim());
+    expect(headings.indexOf("小时记录")).toBeLessThan(headings.indexOf("睡眠"));
+    expect(utility?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
+  });
+
+  it("keeps Current Focus in the same main column as Today tasks", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "今日" });
+    const focus = document.querySelector(".current-focus");
+    expect(focus?.closest(".today-main")).toBeTruthy();
+    expect(focus?.closest(".today-utility")).toBeNull();
   });
 
   it("closes Quick Action on outside tap, Escape, action selection, and route change", async () => {
