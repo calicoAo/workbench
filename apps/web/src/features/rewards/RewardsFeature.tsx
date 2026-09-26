@@ -1,5 +1,6 @@
 import { Coins, Gift, Sparkles, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
+import { tx } from "../../app/i18n";
 
 export type Growth = { level: number; xpTotal: number; coins: number; xpInLevel: number; xpForNextLevel: number };
 export type RewardEvent = { id: number; reason: string; xpDelta: number; coinDelta: number; sourceType?: string; sourceId?: string; createdAt: string };
@@ -54,7 +55,7 @@ export function GrowthSummary({ growth }: { growth: Growth }) {
         </span>
       </div>
       <div className="top-growth-meta">
-        <span>经验 {growth.xpInLevel}/{growth.xpForNextLevel}</span>
+        <span>{tx("经验")} {growth.xpInLevel}/{growth.xpForNextLevel}</span>
         <span>{percent}%</span>
       </div>
       <div className="top-growth-track">
@@ -78,7 +79,7 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
     void request<RewardsSnapshot>("/api/rewards")
       .then(setSnapshot)
       .catch((error: unknown) => {
-        onError(error instanceof Error ? error.message : "奖励中心加载失败", "奖励中心加载失败");
+        onError(error instanceof Error ? error.message : tx("奖励中心加载失败"), tx("奖励中心加载失败"));
       });
   }, [request, onError]);
 
@@ -86,7 +87,7 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
     try {
       await action();
     } catch (error) {
-      onError(error instanceof Error ? error.message : "操作失败", "操作没有成功");
+      onError(error instanceof Error ? error.message : tx("操作失败"), tx("操作没有成功"));
     }
   }
 
@@ -131,16 +132,16 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-mint-700"><Sparkles size={17} /></span>
-            <h2 className="section-title">成长进度</h2>
+            <h2 className="section-title">{tx("成长进度")}</h2>
           </div>
         </div>
         <div className="growth-hero">
           <div>
-            <p className="text-xs text-soft">当前等级</p>
+            <p className="text-xs text-soft">{tx("当前等级")}</p>
             <h2 className="mt-1 text-2xl font-bold">Lv.{growth?.level ?? 1}</h2>
           </div>
           <div className="text-right">
-            <p className="text-xs text-soft">金币</p>
+            <p className="text-xs text-soft">{tx("金币")}</p>
             <p className="mt-1 inline-flex items-center gap-1 text-2xl font-bold text-amber-500">
               <Coins size={20} />
               {growth?.coins ?? 0}
@@ -149,7 +150,7 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
         </div>
         <div className="mt-3">
           <div className="mb-1 flex justify-between text-[11px] text-soft">
-            <span>经验</span>
+            <span>{tx("经验")}</span>
             <span>{growth?.xpInLevel ?? 0}/{growth?.xpForNextLevel ?? 50}</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-white/70">
@@ -159,20 +160,20 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
 
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           <section className="reward-list">
-            <h3 className="mb-2 text-xs font-semibold text-ink">最近获得</h3>
+            <h3 className="mb-2 text-xs font-semibold text-ink">{tx("最近获得")}</h3>
             {events.length ? (
               events.map((event) => (
                 <div className="reward-row" key={event.id}>
                   <span>{event.reason}</span>
-                  <span className="text-right text-mint-700">+{event.xpDelta} XP {event.coinDelta ? `+${event.coinDelta} 金币` : ""}</span>
+                  <span className="text-right text-mint-700">+{event.xpDelta} XP {event.coinDelta ? tx("+{value0} 金币", { value0: event.coinDelta }) : ""}</span>
                 </div>
               ))
             ) : (
-              <p className="rounded-card bg-white/50 p-3 text-sm text-soft">完成一次记录后，这里会亮起来。</p>
+              <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{tx("完成一次记录后，这里会亮起来。")}</p>
             )}
           </section>
           <section className="reward-list">
-            <h3 className="mb-2 text-xs font-semibold text-ink">最近兑换</h3>
+            <h3 className="mb-2 text-xs font-semibold text-ink">{tx("最近兑换")}</h3>
             {redemptions.length ? (
               redemptions.map((item) => (
                 <div className="reward-row" key={item.id}>
@@ -181,7 +182,7 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
                 </div>
               ))
             ) : (
-              <p className="rounded-card bg-white/50 p-3 text-sm text-soft">还没有兑换奖励。</p>
+              <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{tx("还没有兑换奖励。")}</p>
             )}
           </section>
         </div>
@@ -191,14 +192,14 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-mint-700"><Gift size={17} /></span>
-            <h2 className="section-title">奖励中心</h2>
+            <h2 className="section-title">{tx("奖励中心")}</h2>
           </div>
         </div>
         <form className="space-y-2" onSubmit={createReward}>
-          <input className="field" placeholder="奖励名称，比如：买一杯喜欢的饮料" value={name} onChange={(event) => setName(event.target.value)} />
-          <input className="field" min={1} type="number" placeholder="金币价格" value={cost} onChange={(event) => setCost(event.target.value)} />
-          <textarea className="journal-input min-h-20" placeholder="说明，可不填" value={description} onChange={(event) => setDescription(event.target.value)} />
-          <button className="primary-button w-full" type="submit">添加奖励</button>
+          <input className="field" placeholder={tx("奖励名称，比如：买一杯喜欢的饮料")} value={name} onChange={(event) => setName(event.target.value)} />
+          <input className="field" min={1} type="number" placeholder={tx("金币价格")} value={cost} onChange={(event) => setCost(event.target.value)} />
+          <textarea className="journal-input min-h-20" placeholder={tx("说明，可不填")} value={description} onChange={(event) => setDescription(event.target.value)} />
+          <button className="primary-button w-full" type="submit">{tx("添加奖励")}</button>
         </form>
 
         <div className="mt-3 space-y-2">
@@ -214,17 +215,15 @@ export function RewardsFeature({ request, initialGrowth, initialEvents, onError,
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button className="icon-button w-auto px-3 text-[11px]" type="button" aria-label={`兑换${item.name}`} onClick={() => redeemReward(item)} disabled={(growth?.coins ?? 0) < item.cost}>
-                    兑换
-                  </button>
-                  <button className="icon-button h-8 w-8" type="button" aria-label="删除奖励" onClick={() => deleteReward(item)}>
+                  <button className="icon-button w-auto px-3 text-[11px]" type="button" aria-label={tx("兑换{value0}", { value0: item.name })} onClick={() => redeemReward(item)} disabled={(growth?.coins ?? 0) < item.cost}>{tx("兑换")}</button>
+                  <button className="icon-button h-8 w-8" type="button" aria-label={tx("删除奖励")} onClick={() => deleteReward(item)}>
                     <Trash2 size={13} />
                   </button>
                 </div>
               </article>
             ))
           ) : (
-            <p className="rounded-card bg-white/50 p-3 text-sm text-soft">先添加一个想兑换的小奖励。</p>
+            <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{tx("先添加一个想兑换的小奖励。")}</p>
           )}
         </div>
       </section>

@@ -8,6 +8,7 @@ import {
   type FinanceAccount,
   type FinanceAccountType,
 } from "./model";
+import { tx } from "../../app/i18n";
 
 export function AccountDialog({
   account,
@@ -74,7 +75,7 @@ export function AccountDialog({
       await onSaved();
       onClose();
     } catch (error) {
-      onError(message(error), account ? "账户没有更新" : "账户没有创建");
+      onError(message(error), account ? tx("账户没有更新") : tx("账户没有创建"));
     } finally {
       setPending(false);
     }
@@ -94,7 +95,7 @@ export function AccountDialog({
       await onSaved();
       onClose();
     } catch (error) {
-      onError(message(error), "账户状态没有更新");
+      onError(message(error), tx("账户状态没有更新"));
     } finally {
       setPending(false);
     }
@@ -109,16 +110,14 @@ export function AccountDialog({
       <form className="time-modal finance-dialog" onSubmit={submit}>
         <header>
           <div>
-            <p className="route-eyebrow">{account ? "账户设置" : "建立账本"}</p>
-            <h2>{account ? account.name : "创建账户"}</h2>
+            <p className="route-eyebrow">{account ? tx("账户设置") : tx("建立账本")}</p>
+            <h2>{account ? account.name : tx("创建账户")}</h2>
           </div>
-          <IconButton label="关闭" type="button" onClick={onClose}>
+          <IconButton label={tx("关闭")} type="button" onClick={onClose}>
             <X size={17} />
           </IconButton>
         </header>
-        <label>
-          账户名称
-          <input
+        <label>{tx("账户名称")}<input
             autoFocus
             required
             className="field"
@@ -130,9 +129,7 @@ export function AccountDialog({
           />
         </label>
         <div className="finance-form-grid">
-          <label>
-            账户类型
-            <select
+          <label>{tx("账户类型")}<select
               className="field"
               disabled={Boolean(account)}
               value={draft.type}
@@ -145,21 +142,17 @@ export function AccountDialog({
             >
               {Object.entries(accountTypeLabel).map(([value, label]) => (
                 <option value={value} key={value}>
-                  {label}
+                  {tx(label)}
                 </option>
               ))}
             </select>
           </label>
-          <label>
-            币种
-            <input className="field" disabled value="CNY" />
+          <label>{tx("币种")}<input className="field" disabled value="CNY" />
           </label>
         </div>
         {!account ? (
           <div className="finance-form-grid">
-            <label>
-              期初日期
-              <input
+            <label>{tx("期初日期")}<input
                 required
                 className="field"
                 type="date"
@@ -169,19 +162,17 @@ export function AccountDialog({
                 }
               />
             </label>
-            <label>
-              期初余额（元）
-              <input
+            <label>{tx("期初余额（元）")}<input
                 required
                 className="field"
                 inputMode="decimal"
-                aria-label="期初余额"
+                aria-label={tx("期初余额")}
                 value={draft.openingBalance}
                 onChange={(event) =>
                   setDraft({ ...draft, openingBalance: event.target.value })
                 }
               />
-              <small>期初只在创建时写入；后续更正将在下一阶段提供。</small>
+              <small>{tx("期初只在创建时写入；后续更正将在下一阶段提供。")}</small>
             </label>
           </div>
         ) : null}
@@ -192,9 +183,7 @@ export function AccountDialog({
             onChange={(event) =>
               setDraft({ ...draft, includeInOverview: event.target.checked })
             }
-          />
-          计入总览净值
-        </label>
+          />{tx("计入总览净值")}</label>
         <footer>
           {account ? (
             <Button
@@ -204,18 +193,14 @@ export function AccountDialog({
               onClick={() => void archive()}
             >
               <Archive size={15} />
-              {account.archivedAt ? "恢复账户" : "归档账户"}
+              {account.archivedAt ? tx("恢复账户") : tx("归档账户")}
             </Button>
           ) : (
             <span />
           )}
           <div>
-            <Button type="button" onClick={onClose}>
-              取消
-            </Button>
-            <Button variant="primary" loading={pending} type="submit">
-              保存
-            </Button>
+            <Button type="button" onClick={onClose}>{tx("取消")}</Button>
+            <Button variant="primary" loading={pending} type="submit">{tx("保存")}</Button>
           </div>
         </footer>
       </form>
@@ -224,5 +209,5 @@ export function AccountDialog({
 }
 
 function message(error: unknown) {
-  return error instanceof Error ? error.message : "操作失败";
+  return error instanceof Error ? error.message : tx("操作失败");
 }

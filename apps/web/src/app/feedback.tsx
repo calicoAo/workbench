@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { Coins, Gift, Sparkles, X } from "lucide-react";
 import type { RewardGrant } from "../features/rewards";
+import { tx } from "./i18n";
 
 type TaskSummary = { id: number; title: string };
 type Popup =
@@ -74,16 +75,16 @@ function FeedbackPopup({ popup, onClose }: { popup: Popup; onClose: () => void }
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="feedback-icon">{popup.kind === "reward" ? <Gift size={22} /> : <Sparkles size={22} />}</span>
-              <div><h3 className="text-base font-bold">{popup.title}</h3><p className="mt-1 text-xs leading-5 text-soft">{popup.message}</p></div>
+              <div><h3 className="text-base font-bold">{tx(popup.title)}</h3><p className="mt-1 text-xs leading-5 text-soft">{tx(popup.message)}</p></div>
             </div>
-            <button className="icon-button h-8 w-8 shrink-0" type="button" aria-label="关闭" onClick={onClose}><X size={15} /></button>
+            <button className="icon-button h-8 w-8 shrink-0" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button>
           </div>
           {popup.kind === "reward" && (hasReward ? (
-            <div className="grid grid-cols-2 gap-2"><div className="reward-pop-card"><Sparkles size={17} /><span>+{totalXp} XP</span></div><div className="reward-pop-card"><Coins size={17} /><span>+{totalCoins} 金币</span></div></div>
-          ) : <p className="rounded-card border border-white/80 bg-white/65 p-3 text-xs text-soft">这次奖励之前已经发放过，不会重复计算。</p>)}
+            <div className="grid grid-cols-2 gap-2"><div className="reward-pop-card"><Sparkles size={17} /><span>+{totalXp} XP</span></div><div className="reward-pop-card"><Coins size={17} /><span>+{totalCoins} {tx("金币")}</span></div></div>
+          ) : <p className="rounded-card border border-white/80 bg-white/65 p-3 text-xs text-soft">{tx("这次奖励之前已经发放过，不会重复计算。")}</p>)}
           {popup.kind === "confirm" ? (
-            <div className="mt-4 grid grid-cols-2 gap-2"><button className="icon-button w-full px-4" type="button" aria-label="取消" onClick={onClose}>取消</button><button className="primary-button w-full" type="button" onClick={confirm}>{popup.confirmText}</button></div>
-          ) : <button className="primary-button mt-4 w-full" type="button" onClick={onClose}>收下</button>}
+            <div className="mt-4 grid grid-cols-2 gap-2"><button className="icon-button w-full px-4" type="button" aria-label={tx("取消")} onClick={onClose}>{tx("取消")}</button><button className="primary-button w-full" type="button" onClick={confirm}>{popup.confirmText}</button></div>
+          ) : <button className="primary-button mt-4 w-full" type="button" onClick={onClose}>{tx("收下")}</button>}
         </article>
       </div>
     </div>,

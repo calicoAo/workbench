@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
+import { tx } from "../../app/i18n";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -16,7 +17,7 @@ export function iconButtonClass({ size = "md", className }: { size?: ButtonSize;
 }
 
 export function IconButton({ label, size = "md", className, children, ...props }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { label: string; size?: ButtonSize }) {
-  return <button className={iconButtonClass({ size, className })} aria-label={label} title={props.title ?? label} {...props}><span className="ui-icon-button-visual" aria-hidden="true">{children}</span></button>;
+  return <button className={iconButtonClass({ size, className })} aria-label={tx(label)} title={props.title ?? label} {...props}><span className="ui-icon-button-visual" aria-hidden="true">{children}</span></button>;
 }
 
 export function Badge({ tone = "neutral", className, ...props }: HTMLAttributes<HTMLSpanElement> & { tone?: "neutral" | "success" | "warning" | "danger" }) {

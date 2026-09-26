@@ -9,6 +9,7 @@ import { EditTaskWorkflow } from "./edit-task";
 import { type Confirm, type ProjectOption, type Request, type Schedule, type Task, type TimerSession, difficultyLabel, formatDateTime, perform } from "./model";
 import { SelectDailyTasksWorkflow } from "./select-daily-tasks";
 import { CategoryOptions, CategoryTag, CloseButton, EmptyText, ModalPortal } from "./task-ui";
+import { tx } from "../../app/i18n";
 
 export { BountyBoard } from "./bounty-board";
 export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskDetailPayload, type TaskSnapshot } from "./integration";
@@ -199,18 +200,15 @@ export function TasksFeature({
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <span className="text-mint-700"><CheckCircle2 size={17} /></span>
-          <h2 className="section-title">今日悬赏</h2>
+          <h2 className="section-title">{tx("今日悬赏")}</h2>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" type="button" aria-label="查看已完成任务" onClick={() => setCompletedOpen(true)}>
-            <CheckCircle2 size={14} />已完成
-          </Button>
-          <Button data-guide-anchor="task.accept" variant="secondary" size="sm" type="button" aria-label="接取今日任务" onClick={openSelector}>
-            <Gift size={14} />接取
-          </Button>
+          <Button variant="ghost" size="sm" type="button" aria-label={tx("查看已完成任务")} onClick={() => setCompletedOpen(true)}>
+            <CheckCircle2 size={14} />{tx("已完成")}</Button>
+          <Button data-guide-anchor="task.accept" variant="secondary" size="sm" type="button" aria-label={tx("接取今日任务")} onClick={openSelector}>
+            <Gift size={14} />{tx("接取")}</Button>
           <Button data-guide-anchor="task.publish" variant="primary" size="sm" type="button" onClick={openCreate}>
-            <Plus size={14} />新增
-          </Button>
+            <Plus size={14} />{tx("新增")}</Button>
         </div>
       </div>
 
@@ -226,11 +224,11 @@ export function TasksFeature({
       )}
 
       <div className="space-y-2 pr-1">
-        {loading && <EmptyText text="加载中..." />}
-        {!loading && !tasks.length && <EmptyText text="任务池还没有任务，先添加一个悬赏。" />}
-        {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text="今天还没有接取任务，点击上方“接取悬赏”开始选择。" />}
+        {loading && <EmptyText text={tx("加载中...")} />}
+        {!loading && !tasks.length && <EmptyText text={tx("任务池还没有任务，先添加一个悬赏。")} />}
+        {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text={tx("今天还没有接取任务，点击上方“接取悬赏”开始选择。")} />}
         {!!dailyOrderedTasks.length && (
-          <><TaskSection title="今日重点" count={focusedTasks.length}>{focusedTasks.length ? focusedTasks.map(renderRow) : <EmptyText text="还没有设置重点；可在接取面选择最多 3 项。" />}</TaskSection><TaskSection title="其他已接取" count={otherTasks.length}>{otherTasks.length ? otherTasks.map(renderRow) : <EmptyText text="暂无其他已接取悬赏。" />}</TaskSection>{completedToday.length ? <TaskSection title="已完成" count={completedToday.length}>{completedToday.map(renderRow)}</TaskSection> : null}</>
+          <><TaskSection title={tx("今日重点")} count={focusedTasks.length}>{focusedTasks.length ? focusedTasks.map(renderRow) : <EmptyText text={tx("还没有设置重点；可在接取面选择最多 3 项。")} />}</TaskSection><TaskSection title={tx("其他已接取")} count={otherTasks.length}>{otherTasks.length ? otherTasks.map(renderRow) : <EmptyText text={tx("暂无其他已接取悬赏。")} />}</TaskSection>{completedToday.length ? <TaskSection title={tx("已完成")} count={completedToday.length}>{completedToday.map(renderRow)}</TaskSection> : null}</>
         )}
       </div>
     </section>
@@ -303,18 +301,18 @@ function CompletedTasksModal({ tasks, categories, rewardsByTaskId, onClose }: {
   return (
     <ModalPortal onClose={onClose}>
       <section className="task-selection-modal">
-        <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">已完成任务</p><h3 className="text-sm font-semibold">完成记录</h3></div><CloseButton onClose={onClose} /></div>
+        <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{tx("已完成任务")}</p><h3 className="text-sm font-semibold">{tx("完成记录")}</h3></div><CloseButton onClose={onClose} /></div>
         <div className="task-pool-list">
           {tasks.length ? tasks.map((task) => {
             const category = task.categoryId ? categoryById.get(task.categoryId) : null;
             const reward = rewardsByTaskId.get(task.id);
             return (
               <article className="completed-task-row" key={task.id}>
-                <span className="task-pool-line"><strong>{task.title}</strong>{category ? <CategoryTag category={category} /> : <span className="task-pool-empty-category">未分类</span>}<span className="task-pool-inline-meta">完成 {formatDateTime(task.completedAt)}</span><span className="completed-reward-pill">{reward ? `+${reward.xp} XP +${reward.coins} 金币` : "未记录奖励"}</span></span>
-                {task.completionNote?.trim() ? <p className="mt-1 truncate text-[10px] text-soft" title={task.completionNote}>感想：{task.completionNote}</p> : null}
+                <span className="task-pool-line"><strong>{task.title}</strong>{category ? <CategoryTag category={category} /> : <span className="task-pool-empty-category">{tx("未分类")}</span>}<span className="task-pool-inline-meta">{tx("完成")} {formatDateTime(task.completedAt)}</span><span className="completed-reward-pill">{reward ? tx("+{value0} XP +{value1} 金币", { value0: reward.xp, value1: reward.coins }) : tx("未记录奖励")}</span></span>
+                {task.completionNote?.trim() ? <p className="mt-1 truncate text-[10px] text-soft" title={task.completionNote}>{tx("感想：")}{task.completionNote}</p> : null}
               </article>
             );
-          }) : <EmptyText text="还没有已完成任务。" />}
+          }) : <EmptyText text={tx("还没有已完成任务。")} />}
         </div>
       </section>
     </ModalPortal>
@@ -326,16 +324,16 @@ function TaskDimensionTabs({ dimensions, active, allCount, uncategorizedCount, d
   uncategorizedCount: number; dimensionCounts: Map<DimensionKey, number>; onChange: (value: TaskCategoryFilter) => void;
 }) {
   return (
-    <div className="task-tabs" aria-label="能力维度筛选">
-      <FilterChip active={active === "all"} count={allCount} onClick={() => onChange("all")}>全部</FilterChip>
-      {dimensions.map((dimension) => <FilterChip active={active === dimension.key} count={dimensionCounts.get(dimension.key) ?? 0} dotColor={dimension.color} key={dimension.key} onClick={() => onChange(dimension.key)}>{dimension.label}</FilterChip>)}
-      {uncategorizedCount ? <FilterChip active={active === "none"} count={uncategorizedCount} onClick={() => onChange("none")}>未分类</FilterChip> : null}
+    <div className="task-tabs" aria-label={tx("能力维度筛选")}>
+      <FilterChip active={active === "all"} count={allCount} onClick={() => onChange("all")}>{tx("全部")}</FilterChip>
+      {dimensions.map((dimension) => <FilterChip active={active === dimension.key} count={dimensionCounts.get(dimension.key) ?? 0} dotColor={dimension.color} key={dimension.key} onClick={() => onChange(dimension.key)}>{tx(dimension.label)}</FilterChip>)}
+      {uncategorizedCount ? <FilterChip active={active === "none"} count={uncategorizedCount} onClick={() => onChange("none")}>{tx("未分类")}</FilterChip> : null}
     </div>
   );
 }
 
 function TaskSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  return <section className="task-section"><div className="task-section-head"><span>{title}</span><Badge>{count}</Badge></div><div className="space-y-2">{children}</div></section>;
+  return <section className="task-section"><div className="task-section-head"><span>{tx(title)}</span><Badge>{count}</Badge></div><div className="space-y-2">{children}</div></section>;
 }
 
 function TaskRow(props: {
@@ -363,33 +361,33 @@ function TaskRow(props: {
     <div className={`task-row ${props.activeTimer ? "task-row-active" : ""} ${props.dragging ? "task-row-dragging" : ""} ${props.dragOver ? "task-row-drop" : ""}`} onDragEnd={props.onDragEnd} onDragEnter={(event) => { event.preventDefault(); props.onDragEnter(); }} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => { event.preventDefault(); props.onDrop(); }}>
       <div className="task-row-main">
         <span className="task-row-leading">
-          <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title="拖拽排序"><GripVertical size={16} /></span>
-          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label="重要标记" onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
-          <label className="task-check-target"><input aria-label={`完成${props.task.title}`} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
+          <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title={tx("拖拽排序")}><GripVertical size={16} /></span>
+          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label={tx("重要标记")} onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
+          <label className="task-check-target"><input aria-label={tx("完成{value0}", { value0: props.task.title })} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
         </span>
         <span className="task-row-copy">
-          <span className="task-row-heading"><span className={`task-title ${props.task.status === 2 ? "text-soft line-through" : ""}`}>{props.task.title}</span><span className="task-row-desktop-meta"><span className="task-created-inline">创建 {formatDateTime(props.task.createdAt)}</span>{props.category ? <CategoryTag category={props.category} /> : null}<Badge tone="warning">{difficultyLabel(props.task.difficulty)}</Badge></span></span>
-          <span className="task-row-mobile-meta"><strong>{props.activeTimer ? `${props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · ${elapsedText(props.activeTimer.startTime)}` : props.task.status === 2 ? "已完成" : "待执行"}</strong><span>{props.category?.name ?? "未分类"}</span></span>
+          <span className="task-row-heading"><span className={`task-title ${props.task.status === 2 ? "text-soft line-through" : ""}`}>{props.task.title}</span><span className="task-row-desktop-meta"><span className="task-created-inline">{tx("创建")} {formatDateTime(props.task.createdAt)}</span>{props.category ? <CategoryTag category={props.category} /> : null}<Badge tone="warning">{difficultyLabel(props.task.difficulty)}</Badge></span></span>
+          <span className="task-row-mobile-meta"><strong>{props.activeTimer ? `${props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · ${elapsedText(props.activeTimer.startTime)}` : props.task.status === 2 ? tx("已完成") : tx("待执行")}</strong><span>{props.category?.name ?? tx("未分类")}</span></span>
           <span className="task-row-detail-stack">
-            <span className="task-meta">{props.plannedSchedule ? `${props.plannedSchedule.startTime.slice(0, 5)}-${props.plannedSchedule.endTime.slice(0, 5)} · 安排` : "未安排时段"}</span>
-            {props.task.description?.trim() ? <span className="task-meta" title={props.task.description}>详情：{props.task.description}</span> : null}
-            {estimatedReward ? <span className="task-reward-estimate">预计 +{estimatedReward.xp} XP +{estimatedReward.coins} 金币</span> : null}
-            {props.task.dueAt ? <span className="task-meta">截止 {formatDateTime(props.task.dueAt)}</span> : null}
-            <span className="task-progress-line"><button className="task-progress-track" type="button" aria-label="编辑任务完成百分比" title={`进度 ${props.task.progressPercent}%，点击编辑`} onClick={() => setEditingProgress(true)}><span className="task-progress-fill" style={{ width: `${props.task.progressPercent}%` }} /></button>{editingProgress ? <input className="field task-progress-input" type="number" min={0} max={100} defaultValue={props.task.progressPercent} autoFocus aria-label="任务完成百分比" onBlur={(event) => saveProgress(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") setEditingProgress(false); }} /> : null}</span>
+            <span className="task-meta">{props.plannedSchedule ? tx("{value0}-{value1} · 安排", { value0: props.plannedSchedule.startTime.slice(0, 5), value1: props.plannedSchedule.endTime.slice(0, 5) }) : tx("未安排时段")}</span>
+            {props.task.description?.trim() ? <span className="task-meta" title={props.task.description}>{tx("详情：")}{props.task.description}</span> : null}
+            {estimatedReward ? <span className="task-reward-estimate">{tx("预计 +")}{estimatedReward.xp} XP +{estimatedReward.coins} {tx("金币")}</span> : null}
+            {props.task.dueAt ? <span className="task-meta">{tx("截止")} {formatDateTime(props.task.dueAt)}</span> : null}
+            <span className="task-progress-line"><button className="task-progress-track" type="button" aria-label={tx("编辑任务完成百分比")} title={tx("进度 {value0}%，点击编辑", { value0: props.task.progressPercent })} onClick={() => setEditingProgress(true)}><span className="task-progress-fill" style={{ width: `${props.task.progressPercent}%` }} /></button>{editingProgress ? <input className="field task-progress-input" type="number" min={0} max={100} defaultValue={props.task.progressPercent} autoFocus aria-label={tx("任务完成百分比")} onBlur={(event) => saveProgress(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") setEditingProgress(false); }} /> : null}</span>
           </span>
         </span>
       </div>
       <details className="task-row-more">
-        <summary aria-label="更多任务操作" title="更多任务操作"><Ellipsis size={19} /></summary>
+        <summary aria-label={tx("更多任务操作")} title={tx("更多任务操作")}><Ellipsis size={19} /></summary>
         <div>
-          <button type="button" aria-label="在更多菜单中编辑任务" onClick={props.onEdit}><Pencil size={15} />编辑任务</button>
-          <label>能力分类<select aria-label="移动端修改事件类型" value={props.task.categoryId ?? ""} onChange={(event) => props.onCategoryChange(event.target.value ? Number(event.target.value) : null)}><option value="">未分类</option><CategoryOptions categories={props.categories} /></select></label>
-          {props.task.status === 2 ? null : <button className="danger-command" type="button" onClick={props.onCancel}><X size={15} />取消今日</button>}
+          <button type="button" aria-label={tx("在更多菜单中编辑任务")} onClick={props.onEdit}><Pencil size={15} />{tx("编辑任务")}</button>
+          <label>{tx("能力分类")}<select aria-label={tx("移动端修改事件类型")} value={props.task.categoryId ?? ""} onChange={(event) => props.onCategoryChange(event.target.value ? Number(event.target.value) : null)}><option value="">{tx("未分类")}</option><CategoryOptions categories={props.categories} /></select></label>
+          {props.task.status === 2 ? null : <button className="danger-command" type="button" onClick={props.onCancel}><X size={15} />{tx("取消今日")}</button>}
         </div>
       </details>
       <div className="task-row-controls">
         {props.activeTimer ? <Badge tone="success" className="task-row-execution-badge">{props.activeTimer.status === 0 ? "RUNNING" : "PAUSED"} · {elapsedText(props.activeTimer.startTime)}</Badge> : null}
-        {props.task.status < 2 && !props.activeTimer ? <IconButton data-guide-anchor="task.start" data-guide-task-id={props.task.id} size="sm" className="task-row-primary-action" label="开始计时" onClick={props.onStart}><Play size={16} /></IconButton> : null}
+        {props.task.status < 2 && !props.activeTimer ? <IconButton data-guide-anchor="task.start" data-guide-task-id={props.task.id} size="sm" className="task-row-primary-action" label={tx("开始计时")} onClick={props.onStart}><Play size={16} /></IconButton> : null}
       </div>
     </div>
   );

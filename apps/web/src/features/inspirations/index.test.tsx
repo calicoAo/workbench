@@ -5,17 +5,27 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../../app/api";
+import { I18nProvider } from "../../app/i18n";
 import { InspirationLibraryPage, InspirationWritingPanel, QuickNoteInspirationDialog } from ".";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 const tag = { id: 1, name: "Agent", normalizedName: "agent", usageCount: 1 };
 const item = { id: 4, quickNoteId: 8, favorite: 0, pinned: 0, archivedAt: null, version: 1, createdAt: "2026-09-20T00:00:00.000Z", updatedAt: "2026-09-20T00:00:00.000Z", note: { id: 8, title: "模型想法", content: "保留这条想法", noteDate: "2026-09-20", projectId: null, version: 1 }, tags: [tag] };
 function wrapper(children: React.ReactNode) {
-  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>;
+  return <I18nProvider><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider></I18nProvider>;
 }
 
 describe("Writing inspiration library", () => {
+  it("keeps user-authored tag names unchanged in English", async () => {
+    localStorage.setItem("workbench:locale", "en");
+    const userTag = { ...tag, name: "设置", normalizedName: "设置" };
+    const request = vi.fn(async (path: string) => path.includes("inspiration-tags") ? { items: [userTag] } : { items: [{ ...item, tags: [userTag] }] }) as unknown as Request;
+    render(wrapper(<InspirationLibraryPage request={request} userId={7} selectedDate="2026-09-20" onError={vi.fn()} />));
+    expect(await screen.findByText("#设置")).toBeTruthy();
+    expect(screen.queryByText("#Settings")).toBeNull();
+  });
+
   it("lists, searches, and applies an AND tag filter", async () => {
     const requestMock = vi.fn(async (path: string) => path.includes("inspiration-tags") ? { items: [tag] } : { items: [item] });
     const request = requestMock as unknown as Request;

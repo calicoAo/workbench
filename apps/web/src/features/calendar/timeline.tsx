@@ -1,5 +1,6 @@
 import { Droplets, Moon, Pencil, Trash2 } from "lucide-react";
 import { IconButton } from "../../shared/ui";
+import { tx } from "../../app/i18n";
 
 export type Schedule = {
   id: number;
@@ -65,7 +66,7 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
         const top = timelineTopPercent(tick.minute);
         return (
           <div key={`${tick.minute}-${tick.label}`} className={`timeline-hour ${"compressed" in tick && tick.compressed ? "timeline-hour-compressed" : ""}`} style={{ top: `${top}%` }}>
-            <span>{tick.label}</span>
+            <span>{tx(tick.label)}</span>
           </div>
         );
       })}
@@ -80,7 +81,7 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
           <div
             key={item.id}
             className={`timeline-block ${short ? "timeline-block-short" : ""} ${laneCount > 1 ? "timeline-block-overlap" : ""} ${planned ? "timeline-block-planned" : "timeline-block-actual"} ${sleepBlock ? "timeline-block-sleep" : ""}`}
-            title={[`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`, item.title, item.note ? `备注：${item.note}` : ""].filter(Boolean).join("\n")}
+            title={[`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`, item.title, item.note ? tx("备注：{value0}", { value0: item.note }) : ""].filter(Boolean).join("\n")}
             style={{
               top: `${top}%`,
               height: `max(${height}%, ${short ? 28 : 34}px)`,
@@ -96,7 +97,7 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
               </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
             </div>
-            <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={`${sleepBlock || (item.source !== 1 && item.actualTimeClass !== 2) ? "编辑" : "查看"}${sourceText(item)}`} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}{!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <IconButton size="sm" className="timeline-delete" label="删除时间记录" onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton> : null}</span>
+            <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={tx("{value0}{value1}", { value0: sleepBlock || (item.source !== 1 && item.actualTimeClass !== 2) ? tx("编辑") : tx("查看"), value1: sourceText(item) })} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}{!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <IconButton size="sm" className="timeline-delete" label={tx("删除时间记录")} onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton> : null}</span>
           </div>
         );
       })}
@@ -179,11 +180,11 @@ function layoutTimelineBlocks(items: TimelineItem[], dayStart: number, dayEnd: n
 }
 
 function sourceText(item: TimelineItem) {
-  if (item.marker === "sleep") return "睡眠";
-  if (item.kind === 0) return "计划";
-  if (item.source === 1) return "计时";
-  if (item.actualTimeClass === 2) return "历史实际";
-  return "补录";
+  if (item.marker === "sleep") return tx("睡眠");
+  if (item.kind === 0) return tx("计划");
+  if (item.source === 1) return tx("计时");
+  if (item.actualTimeClass === 2) return tx("历史实际");
+  return tx("补录");
 }
 
 function timeToMinutes(value: string) {

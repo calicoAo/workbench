@@ -1,3 +1,4 @@
+import { getActiveLocale, tx } from "../../app/i18n";
 import type { RewardGrant } from "../rewards";
 
 export type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -56,7 +57,7 @@ export async function perform(onError: (message: string, title?: string) => void
   try {
     await action();
   } catch (error) {
-    onError(error instanceof Error ? error.message : "操作失败", "操作没有成功");
+    onError(error instanceof Error ? error.message : tx("操作失败"), tx("操作没有成功"));
   }
 }
 
@@ -92,9 +93,9 @@ export function formatDateTime(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+  return new Intl.DateTimeFormat(getActiveLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
 export function difficultyLabel(value: number) {
-  return DIFFICULTIES.find((item) => Number(item.value) === value)?.label ?? "普通";
+  return tx(DIFFICULTIES.find((item) => Number(item.value) === value)?.label ?? "普通");
 }

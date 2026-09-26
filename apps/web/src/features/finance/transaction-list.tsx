@@ -1,6 +1,7 @@
 import { ArrowDownCircle, ArrowUpCircle, Landmark } from "lucide-react";
 import { Badge } from "../../shared/ui";
 import { transactionTypeLabel, yuan, type FinanceTransaction } from "./model";
+import { tx } from "../../app/i18n";
 
 export function TransactionList({
   items,
@@ -12,7 +13,7 @@ export function TransactionList({
   onSelect?: (item: FinanceTransaction) => void;
 }) {
   if (!items.length)
-    return <p className="finance-empty">还没有符合条件的流水。</p>;
+    return <p className="finance-empty">{tx("还没有符合条件的流水。")}</p>;
   return (
     <div className="finance-transaction-list">
       {items.map((item) => {
@@ -21,8 +22,8 @@ export function TransactionList({
           item.type === "TRANSFER" ? BigInt(amount) : BigInt(item.amountCents);
         const route =
           item.type === "TRANSFER"
-            ? `${item.sourceAccountName ?? "转出账户"} → ${item.targetAccountName ?? "转入账户"}`
-            : (item.accountName ?? "未关联账户");
+            ? tx("{value0} → {value1}", { value0: item.sourceAccountName ?? tx("转出账户"), value1: item.targetAccountName ?? tx("转入账户") })
+            : (item.accountName ?? tx("未关联账户"));
         const tone =
           item.type === "TRANSFER"
             ? "is-neutral"
@@ -45,12 +46,12 @@ export function TransactionList({
             <span>
               <strong>
                 {item.type === "TRANSFER"
-                  ? "转账"
+                  ? tx("转账")
                   : item.type === "REFUND"
-                    ? `退款 · ${item.categoryName ?? "无分类"}`
-                    : (item.categoryName ?? transactionTypeLabel[item.type])}
+                    ? tx("退款 · {value0}", { value0: item.categoryName ?? tx("无分类") })
+                    : item.categoryName ?? tx(transactionTypeLabel[item.type])}
                 {item.type === "CORRECTION" ? (
-                  <Badge tone="warning">已更正</Badge>
+                  <Badge tone="warning">{tx("已更正")}</Badge>
                 ) : null}
               </strong>
               <small>

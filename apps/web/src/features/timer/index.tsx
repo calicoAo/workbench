@@ -6,6 +6,7 @@ import { Link } from "react-router";
 import { ApiError, type Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
 import { Badge, Button, IconButton, buttonClass, iconButtonClass } from "../../shared/ui";
+import { tx } from "../../app/i18n";
 
 export const TIMER_STATUS = { RUNNING: 0, PAUSED: 1, FINISHED: 2, CANCELLED: 3 } as const;
 
@@ -67,9 +68,9 @@ export function useTimerCommands({ request, userId, selectedDate: selectedDateIn
       return true;
     } catch (error) {
       if (error instanceof ApiError && error.conflict) {
-        onError(`${error.message}。状态已重新同步，请确认后重试。`, "状态冲突");
+        onError(tx("{value0}。状态已重新同步，请确认后重试。", { value0: error.message }), tx("状态冲突"));
         await refreshAffected(taskId);
-      } else onError(error instanceof Error ? error.message : "操作失败", "操作没有成功");
+      } else onError(error instanceof Error ? error.message : tx("操作失败"), tx("操作没有成功"));
       return false;
     } finally {
       setPending(null);
@@ -94,14 +95,14 @@ export function MiniTimer({ session, taskTitle, taskVersion, date, commands }: {
     return () => window.clearInterval(timer);
   }, [session.status]);
   const pending = commands.pending !== null;
-  return <aside className="mini-timer" aria-label="当前计时">
-    <Badge tone={session.status === TIMER_STATUS.PAUSED ? "warning" : "success"} className="mini-timer-state">{session.status === TIMER_STATUS.PAUSED ? "已暂停" : "计时中"}</Badge>
+  return <aside className="mini-timer" aria-label={tx("当前计时")}>
+    <Badge tone={session.status === TIMER_STATUS.PAUSED ? "warning" : "success"} className="mini-timer-state">{session.status === TIMER_STATUS.PAUSED ? tx("已暂停") : tx("计时中")}</Badge>
     <span className="mini-timer-copy"><strong>{taskTitle}</strong><time>{durationText(netSeconds(session))}</time></span>
     <span className="mini-timer-actions">
-      {session.status === TIMER_STATUS.RUNNING ? <IconButton size="sm" label="暂停计时" disabled={pending} onClick={() => void commands.pause(session)}><CirclePause size={18} /></IconButton> : <IconButton size="sm" label="继续计时" disabled={pending} onClick={() => void commands.resume(session)}><CirclePlay size={18} /></IconButton>}
-      <FinishSessionButton icon size="sm" session={session} taskVersion={taskVersion} commands={commands} ariaLabel="结束本次"><Square size={16} /></FinishSessionButton>
-      <IconButton size="sm" label="取消计时" disabled={pending} onClick={() => void commands.cancel(session)}><X size={17} /></IconButton>
-      <Link className={iconButtonClass({ size: "sm" })} aria-label="打开计时任务" title="打开计时任务" to={`/tasks/${session.taskId}?date=${date}`}><span className="ui-icon-button-visual" aria-hidden="true"><ExternalLink size={17} /></span></Link>
+      {session.status === TIMER_STATUS.RUNNING ? <IconButton size="sm" label={tx("暂停计时")} disabled={pending} onClick={() => void commands.pause(session)}><CirclePause size={18} /></IconButton> : <IconButton size="sm" label={tx("继续计时")} disabled={pending} onClick={() => void commands.resume(session)}><CirclePlay size={18} /></IconButton>}
+      <FinishSessionButton icon size="sm" session={session} taskVersion={taskVersion} commands={commands} ariaLabel={tx("结束本次")}><Square size={16} /></FinishSessionButton>
+      <IconButton size="sm" label={tx("取消计时")} disabled={pending} onClick={() => void commands.cancel(session)}><X size={17} /></IconButton>
+      <Link className={iconButtonClass({ size: "sm" })} aria-label={tx("打开计时任务")} title={tx("打开计时任务")} to={`/tasks/${session.taskId}?date=${date}`}><span className="ui-icon-button-visual" aria-hidden="true"><ExternalLink size={17} /></span></Link>
     </span>
   </aside>;
 }
@@ -113,15 +114,15 @@ export function CurrentFocusCard({ session, taskTitle, taskVersion, commands }: 
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
   }, [session?.status]);
-  if (!session) return <section className="current-focus"><div className="current-focus-copy"><p className="route-eyebrow">当前专注</p><h2>暂无进行中的 Session</h2><span>从今日悬赏开始一段真实投入</span></div></section>;
+  if (!session) return <section className="current-focus"><div className="current-focus-copy"><p className="route-eyebrow">{tx("当前专注")}</p><h2>{tx("暂无进行中的 Session")}</h2><span>{tx("从今日悬赏开始一段真实投入")}</span></div></section>;
   const pending = commands.pending !== null;
-  return <section className="current-focus" aria-label="当前专注控制">
-    <div className="current-focus-copy"><p className="route-eyebrow">当前专注</p><h2>{taskTitle ?? "当前任务"}</h2><span>{session.status === TIMER_STATUS.RUNNING ? "RUNNING" : "PAUSED"} · 净投入由 Segment 汇总</span></div>
+  return <section className="current-focus" aria-label={tx("当前专注控制")}>
+    <div className="current-focus-copy"><p className="route-eyebrow">{tx("当前专注")}</p><h2>{taskTitle ?? tx("当前任务")}</h2><span>{session.status === TIMER_STATUS.RUNNING ? "RUNNING" : "PAUSED"} {tx("· 净投入由 Segment 汇总")}</span></div>
     <time className="current-focus-time">{durationText(netSeconds(session))}</time>
     <div className="current-focus-actions">
-      <Button variant="secondary" disabled={pending} onClick={() => void (session.status === TIMER_STATUS.RUNNING ? commands.pause(session) : commands.resume(session))}>{session.status === TIMER_STATUS.RUNNING ? <CirclePause size={16} /> : <CirclePlay size={16} />}{session.status === TIMER_STATUS.RUNNING ? "暂停" : "继续"}</Button>
+      <Button variant="secondary" disabled={pending} onClick={() => void (session.status === TIMER_STATUS.RUNNING ? commands.pause(session) : commands.resume(session))}>{session.status === TIMER_STATUS.RUNNING ? <CirclePause size={16} /> : <CirclePlay size={16} />}{session.status === TIMER_STATUS.RUNNING ? tx("暂停") : tx("继续")}</Button>
       <FinishSessionButton session={session} taskVersion={taskVersion ?? 1} commands={commands} />
-      <Button variant="primary" disabled={pending} onClick={() => void commands.completeAndFinish(session, taskVersion ?? 1)}>完成悬赏并结束</Button>
+      <Button variant="primary" disabled={pending} onClick={() => void commands.completeAndFinish(session, taskVersion ?? 1)}>{tx("完成悬赏并结束")}</Button>
     </div>
   </section>;
 }
@@ -154,7 +155,7 @@ function FinishDialog({ session, taskVersion, pending, onClose, onFinish }: { se
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
-  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={onClose}><section ref={dialogRef} className="finish-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-title" onMouseDown={(event) => event.stopPropagation()}><header><div><p className="route-eyebrow">Session #{session.id}</p><h2 id="finish-title">结束本次投入</h2></div><IconButton label="关闭结束面板" onClick={onClose}><X size={17} /></IconButton></header><div className="finish-metrics"><div><span>净投入</span><strong>{durationText(netSeconds(session))}</strong></div><div><span>Segment</span><strong>{session.segments.filter((item) => item.status !== 2).length} 段</strong></div></div><label>更新进度（可选）<input className="field" type="number" min="0" max="99" value={progress} onChange={(event) => setProgress(event.target.value)} /></label><label>本次备注（可选）<textarea value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} /></label><p className="finish-hint">结束本次不会完成悬赏。完成动作需要单独确认。</p><footer><Button variant="secondary" onClick={onClose}>取消</Button><Button variant="primary" loading={pending} onClick={() => void onFinish({ progressPercent: progress === "" ? undefined : Number(progress), note: note.trim() || undefined, taskVersion })}>{pending ? "正在结束..." : "结束本次"}</Button></footer></section></div>, document.body);
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={onClose}><section ref={dialogRef} className="finish-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-title" onMouseDown={(event) => event.stopPropagation()}><header><div><p className="route-eyebrow">Session #{session.id}</p><h2 id="finish-title">{tx("结束本次投入")}</h2></div><IconButton label={tx("关闭结束面板")} onClick={onClose}><X size={17} /></IconButton></header><div className="finish-metrics"><div><span>{tx("净投入")}</span><strong>{durationText(netSeconds(session))}</strong></div><div><span>Segment</span><strong>{session.segments.filter((item) => item.status !== 2).length} {tx("段")}</strong></div></div><label>{tx("更新进度（可选）")}<input className="field" type="number" min="0" max="99" value={progress} onChange={(event) => setProgress(event.target.value)} /></label><label>{tx("本次备注（可选）")}<textarea value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} /></label><p className="finish-hint">{tx("结束本次不会完成悬赏。完成动作需要单独确认。")}</p><footer><Button variant="secondary" onClick={onClose}>{tx("取消")}</Button><Button variant="primary" loading={pending} onClick={() => void onFinish({ progressPercent: progress === "" ? undefined : Number(progress), note: note.trim() || undefined, taskVersion })}>{pending ? tx("正在结束...") : tx("结束本次")}</Button></footer></section></div>, document.body);
 }
 
 export function netSeconds(session: CurrentSession, now = Date.now()) {

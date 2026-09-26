@@ -1,6 +1,7 @@
 import { Archive, BookOpenText, Lightbulb, NotebookPen, SunMedium, TrendingUp } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { NavLink } from "react-router";
+import { tx } from "../../app/i18n";
 export { WritingArchivePage } from "./archive";
 
 export type WritingPluginId = "morning" | "journal" | "review" | "notes" | "inspirations" | "archive";
@@ -80,12 +81,12 @@ export function WritingShell({ userId, date, activeId, enabledSlots, children }:
   const plugins = enabledWritingPlugins(date, enabledSlots);
   useEffect(() => { rememberWritingTab(userId, activeId); }, [activeId, userId]);
   return <div className="writing-shell" data-writing-date={date}>
-    <nav className="writing-plugin-tabs" aria-label="文字记录导航" role="tablist">
+    <nav className="writing-plugin-tabs" aria-label={tx("文字记录导航")} role="tablist">
       {plugins.map((plugin) => {
         const Icon = icons[plugin.icon];
         const active = plugin.id === activeId;
         return <NavLink key={plugin.id} className={`writing-plugin-tab ${active ? "is-active" : ""}`} to={plugin.route} role="tab" aria-selected={active} aria-current={active ? "page" : undefined}>
-          <Icon size={15} aria-hidden="true" /><span>{plugin.label}</span>
+          <Icon size={15} aria-hidden="true" /><span>{tx(plugin.label)}</span>
         </NavLink>;
       })}
     </nav>

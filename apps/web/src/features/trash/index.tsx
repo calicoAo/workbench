@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
 import { Badge, Button, FilterChip } from "../../shared/ui";
+import { getActiveLocale, tx } from "../../app/i18n";
 
 type TrashType = "all" | "quick_note";
 type TrashItem = { type: "quick_note"; id: number; title: string; excerpt: string; noteDate: string; tag: string | null; projectId: number | null; version: number; deletedAt: string; restoreDeepLink: string };
@@ -42,16 +43,16 @@ export function TrashPage({ request, userId }: { request: Request; userId: numbe
   }
 
   return <section className="trash-route">
-    <header className="trash-head"><div><p className="route-eyebrow">Settings · Data</p><h1>回收站</h1><p>这里只显示可安全恢复的已删除记录。归档记录仍留在各自业务视图。</p></div><Link className="inline-command" to="/settings">返回设置</Link></header>
-    <nav className="trash-filters" aria-label="回收站类型"><FilterChip active={type === "all"} onClick={() => setType("all")}>全部</FilterChip><FilterChip active={type === "quick_note"} onClick={() => setType("quick_note")}>随手记</FilterChip></nav>
-    {query.isPending ? <p className="route-state">正在读取回收站...</p> : null}
-    {query.isError ? <div className="notes-error" role="alert"><p>{query.error instanceof Error ? query.error.message : "回收站读取失败"}</p><Button onClick={() => void query.refetch()}>重试</Button></div> : null}
-    {!query.isPending && !query.isError && !items.length ? <div className="trash-empty"><Trash2 size={28} /><h2>回收站是空的</h2><p>删除的随手记会暂存在这里，归档项目不会出现在回收站。</p></div> : null}
-    <div className="trash-list">{items.map((item) => <article className="trash-item" key={`${item.type}:${item.id}`}><span className="trash-icon"><StickyNote size={18} /></span><div><div className="trash-item-title"><Link to={item.restoreDeepLink}>{item.title}</Link><Badge>随手记</Badge></div><p>{item.excerpt}</p><small>{item.noteDate}{item.tag ? ` · #${item.tag}` : ""} · 删除于 {formatTime(item.deletedAt)}</small>{errors[item.id] ? <span className="trash-error" role="alert">{errors[item.id]}</span> : null}</div><Button variant="secondary" loading={pendingId === item.id} onClick={() => void restore(item)}><RotateCcw size={15} />恢复</Button></article>)}</div>
-    {query.hasNextPage ? <div className="trash-more"><Button loading={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>加载更多</Button></div> : null}
+    <header className="trash-head"><div><p className="route-eyebrow">Settings · Data</p><h1>{tx("回收站")}</h1><p>{tx("这里只显示可安全恢复的已删除记录。归档记录仍留在各自业务视图。")}</p></div><Link className="inline-command" to="/settings">{tx("返回设置")}</Link></header>
+    <nav className="trash-filters" aria-label={tx("回收站类型")}><FilterChip active={type === "all"} onClick={() => setType("all")}>{tx("全部")}</FilterChip><FilterChip active={type === "quick_note"} onClick={() => setType("quick_note")}>{tx("随手记")}</FilterChip></nav>
+    {query.isPending ? <p className="route-state">{tx("正在读取回收站...")}</p> : null}
+    {query.isError ? <div className="notes-error" role="alert"><p>{query.error instanceof Error ? query.error.message : tx("回收站读取失败")}</p><Button onClick={() => void query.refetch()}>{tx("重试")}</Button></div> : null}
+    {!query.isPending && !query.isError && !items.length ? <div className="trash-empty"><Trash2 size={28} /><h2>{tx("回收站是空的")}</h2><p>{tx("删除的随手记会暂存在这里，归档项目不会出现在回收站。")}</p></div> : null}
+    <div className="trash-list">{items.map((item) => <article className="trash-item" key={`${item.type}:${item.id}`}><span className="trash-icon"><StickyNote size={18} /></span><div><div className="trash-item-title"><Link to={item.restoreDeepLink}>{item.title}</Link><Badge>{tx("随手记")}</Badge></div><p>{item.excerpt}</p><small>{item.noteDate}{item.tag ? ` · #${item.tag}` : ""} {tx("· 删除于")} {formatTime(item.deletedAt)}</small>{errors[item.id] ? <span className="trash-error" role="alert">{errors[item.id]}</span> : null}</div><Button variant="secondary" loading={pendingId === item.id} onClick={() => void restore(item)}><RotateCcw size={15} />{tx("恢复")}</Button></article>)}</div>
+    {query.hasNextPage ? <div className="trash-more"><Button loading={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{tx("加载更多")}</Button></div> : null}
   </section>;
 }
 
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat(getActiveLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }

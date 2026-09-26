@@ -1,6 +1,7 @@
 import { Moon, Pencil, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { tx } from "../../app/i18n";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 
@@ -86,7 +87,7 @@ export function SleepFeature({
       setState((current) => ({ ...current, editorOpen: false }));
       await onChanged();
     } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
+      onError(errorMessage(error), tx("操作没有成功"));
     }
   }
 
@@ -97,11 +98,11 @@ export function SleepFeature({
         <div className={compact ? "sleep-utility-main" : "mb-3 flex items-center justify-between gap-2"}>
           <div className="flex items-center gap-2">
             <span className="text-mint-700"><Moon size={17} /></span>
-            <h2 className="section-title">睡眠</h2>
+            <h2 className="section-title">{tx("睡眠")}</h2>
           </div>
           <button
             className="icon-button h-8 w-8"
-            aria-label="编辑睡眠"
+            aria-label={tx("编辑睡眠")}
             disabled={disabled}
             type="button"
             onClick={() => setState((current) => ({ ...current, editorOpen: true }))}
@@ -110,12 +111,12 @@ export function SleepFeature({
           </button>
         </div>
 
-        {compact ? <p className="sleep-utility-summary">{record ? `${(record.durationMinutes / 60).toFixed(1)}h · ${record.qualityScore ? `${record.qualityScore}/5` : "-/5"}` : disabled ? "加载中..." : "未记录"}</p> : <div className="grid grid-cols-2 gap-2">
-          <SleepMetric label="时长" value={record ? `${(record.durationMinutes / 60).toFixed(1)}h` : "0h"} />
-          <SleepMetric label="质量" value={record?.qualityScore ? `${record.qualityScore}/5` : "-/5"} />
+        {compact ? <p className="sleep-utility-summary">{record ? `${(record.durationMinutes / 60).toFixed(1)}h · ${record.qualityScore ? `${record.qualityScore}/5` : "-/5"}` : disabled ? tx("加载中...") : tx("未记录")}</p> : <div className="grid grid-cols-2 gap-2">
+          <SleepMetric label={tx("时长")} value={record ? `${(record.durationMinutes / 60).toFixed(1)}h` : "0h"} />
+          <SleepMetric label={tx("质量")} value={record?.qualityScore ? `${record.qualityScore}/5` : "-/5"} />
         </div>}
         {!compact && <p className="mt-2 truncate text-[11px] text-soft">
-          {record ? `${timeText(record.sleepStart, record.recordTimezone)} - ${timeText(record.wakeTime, record.recordTimezone)}` : disabled ? "加载中..." : "还没有睡眠记录"}
+          {record ? `${timeText(record.sleepStart, record.recordTimezone)} - ${timeText(record.wakeTime, record.recordTimezone)}` : disabled ? tx("加载中...") : tx("还没有睡眠记录")}
         </p>}
       </section>
 
@@ -150,51 +151,37 @@ function SleepEditDialog({
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
         <form className="time-modal" onSubmit={onSubmit}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">编辑睡眠</h3>
-            <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}>
+            <h3 className="text-sm font-semibold">{tx("编辑睡眠")}</h3>
+            <button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}>
               <X size={15} />
             </button>
           </div>
 
           <div className="sleep-date-grid">
-            <label className="text-[11px] text-soft">
-              入睡日期
-              <input aria-label="入睡日期" className="field mt-1" type="date" value={draft.sleepStartDate} onChange={(event) => onChange({ sleepStartDate: event.target.value })} />
+            <label className="text-[11px] text-soft">{tx("入睡日期")}<input aria-label={tx("入睡日期")} className="field mt-1" type="date" value={draft.sleepStartDate} onChange={(event) => onChange({ sleepStartDate: event.target.value })} />
             </label>
-            <label className="text-[11px] text-soft">
-              入睡时间
-              <input aria-label="入睡时间" className="field mt-1" type="time" value={draft.sleepStartTime} onChange={(event) => onChange({ sleepStartTime: event.target.value, sleepStartDate: event.target.value > draft.wakeTime ? previousDate(draft.wakeDate) : draft.wakeDate })} />
+            <label className="text-[11px] text-soft">{tx("入睡时间")}<input aria-label={tx("入睡时间")} className="field mt-1" type="time" value={draft.sleepStartTime} onChange={(event) => onChange({ sleepStartTime: event.target.value, sleepStartDate: event.target.value > draft.wakeTime ? previousDate(draft.wakeDate) : draft.wakeDate })} />
             </label>
-            <label className="text-[11px] text-soft">
-              醒来日期（业务日）
-              <input aria-label="醒来日期" className="field mt-1" type="date" value={draft.wakeDate} onChange={(event) => onChange({ wakeDate: event.target.value })} />
+            <label className="text-[11px] text-soft">{tx("醒来日期（业务日）")}<input aria-label={tx("醒来日期")} className="field mt-1" type="date" value={draft.wakeDate} onChange={(event) => onChange({ wakeDate: event.target.value })} />
             </label>
-            <label className="text-[11px] text-soft">
-              醒来时间
-              <input aria-label="醒来时间" className="field mt-1" type="time" value={draft.wakeTime} onChange={(event) => onChange({ wakeTime: event.target.value, sleepStartDate: draft.sleepStartTime > event.target.value ? previousDate(draft.wakeDate) : draft.wakeDate })} />
+            <label className="text-[11px] text-soft">{tx("醒来时间")}<input aria-label={tx("醒来时间")} className="field mt-1" type="time" value={draft.wakeTime} onChange={(event) => onChange({ wakeTime: event.target.value, sleepStartDate: draft.sleepStartTime > event.target.value ? previousDate(draft.wakeDate) : draft.wakeDate })} />
             </label>
           </div>
 
-          <label className="mt-2 block text-[11px] text-soft">
-            记录时区
-            <input aria-label="记录时区" className="field mt-1" readOnly value={recordTimezone} />
+          <label className="mt-2 block text-[11px] text-soft">{tx("记录时区")}<input aria-label={tx("记录时区")} className="field mt-1" readOnly value={recordTimezone} />
           </label>
 
-          <select aria-label="睡眠质量" className="field mt-2" value={draft.qualityScore} onChange={(event) => onChange({ qualityScore: event.target.value })}>
-            <option value="5">质量 5</option>
-            <option value="4">质量 4</option>
-            <option value="3">质量 3</option>
-            <option value="2">质量 2</option>
-            <option value="1">质量 1</option>
+          <select aria-label={tx("睡眠质量")} className="field mt-2" value={draft.qualityScore} onChange={(event) => onChange({ qualityScore: event.target.value })}>
+            <option value="5">{tx("质量 5")}</option>
+            <option value="4">{tx("质量 4")}</option>
+            <option value="3">{tx("质量 3")}</option>
+            <option value="2">{tx("质量 2")}</option>
+            <option value="1">{tx("质量 1")}</option>
           </select>
 
           <div className="mt-4 flex justify-end gap-2">
-            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={onClose}>
-              取消
-            </button>
-            <button className="primary-button px-5" type="submit">
-              保存
-            </button>
+            <button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={onClose}>{tx("取消")}</button>
+            <button className="primary-button px-5" type="submit">{tx("保存")}</button>
           </div>
         </form>
       </div>
@@ -206,7 +193,7 @@ function SleepEditDialog({
 function SleepMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="metric-card">
-      <p className="text-[11px] text-soft">{label}</p>
+      <p className="text-[11px] text-soft">{tx(label)}</p>
       <p className="mt-0.5 text-base font-semibold">{value}</p>
     </div>
   );
@@ -245,5 +232,5 @@ function dateText(value: string, timezone?: string) { const date = new Date(valu
 function previousDate(value: string) { const date = new Date(`${value}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1); return date.toISOString().slice(0, 10); }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "操作失败";
+  return error instanceof Error ? error.message : tx("操作失败");
 }

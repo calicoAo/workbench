@@ -4,19 +4,32 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../../app/api";
+import { I18nProvider } from "../../app/i18n";
 import { GrowthPage } from ".";
 import { PIXEL_ASSET_MANIFEST } from "./pixel-assets";
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   window.history.replaceState(null, "", "/");
 });
 const overview = { period: { days: 30, from: "2026-08-26", to: "2026-09-24", timezone: "Asia/Shanghai" }, hero: { level: 3, xpTotal: 400, coins: 27, xpInLevel: 150, xpForNextLevel: 450 }, summary: { actualMinutes: 600, mappedActualMinutes: 540, completedTaskCount: 4, habitCompletedCount: 3 }, dimensions: [{ id: 1, dimensionKey: "career", name: "事业", iconKey: "briefcase", color: "#5B8DEF", sortOrder: 10, actualMinutes: 360, share: 2 / 3, completedTaskCount: 3, lastActivityDate: "2026-09-23" }, { id: 2, dimensionKey: "learning", name: "学习", iconKey: "book-open", color: "#B28DFF", sortOrder: 20, actualMinutes: 180, share: 1 / 3, completedTaskCount: 1, lastActivityDate: "2026-09-22" }], unmapped: { actualMinutes: 60, completedTaskCount: 1, lastActivityDate: "2026-09-21" }, recent: [{ id: 1, kind: "TASK_COMPLETION" as const, businessDate: "2026-09-23", title: "完成 Growth V1", dimensionName: "事业", xpDelta: 20 }] };
 const config = { dimensions: [{ id: 1, dimensionKey: "career", name: "事业", iconKey: "briefcase", color: "#5B8DEF", sortOrder: 10, enabled: 1, version: 1 }, { id: 2, dimensionKey: "learning", name: "学习", iconKey: "book-open", color: "#B28DFF", sortOrder: 20, enabled: 1, version: 1 }], categories: [{ id: 7, name: "工作", color: "#3B82F6", icon: "briefcase", dimensionKey: "career", enabled: 1 }, { id: 8, name: "其他", color: "#64748B", icon: "circle", dimensionKey: null, enabled: 0 }] };
 function request(): Request { return vi.fn(async (path: string, init?: RequestInit) => { if (path.startsWith("/api/growth/overview")) return overview; if (path === "/api/growth/dimensions" && !init?.method) return config; if (init?.method) return {}; throw new Error(path); }) as Request; }
-function wrapper(children: React.ReactNode) { return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>; }
+function wrapper(children: React.ReactNode) { return <I18nProvider><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider></I18nProvider>; }
 
 describe("Hero Growth V1", () => {
+  it("translates default dimensions but preserves custom dimension names", async () => {
+    localStorage.setItem("workbench:locale", "en");
+    const localizedOverview = { ...overview, dimensions: [{ ...overview.dimensions[0], name: "事业力" }, { ...overview.dimensions[1], name: "设置" }] };
+    const localizedConfig = { ...config, dimensions: [{ ...config.dimensions[0], name: "事业力" }, { ...config.dimensions[1], name: "设置" }] };
+    const api = vi.fn(async (path: string) => path.startsWith("/api/growth/overview") ? localizedOverview : localizedConfig) as unknown as Request;
+    render(wrapper(<GrowthPage request={api} userId={1} date="2026-09-24" onError={vi.fn()} />));
+    expect((await screen.findAllByText("Career")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("设置").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Settings")).toBeNull();
+  });
+
   it("renders hero XP, investment distribution, cards and visible unmapped attribution", async () => { render(wrapper(<GrowthPage request={request()} userId={1} date="2026-09-24" onError={vi.fn()} />)); expect(await screen.findByText("你的角色正在成长")).toBeTruthy(); expect(screen.getByText("Lv.3")).toBeTruthy(); expect(screen.getByText("经验 150/450")).toBeTruthy(); expect(screen.getByRole("heading", { name: "投入分布" })).toBeTruthy(); expect(screen.getByText("未映射")).toBeTruthy(); expect(screen.getByText(/按当前分类映射计算/)).toBeTruthy(); expect(screen.queryByText(/能力值/)).toBeNull(); });
   it("switches period, manages dimensions and maps categories through shared config", async () => { const api = request(); render(wrapper(<GrowthPage request={api} userId={1} date="2026-09-24" onError={vi.fn()} />)); await screen.findByText("你的角色正在成长"); fireEvent.click(screen.getByRole("button", { name: "7 天" })); await waitFor(() => expect((api as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.includes("period=7"))).toBe(true)); fireEvent.click(await screen.findByRole("button", { name: "成长维度" })); expect((await screen.findAllByRole("button", { name: "停用" })).length).toBe(2); fireEvent.click(screen.getByRole("button", { name: "分类映射" })); fireEvent.change(await screen.findByLabelText("其他成长维度"), { target: { value: "learning" } }); await waitFor(() => expect(api).toHaveBeenCalledWith("/api/growth/category-mappings/8", { method: "PUT", body: JSON.stringify({ dimensionKey: "learning" }) })); });
   it("uses neutral same-size fallbacks and reserves pixel rendering slots", async () => { expect(PIXEL_ASSET_MANIFEST["hero-avatar"].src).toBe("/pixel/growth/hero-avatar@4x.png"); render(wrapper(<GrowthPage request={request()} userId={1} date="2026-09-24" onError={vi.fn()} />)); await screen.findByText("你的角色正在成长"); const slot = screen.getByLabelText("英雄半身像占位"); expect(slot.classList.contains("pixel-icon-slot")).toBe(true); const image = slot.querySelector("img")!; expect(image.classList.contains("pixel-image")).toBe(true); fireEvent.error(image); expect(slot.querySelector("img")).toBeNull(); expect(slot.querySelector("svg")).toBeTruthy(); });

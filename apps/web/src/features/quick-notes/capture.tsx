@@ -6,6 +6,7 @@ import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
 import { Button, IconButton } from "../../shared/ui";
 import type { QuickNote } from "./model";
+import { tx } from "../../app/i18n";
 
 type CaptureDraft = {
   operationId: string;
@@ -25,7 +26,7 @@ export function QuickNoteCaptureButton({ request, userId, selectedDate, label = 
   onCreated?: (note: QuickNote) => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  return <><Button variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => { onOpen?.(); setOpen(true); }}><Lightbulb size={14} /><span>{label}</span></Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
+  return <><Button variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => { onOpen?.(); setOpen(true); }}><Lightbulb size={14} /><span>{tx(label)}</span></Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
 }
 
 function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCreated }: {
@@ -78,7 +79,7 @@ function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCrea
       await onCreated?.(note);
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "保存失败，请重试");
+      setError(caught instanceof Error ? caught.message : tx("保存失败，请重试"));
     } finally {
       setPending(false);
     }
@@ -88,15 +89,15 @@ function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCrea
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" aria-labelledby="quick-note-capture-title" onMouseDown={(event) => event.stopPropagation()}>
         <form className="quick-note-editor" onSubmit={submit}>
-          <header className="quick-note-editor-head"><div><p className="route-eyebrow">捕捉此刻</p><h2 id="quick-note-capture-title">随手记</h2></div><IconButton label="关闭" onClick={onClose}><X size={16} /></IconButton></header>
-          <textarea aria-label="随手记正文" className="quick-note-body" maxLength={5000} placeholder="先把刚想到的东西记下来..." value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
+          <header className="quick-note-editor-head"><div><p className="route-eyebrow">{tx("捕捉此刻")}</p><h2 id="quick-note-capture-title">{tx("随手记")}</h2></div><IconButton label={tx("关闭")} onClick={onClose}><X size={16} /></IconButton></header>
+          <textarea aria-label={tx("随手记正文")} className="quick-note-body" maxLength={5000} placeholder={tx("先把刚想到的东西记下来...")} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
           <div className="quick-note-fields">
-            <input aria-label="随手记标题" maxLength={120} placeholder="标题（可选）" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-            <input aria-label="随手记标签" maxLength={64} placeholder="标签（可选）" value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
-            <input aria-label="记录日期" type="date" value={draft.noteDate} onChange={(event) => setDraft({ ...draft, noteDate: event.target.value })} />
+            <input aria-label={tx("随手记标题")} maxLength={120} placeholder={tx("标题（可选）")} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+            <input aria-label={tx("随手记标签")} maxLength={64} placeholder={tx("标签（可选）")} value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
+            <input aria-label={tx("记录日期")} type="date" value={draft.noteDate} onChange={(event) => setDraft({ ...draft, noteDate: event.target.value })} />
           </div>
-          {error ? <p className="quick-note-error" role="alert">{error}。草稿已保留，可直接重试。</p> : null}
-          <footer className="quick-note-editor-actions"><span>{draft.content.length}/5000</span><div><Button variant="ghost" type="button" onClick={onClose}>稍后继续</Button><Button variant="primary" type="submit" loading={pending} disabled={!draft.content.trim()}>保存</Button></div></footer>
+          {error ? <p className="quick-note-error" role="alert">{error}{tx("。草稿已保留，可直接重试。")}</p> : null}
+          <footer className="quick-note-editor-actions"><span>{draft.content.length}/5000</span><div><Button variant="ghost" type="button" onClick={onClose}>{tx("稍后继续")}</Button><Button variant="primary" type="submit" loading={pending} disabled={!draft.content.trim()}>{tx("保存")}</Button></div></footer>
         </form>
       </div>
     </div>,

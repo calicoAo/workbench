@@ -25,6 +25,7 @@ import { Reports } from "./reports";
 import { TransferDialog } from "./transfer-dialog";
 import { Transactions } from "./transactions";
 import { financeErrorMessage } from "./error";
+import { tx } from "../../app/i18n";
 
 export { yuan } from "./model";
 
@@ -164,7 +165,7 @@ export function FinancePage({
       });
       await refresh();
     } catch (error) {
-      onError(financeErrorMessage(error), "财务分类没有初始化");
+      onError(financeErrorMessage(error), tx("财务分类没有初始化"));
     }
   }
   function toggleHidden() {
@@ -179,82 +180,60 @@ export function FinancePage({
     <section className="finance-route">
       <header className="finance-head">
         <div>
-          <p className="route-eyebrow">独立的真实资金账本</p>
-          <h1>财务</h1>
-          <p>余额来自已入账分录，和工作台金币完全分开。</p>
+          <p className="route-eyebrow">{tx("独立的真实资金账本")}</p>
+          <h1>{tx("财务")}</h1>
+          <p>{tx("余额来自已入账分录，和工作台金币完全分开。")}</p>
         </div>
         <div className="finance-head-actions">
           <IconButton
-            label={hidden ? "显示金额" : "隐藏金额"}
+            label={hidden ? tx("显示金额") : tx("隐藏金额")}
             onClick={toggleHidden}
           >
             {hidden ? <Eye size={17} /> : <EyeOff size={17} />}
           </IconButton>
           <Button onClick={() => setRecordKind("INCOME")}>
-            <ArrowUpCircle size={16} />
-            记收入
-          </Button>
+            <ArrowUpCircle size={16} />{tx("记收入")}</Button>
           <Button onClick={() => setTransferOpen(true)}>
-            <ArrowLeftRight size={16} />
-            转账
-          </Button>
+            <ArrowLeftRight size={16} />{tx("转账")}</Button>
           <Button variant="primary" onClick={() => setRecordKind("EXPENSE")}>
-            <ArrowDownCircle size={16} />
-            记支出
-          </Button>
+            <ArrowDownCircle size={16} />{tx("记支出")}</Button>
         </div>
       </header>
-      <nav className="finance-tabs" aria-label="财务导航">
+      <nav className="finance-tabs" aria-label={tx("财务导航")}>
         <button
           className={tab === "overview" ? "is-active" : ""}
           onClick={() => chooseTab("overview")}
-        >
-          概览
-        </button>
+        >{tx("概览")}</button>
         <button
           className={tab === "accounts" ? "is-active" : ""}
           onClick={() => chooseTab("accounts")}
-        >
-          账户
-        </button>
+        >{tx("账户")}</button>
         <button
           className={tab === "transactions" ? "is-active" : ""}
           onClick={() => chooseTab("transactions")}
-        >
-          流水
-        </button>
+        >{tx("流水")}</button>
         <button
           className={tab === "budgets" ? "is-active" : ""}
           onClick={() => chooseTab("budgets")}
-        >
-          预算
-        </button>
+        >{tx("预算")}</button>
         <button
           className={tab === "recurring" ? "is-active" : ""}
           onClick={() => chooseTab("recurring")}
-        >
-          周期
-        </button>
+        >{tx("周期")}</button>
         <button
           className={tab === "reports" ? "is-active" : ""}
           onClick={() => chooseTab("reports")}
-        >
-          报表
-        </button>
+        >{tx("报表")}</button>
       </nav>
-      {loading ? <p className="route-state">正在读取账本...</p> : null}
+      {loading ? <p className="route-state">{tx("正在读取账本...")}</p> : null}
       {!loading && !categories.data?.length ? (
         <section className="finance-onboarding">
           <Landmark size={30} />
           <div>
-            <h2>开始使用独立财务账本</h2>
-            <p>
-              初始化常用收入和支出分类；不会读取或转换任务、奖励与股票复盘。
-            </p>
+            <h2>{tx("开始使用独立财务账本")}</h2>
+            <p>{tx("初始化常用收入和支出分类；不会读取或转换任务、奖励与股票复盘。")}</p>
           </div>
-          <Button variant="primary" onClick={() => void initialize()}>
-            初始化财务分类
-          </Button>
+          <Button variant="primary" onClick={() => void initialize()}>{tx("初始化财务分类")}</Button>
         </section>
       ) : null}
       {tab === "overview" && overview.data ? (

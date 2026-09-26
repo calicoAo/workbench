@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import type { RewardGrant } from "../rewards";
 import { type CompleteResult, type Request, type Schedule, type Task, currentTimeInput, minutesAgoInput, perform } from "./model";
 import { CloseButton, ModalActions, ModalPortal } from "./task-ui";
+import { tx } from "../../app/i18n";
 
 export function CompleteTaskWorkflow({ children, request, selectedDate, timezone, taskPlans, onError, onChanged, onReward }: {
   children: (toggle: (task: Task) => void | Promise<void>) => ReactNode;
@@ -65,13 +66,13 @@ export function CompleteTaskWorkflow({ children, request, selectedDate, timezone
       <ModalPortal onClose={close}>
         <form className="time-modal max-w-[560px]" onSubmit={submit}>
           <div className="mb-3 flex items-start justify-between gap-3">
-            <div><p className="text-xs font-semibold text-mint-700">任务完成了</p><h3 className="text-sm font-semibold">{task.title}</h3><p className="mt-1 text-[11px] text-soft">Task 完成不会伪造 Actual 时间；实际投入请由计时或手工 Actual 记录。</p></div>
+            <div><p className="text-xs font-semibold text-mint-700">{tx("任务完成了")}</p><h3 className="text-sm font-semibold">{task.title}</h3><p className="mt-1 text-[11px] text-soft">{tx("Task 完成不会伪造 Actual 时间；实际投入请由计时或手工 Actual 记录。")}</p></div>
             <CloseButton onClose={close} />
           </div>
-          <textarea aria-label="完成感想" className="journal-input mt-2 min-h-28" placeholder="刚刚完成后的感想..." value={note} onChange={(event) => setNote(event.target.value)} />
-          <label className="manual-complete-option"><input type="checkbox" checked={recordTime} onChange={(event) => setRecordTime(event.target.checked)} />同时补录实际投入</label>
-          {recordTime ? <div className="time-editor-date-grid"><label className="text-[11px] text-soft">开始日期<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">开始时间<input aria-label="完成补录开始时间" className="field mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="text-[11px] text-soft">结束日期<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">结束时间<input aria-label="完成补录结束时间" className="field mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div> : null}
-          <ModalActions onClose={close} submitLabel={recordTime ? "完成并记录时间" : "直接完成"} />
+          <textarea aria-label={tx("完成感想")} className="journal-input mt-2 min-h-28" placeholder={tx("刚刚完成后的感想...")} value={note} onChange={(event) => setNote(event.target.value)} />
+          <label className="manual-complete-option"><input type="checkbox" checked={recordTime} onChange={(event) => setRecordTime(event.target.checked)} />{tx("同时补录实际投入")}</label>
+          {recordTime ? <div className="time-editor-date-grid"><label className="text-[11px] text-soft">{tx("开始日期")}<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">{tx("开始时间")}<input aria-label={tx("完成补录开始时间")} className="field mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="text-[11px] text-soft">{tx("结束日期")}<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">{tx("结束时间")}<input aria-label={tx("完成补录结束时间")} className="field mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div> : null}
+          <ModalActions onClose={close} submitLabel={recordTime ? tx("完成并记录时间") : tx("直接完成")} />
         </form>
       </ModalPortal>
     )}

@@ -4,6 +4,7 @@ import type { Request } from "../../app/api";
 import { IconButton, Button } from "../../shared/ui";
 import { decimalToCents, yuan, type FinanceBudget, type FinanceCategory } from "./model";
 import { financeErrorMessage } from "./error";
+import { tx } from "../../app/i18n";
 
 export function Budgets({
   request,
@@ -39,7 +40,7 @@ export function Budgets({
       setLimit("");
       await onChanged();
     } catch (error) {
-      onError(financeErrorMessage(error), "预算没有保存");
+      onError(financeErrorMessage(error), tx("预算没有保存"));
     } finally {
       setPending(false);
     }
@@ -55,26 +56,24 @@ export function Budgets({
       });
       await onChanged();
     } catch (error) {
-      onError(financeErrorMessage(error), "预算没有删除");
+      onError(financeErrorMessage(error), tx("预算没有删除"));
     }
   }
   return (
     <section className="finance-panel finance-budget-page">
       <header>
         <div>
-          <p className="route-eyebrow">本月预算进度</p>
-          <h2>{month} 预算</h2>
+          <p className="route-eyebrow">{tx("本月预算进度")}</p>
+          <h2>{month} {tx("预算")}</h2>
         </div>
       </header>
       <form className="finance-form-grid" onSubmit={save}>
-        <label>
-          范围
-          <select
+        <label>{tx("范围")}<select
             className="field"
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
           >
-            <option value="">全部支出</option>
+            <option value="">{tx("全部支出")}</option>
             {categories
               .filter((item) => item.kind === "EXPENSE")
               .map((item) => (
@@ -84,37 +83,33 @@ export function Budgets({
               ))}
           </select>
         </label>
-        <label>
-          限额
-          <input
+        <label>{tx("限额")}<input
             className="field"
             required
             inputMode="decimal"
-            placeholder="例如 3000"
+            placeholder={tx("例如 3000")}
             value={limit}
             onChange={(event) => setLimit(event.target.value)}
           />
         </label>
-        <Button loading={pending} type="submit">
-          保存预算
-        </Button>
+        <Button loading={pending} type="submit">{tx("保存预算")}</Button>
       </form>
       <div className="finance-budget-list">
         {budgets.map((item) => (
           <article key={item.id}>
             <div>
-              <strong>{item.categoryName ?? "全部支出"}</strong>
+              <strong>{item.categoryName ?? tx("全部支出")}</strong>
               <small>
-                限额 {yuan(item.limitCents)} · 已用 {yuan(item.spentCents)}
+                {tx("限额")} {yuan(item.limitCents)} {tx("· 已用")} {yuan(item.spentCents)}
               </small>
             </div>
             <b className={BigInt(item.remainingCents) < 0n ? "is-debt" : ""}>
               {BigInt(item.remainingCents) < 0n
-                ? `超支 ${yuan((-BigInt(item.remainingCents)).toString())}`
-                : `剩余 ${yuan(item.remainingCents)}`}
+                ? tx("超支 {value0}", { value0: yuan((-BigInt(item.remainingCents)).toString()) })
+                : tx("剩余 {value0}", { value0: yuan(item.remainingCents) })}
             </b>
             <IconButton
-              label={`删除${item.categoryName ?? "总预算"}`}
+              label={tx("删除{value0}", { value0: item.categoryName ?? tx("总预算") })}
               onClick={() => void remove(item)}
             >
               <X size={15} />
@@ -123,7 +118,7 @@ export function Budgets({
         ))}
       </div>
       {!budgets.length ? (
-        <p className="finance-empty">还没有本月预算。</p>
+        <p className="finance-empty">{tx("还没有本月预算。")}</p>
       ) : null}
     </section>
   );

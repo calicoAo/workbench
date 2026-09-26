@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { type JournalRecord, type MorningWritingRecord, type StockReviewRecord } from "../writing-reflection";
+import { getActiveLocale, tx } from "../../app/i18n";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type ArchiveTab = "morning" | "journal" | "review";
@@ -32,7 +33,7 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
         : "/api/stock-reviews/list?limit=50";
     void request<MorningWritingRecord[] | JournalRecord[] | StockReviewRecord[]>(path)
       .then((items) => { if (current) setRecords(items); })
-      .catch((error) => { if (current) onError(errorMessage(error), "列表加载失败"); });
+      .catch((error) => { if (current) onError(errorMessage(error), tx("列表加载失败")); });
     return () => { current = false; };
   }, [activeTab, refreshRevision, request, onError]);
 
@@ -40,7 +41,7 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
   return (
     <div>
       <div className="mb-3 inline-flex rounded-full border border-white/80 bg-white/70 p-0.5">
-        {[["morning", "晨写"], ["journal", "日记"], ["review", "复盘"]].map(([value, label]) => (
+        {[["morning", tx("晨写")], ["journal", tx("日记")], ["review", tx("复盘")]].map(([value, label]) => (
           <button
             className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${activeTab === value ? "bg-mint-500 text-white" : "text-soft hover:text-ink"}`}
             key={value}
@@ -51,18 +52,18 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
               setActiveTab(value as ArchiveTab);
             }}
           >
-            {label}
+            {tx(label)}
           </button>
         ))}
       </div>
       <div className="grid gap-2.5 lg:grid-cols-2">
-        {!items.length && <EmptyText text="还没有记录。" />}
+        {!items.length && <EmptyText text={tx("还没有记录。")} />}
         {items.map((item) => (
           <button className="archive-card text-left" key={item.id} type="button" onClick={() => setSelectedItem(item)}>
             <div className="mb-1 flex items-center justify-between gap-2"><h3 className="truncate text-[13px] font-semibold text-ink">{item.title}</h3><span className="shrink-0 text-[11px] text-soft">{formatDayLabel(item.date)}</span></div>
-            <p className="archive-card-content">{item.content?.trim() || "这天还没写内容。"}</p>
-            {item.score && <p className="mt-2 text-[11px] text-mint-700">评分 {item.score}/5</p>}
-            <span className="mt-3 inline-flex text-[11px] font-semibold text-pink-500">查看详情</span>
+            <p className="archive-card-content">{item.content?.trim() || tx("这天还没写内容。")}</p>
+            {item.score && <p className="mt-2 text-[11px] text-mint-700">{tx("评分")} {item.score}/5</p>}
+            <span className="mt-3 inline-flex text-[11px] font-semibold text-pink-500">{tx("查看详情")}</span>
           </button>
         ))}
       </div>
@@ -94,8 +95,8 @@ function ArchiveDetailDialog({ item, onClose }: { item: ArchiveItem; onClose: ()
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
         <article className="writing-modal">
-          <div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-[11px] text-soft">{formatDayLabel(item.date)}</p><h3 className="text-base font-semibold">{item.title}</h3></div><button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={onClose}><X size={15} /></button></div>
-          <div className="writing-body space-y-3">{sections.length ? sections.map((section) => <section className="archive-detail-section" key={section.label}><p className="mb-1 text-[11px] font-semibold text-mint-700">{section.label}</p><p className="whitespace-pre-wrap text-[13px] leading-6 text-ink">{section.value}</p></section>) : <EmptyText text="这天还没写内容。" />}</div>
+          <div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-[11px] text-soft">{formatDayLabel(item.date)}</p><h3 className="text-base font-semibold">{item.title}</h3></div><button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button></div>
+          <div className="writing-body space-y-3">{sections.length ? sections.map((section) => <section className="archive-detail-section" key={tx(section.label)}><p className="mb-1 text-[11px] font-semibold text-mint-700">{tx(section.label)}</p><p className="whitespace-pre-wrap text-[13px] leading-6 text-ink">{section.value}</p></section>) : <EmptyText text={tx("这天还没写内容。")} />}</div>
         </article>
       </div>
     </div>,
@@ -104,13 +105,13 @@ function ArchiveDetailDialog({ item, onClose }: { item: ArchiveItem; onClose: ()
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{text}</p>;
+  return <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{tx(text)}</p>;
 }
 
 function formatDayLabel(date: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(`${date}T12:00:00+08:00`));
+  return new Intl.DateTimeFormat(getActiveLocale(), { month: "numeric", day: "numeric" }).format(new Date(`${date}T12:00:00+08:00`));
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "列表加载失败";
+  return error instanceof Error ? error.message : tx("列表加载失败");
 }

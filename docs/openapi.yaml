@@ -1252,6 +1252,7 @@ paths:
                 reducedMotion: { type: boolean }
                 showRewards: { type: boolean }
                 fontScale: { type: integer, enum: [90, 100, 110], default: 100 }
+                locale: { type: string, enum: [zh-CN, en], default: zh-CN }
                 writingSlots:
                   type: array
                   minItems: 3

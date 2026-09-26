@@ -1,6 +1,7 @@
 import { Pencil, Plus, TimerReset, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useState } from "react";
+import { tx } from "../../app/i18n";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Confirm = (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
@@ -56,7 +57,7 @@ export function CategoriesFeature({ request, categories, onError, onConfirm, onC
       setName("");
       await onChanged();
     } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
+      onError(errorMessage(error), tx("操作没有成功"));
     }
   }
 
@@ -83,7 +84,7 @@ export function CategoriesFeature({ request, categories, onError, onConfirm, onC
       setEditing(null);
       await onChanged();
     } catch (error) {
-      onError(errorMessage(error), "操作没有成功");
+      onError(errorMessage(error), tx("操作没有成功"));
     }
   }
 
@@ -93,7 +94,7 @@ export function CategoriesFeature({ request, categories, onError, onConfirm, onC
         await request(`/api/task-categories/${category.id}`, { method: "DELETE" });
         await onChanged();
       } catch (error) {
-        onError(errorMessage(error), "操作没有成功");
+        onError(errorMessage(error), tx("操作没有成功"));
       }
     }, "删除");
   }
@@ -103,15 +104,15 @@ export function CategoriesFeature({ request, categories, onError, onConfirm, onC
       <section className="glass-panel p-3">
         <div className="mb-3 flex items-center gap-2">
           <span className="text-mint-700"><TimerReset size={17} /></span>
-          <h2 className="section-title">六维能力</h2>
+          <h2 className="section-title">{tx("六维能力")}</h2>
         </div>
         <form className="mb-3 grid gap-2" onSubmit={create}>
-          <input aria-label="技能或主题名称" className="field min-w-0" placeholder="新增技能/主题，比如 缝纫" value={name} onChange={(event) => setName(event.target.value)} />
+          <input aria-label={tx("技能或主题名称")} className="field min-w-0" placeholder={tx("新增技能/主题，比如 缝纫")} value={name} onChange={(event) => setName(event.target.value)} />
           <div className="grid grid-cols-[1fr_auto] gap-2">
-            <select aria-label="新增能力维度" className="field" value={dimensionKey} onChange={(event) => setDimensionKey(event.target.value as DimensionKey)}>
+            <select aria-label={tx("新增能力维度")} className="field" value={dimensionKey} onChange={(event) => setDimensionKey(event.target.value as DimensionKey)}>
               <DimensionOptions />
             </select>
-            <button className="primary-button px-3" aria-label="新增技能或主题" type="submit"><Plus size={15} /></button>
+            <button className="primary-button px-3" aria-label={tx("新增技能或主题")} type="submit"><Plus size={15} /></button>
           </div>
         </form>
         <AbilityOverview categories={categories} onEdit={openEditor} onDelete={requestDelete} />
@@ -150,18 +151,18 @@ function CategoryEditDialog(props: {
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
         <form className="time-modal" onSubmit={props.onSubmit}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">编辑类型</h3>
-            <button className="icon-button h-8 w-8" type="button" aria-label="关闭" onClick={props.onClose}><X size={15} /></button>
+            <h3 className="text-sm font-semibold">{tx("编辑类型")}</h3>
+            <button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={props.onClose}><X size={15} /></button>
           </div>
-          <label className="text-[11px] text-soft">名称<input aria-label="类型名称" className="field mt-1" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} /></label>
-          <label className="mt-2 block text-[11px] text-soft">能力维度<select aria-label="能力维度" className="field mt-1" value={props.dimensionKey} onChange={(event) => props.onDimensionKeyChange(event.target.value as DimensionKey)}><DimensionOptions /></select></label>
+          <label className="text-[11px] text-soft">{tx("名称")}<input aria-label={tx("类型名称")} className="field mt-1" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} /></label>
+          <label className="mt-2 block text-[11px] text-soft">{tx("能力维度")}<select aria-label={tx("能力维度")} className="field mt-1" value={props.dimensionKey} onChange={(event) => props.onDimensionKeyChange(event.target.value as DimensionKey)}><DimensionOptions /></select></label>
           <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-2">
-            <div><p className="mb-1 text-[11px] text-soft">标签预览</p><CategoryTag category={{ ...props.category, name: props.name || "类型预览", dimensionKey: props.dimensionKey }} /></div>
-            <label className="text-[11px] text-soft">目标小时<input aria-label="目标小时" className="field mt-1" min="1" type="number" value={props.targetHours} onChange={(event) => props.onTargetHoursChange(event.target.value)} /></label>
+            <div><p className="mb-1 text-[11px] text-soft">{tx("标签预览")}</p><CategoryTag category={{ ...props.category, name: props.name || tx("类型预览"), dimensionKey: props.dimensionKey }} /></div>
+            <label className="text-[11px] text-soft">{tx("目标小时")}<input aria-label={tx("目标小时")} className="field mt-1" min="1" type="number" value={props.targetHours} onChange={(event) => props.onTargetHoursChange(event.target.value)} /></label>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button className="icon-button w-auto px-4" type="button" aria-label="取消" onClick={props.onClose}>取消</button>
-            <button className="primary-button px-5" type="submit">保存</button>
+            <button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={props.onClose}>{tx("取消")}</button>
+            <button className="primary-button px-5" type="submit">{tx("保存")}</button>
           </div>
         </form>
       </div>
@@ -171,7 +172,7 @@ function CategoryEditDialog(props: {
 }
 
 function AbilityOverview({ categories, onEdit, onDelete }: { categories: Category[]; onEdit: (category: Category) => void; onDelete: (category: Category) => void }) {
-  if (!categories.length) return <p className="rounded-card bg-white/50 p-3 text-sm text-soft">还没有技能/主题。</p>;
+  if (!categories.length) return <p className="rounded-card bg-white/50 p-3 text-sm text-soft">{tx("还没有技能/主题。")}</p>;
   const totalCoreMinutes = CORE_DIMENSIONS.reduce((sum, dimension) => sum + dimensionTotalMinutes(categories, dimension.key), 0);
   return <div className="ability-list">{visibleDimensions(categories).map((dimension) => {
     const items = categoriesInDimension(categories, dimension.key);
@@ -180,8 +181,8 @@ function AbilityOverview({ categories, onEdit, onDelete }: { categories: Categor
     const percent = totalCoreMinutes && dimension.key !== "foundation" && dimension.key !== "leisure" ? Math.max(4, Math.round((minutes / totalCoreMinutes) * 100)) : 0;
     return (
       <section className="ability-card" key={dimension.key}>
-        <div className="ability-head"><span className="ability-title"><i style={{ backgroundColor: dimension.color }} />{dimension.label}</span><span className="text-[11px] text-soft">{formatDuration(minutes)}</span></div>
-        <p className="mb-2 truncate text-[10px] text-soft">{dimension.hint}</p>
+        <div className="ability-head"><span className="ability-title"><i style={{ backgroundColor: dimension.color }} />{tx(dimension.label)}</span><span className="text-[11px] text-soft">{formatDuration(minutes)}</span></div>
+        <p className="mb-2 truncate text-[10px] text-soft">{tx(dimension.hint)}</p>
         {percent > 0 && <div className="mb-2 h-1.5 rounded-full bg-white/80"><div className="progress-fill !h-1.5" style={{ width: `${percent}%`, backgroundColor: dimension.color }} /></div>}
         <div className="space-y-1.5">{items.map((item) => {
           const skillPercent = Math.min(100, Math.round((item.totalMinutes / item.targetMinutes) * 100));
@@ -190,8 +191,8 @@ function AbilityOverview({ categories, onEdit, onDelete }: { categories: Categor
               <CategoryTag category={item} />
               <div className="min-w-0 flex-1"><div className="h-1.5 rounded-full bg-white/80"><div className="progress-fill !h-1.5" style={{ width: `${skillPercent}%`, backgroundColor: item.color }} /></div></div>
               <span className="w-10 shrink-0 text-right text-[11px] text-soft">{(item.totalMinutes / 60).toFixed(1)}h</span>
-              <button className="icon-button h-7 w-7 shrink-0" aria-label={`编辑${item.name}`} onClick={() => onEdit(item)}><Pencil size={13} /></button>
-              <button className="icon-button h-7 w-7 shrink-0" aria-label={`删除${item.name}`} onClick={() => onDelete(item)}><Trash2 size={13} /></button>
+              <button className="icon-button h-7 w-7 shrink-0" aria-label={tx("编辑{value0}", { value0: item.name })} onClick={() => onEdit(item)}><Pencil size={13} /></button>
+              <button className="icon-button h-7 w-7 shrink-0" aria-label={tx("删除{value0}", { value0: item.name })} onClick={() => onDelete(item)}><Trash2 size={13} /></button>
             </div>
           );
         })}</div>
@@ -201,11 +202,11 @@ function AbilityOverview({ categories, onEdit, onDelete }: { categories: Categor
 }
 
 function CategoryTag({ category }: { category: Category }) {
-  return <span className="category-tag" title={`${dimensionMeta(category.dimensionKey).label} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}><i style={{ backgroundColor: category.color }} /><span>{category.name}</span></span>;
+  return <span className="category-tag" title={`${tx(dimensionMeta(category.dimensionKey).label)} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}><i style={{ backgroundColor: category.color }} /><span>{category.name}</span></span>;
 }
 
 function DimensionOptions() {
-  return <>{DIMENSIONS.map((dimension) => <option key={dimension.key} value={dimension.key}>{dimension.label}</option>)}</>;
+  return <>{DIMENSIONS.map((dimension) => <option key={dimension.key} value={dimension.key}>{tx(dimension.label)}</option>)}</>;
 }
 
 export function dimensionMeta(key?: string | null) {
@@ -236,5 +237,5 @@ function formatDuration(minutes: number) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "操作失败";
+  return error instanceof Error ? error.message : tx("操作失败");
 }

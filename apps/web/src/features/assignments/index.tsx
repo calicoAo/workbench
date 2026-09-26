@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, CornerDownRight, XCircle } from "lucide-react";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
+import { tx } from "../../app/i18n";
 
 export type Assignment = { id: number; taskId: number; version: number; sortOrder: number; focusRank: number | null; assignmentStatus: number; recordTimezone: string };
 export type AssignmentSnapshot = { taskDate: string; taskIds: number[]; assignments: Assignment[] };
@@ -30,10 +31,10 @@ export function ContinuationPanel({ candidates, targetDate, timezone, request, p
       await request("/api/task-days/continuations/resolve", { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), sources: group.assignments.map((item) => ({ id: item.id, expectedVersion: item.version })), resolution, targetDate: resolution === 3 ? deferredDate : resolution === 2 || resolution === 5 ? targetDate : undefined, targetTimezone: resolution === 3 || resolution === 2 || resolution === 5 ? timezone : undefined, startTime: resolution === 5 ? "09:00" : undefined, endTime: resolution === 5 ? "10:00" : undefined }) });
       await onChanged();
     } catch (error) {
-      onError(`${error instanceof Error ? error.message : "操作失败"}。若状态已变化，请重新加载后重试。`, "待续接处理冲突");
+      onError(tx("{value0}。若状态已变化，请重新加载后重试。", { value0: error instanceof Error ? error.message : tx("操作失败") }), tx("待续接处理冲突"));
     } finally { onPending(false); }
   }
-  return <section className="continuation-panel"><header><div><p className="route-eyebrow">历史来源按 Task 合并</p><h2>待续接</h2></div><span>{groups.length} 项</span></header>{groups.map((group) => <article key={group.task.id}><div><strong>{group.task.title}</strong><p>{group.assignments.map((item) => `${item.taskDate} · #${item.id} v${item.version}`).join(" / ")}</p></div><div><button disabled={pending} onClick={() => void resolve(group, 2)}><CornerDownRight size={14} />接取到今天</button><button disabled={pending} onClick={() => void resolve(group, 3)}><CalendarClock size={14} />延后到明天</button><button disabled={pending} onClick={() => void resolve(group, 5)}>重新安排</button><button disabled={pending} onClick={() => void resolve(group, 4)}><XCircle size={14} />本条不再提醒</button></div></article>)}</section>;
+  return <section className="continuation-panel"><header><div><p className="route-eyebrow">{tx("历史来源按 Task 合并")}</p><h2>{tx("待续接")}</h2></div><span>{groups.length} {tx("项")}</span></header>{groups.map((group) => <article key={group.task.id}><div><strong>{group.task.title}</strong><p>{group.assignments.map((item) => `${item.taskDate} · #${item.id} v${item.version}`).join(" / ")}</p></div><div><button disabled={pending} onClick={() => void resolve(group, 2)}><CornerDownRight size={14} />{tx("接取到今天")}</button><button disabled={pending} onClick={() => void resolve(group, 3)}><CalendarClock size={14} />{tx("延后到明天")}</button><button disabled={pending} onClick={() => void resolve(group, 5)}>{tx("重新安排")}</button><button disabled={pending} onClick={() => void resolve(group, 4)}><XCircle size={14} />{tx("本条不再提醒")}</button></div></article>)}</section>;
 }
 
 function addDays(date: string, amount: number) { const value = new Date(`${date}T00:00:00Z`); value.setUTCDate(value.getUTCDate() + amount); return value.toISOString().slice(0, 10); }

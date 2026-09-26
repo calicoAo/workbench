@@ -1,6 +1,7 @@
 import { BookOpen, BriefcaseBusiness, CircleUserRound, HeartPulse, Home, PenTool, Shield, Users } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { useState } from "react";
+import { tx } from "../../app/i18n";
 
 export type PixelAssetSlot = "hero-avatar" | "hero-half-body" | "level-badge" | "xp-frame" | "career" | "learning" | "creative" | "life" | "body" | "social";
 
@@ -36,7 +37,7 @@ export function PixelAsset({ slot, label, size }: { slot: PixelAssetSlot; label:
   const width = size ?? asset.logicalSize[0];
   const height = size ?? asset.logicalSize[1];
   const Fallback = fallbacks[slot];
-  return <span className="pixel-icon-slot" style={{ width, height }} aria-label={label}>{failed ? <Fallback aria-hidden="true" width={Math.max(16, Math.round(width * .54))} height={Math.max(16, Math.round(height * .54))} /> : <img className="pixel-image" src={asset.src} width={width} height={height} alt="" onError={() => setFailed(true)} />}</span>;
+  return <span className="pixel-icon-slot" style={{ width, height }} aria-label={tx(label)}>{failed ? <Fallback aria-hidden="true" width={Math.max(16, Math.round(width * .54))} height={Math.max(16, Math.round(height * .54))} /> : <img className="pixel-image" src={asset.src} width={width} height={height} alt="" onError={() => setFailed(true)} />}</span>;
 }
 
 export function pixelDimensionSlot(key: string): PixelAssetSlot {

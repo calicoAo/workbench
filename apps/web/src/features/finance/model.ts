@@ -1,3 +1,4 @@
+import { formatCurrencyCents, tx } from "../../app/i18n";
 export type FinanceAccountType = "CASH" | "BANK" | "PAYMENT" | "CREDIT";
 export type FinanceCategoryKind = "INCOME" | "EXPENSE";
 export type FinanceTransactionType = "OPENING" | "INCOME" | "EXPENSE" | "TRANSFER" | "REFUND" | "REVERSAL" | "CORRECTION";
@@ -40,13 +41,12 @@ export type FinanceReport = { month: string; monthly: { incomeCents: string; exp
 
 export function yuan(cents: string, hidden = false) {
   if (hidden) return "¥••••";
-  const value = BigInt(cents); const negative = value < 0n; const absolute = negative ? -value : value;
-  return `${negative ? "-" : ""}¥${(absolute / 100n).toLocaleString("zh-CN")}.${(absolute % 100n).toString().padStart(2, "0")}`;
+  return formatCurrencyCents(cents);
 }
 
 export function decimalToCents(value: string) {
   const normalized = value.trim();
-  if (!/^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(normalized)) throw new Error("请输入最多两位小数的金额");
+  if (!/^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(normalized)) throw new Error(tx("请输入最多两位小数的金额"));
   const negative = normalized.startsWith("-"); const [whole, fraction = ""] = normalized.replace("-", "").split(".");
   return `${negative ? "-" : ""}${BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"))}`;
 }

@@ -1,3 +1,5 @@
+import { getActiveLocale } from "../../app/i18n";
+
 export type QuickNoteState = "active" | "archived" | "deleted";
 
 export type QuickNote = {
@@ -25,9 +27,9 @@ export function noteTitle(note: Pick<QuickNote, "title" | "content">) {
 }
 
 export function formatNoteDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return new Intl.DateTimeFormat(getActiveLocale(), { month: "long", day: "numeric" }).format(new Date(`${value}T12:00:00`));
 }
 
 export function formatCreatedAt(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat(getActiveLocale(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }

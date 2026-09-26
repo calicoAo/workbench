@@ -345,6 +345,7 @@ export const userSettings = mysqlTable("user_settings", {
   reducedMotion: tinyint("reduced_motion").notNull().default(0),
   showRewards: tinyint("show_rewards").notNull().default(1),
   fontScale: tinyint("font_scale").notNull().default(100),
+  locale: varchar("locale", { length: 8 }).notNull().default("zh-CN"),
   updatedAt: datetime("updated_at").notNull()
 });
 

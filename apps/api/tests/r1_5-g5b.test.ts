@@ -95,9 +95,10 @@ test("domain exports preserve text, counts, source relation, and trash policy", 
 test("settings update future defaults and category disable preserves historical references", async () => {
   const [categoryRows] = await pool.query("SELECT id FROM task_categories WHERE user_id=1 LIMIT 1"); const categoryId = Number((categoryRows as Array<{ id: number }>)[0].id);
   await pool.query("INSERT INTO tasks (user_id,category_id,title,priority,difficulty,status,pinned,progress_percent,version,sort_order,completion_sequence,created_at,updated_at) VALUES (1,?,'Historical category task',2,2,0,0,0,1,1,0,NOW(),NOW())", [categoryId]);
-  const updated = await api<{ profile: { displayName: string; timezone: string }; appearance: { reducedMotion: boolean; fontScale: number }; rewards: { show: boolean } }>("/settings", { method: "PATCH", body: JSON.stringify({ displayName: "New Name", timezone: "Europe/London", reducedMotion: true, showRewards: false, fontScale: 110 }) });
+  const updated = await api<{ profile: { displayName: string; timezone: string }; appearance: { reducedMotion: boolean; fontScale: number; locale: string }; rewards: { show: boolean } }>("/settings", { method: "PATCH", body: JSON.stringify({ displayName: "New Name", timezone: "Europe/London", reducedMotion: true, showRewards: false, fontScale: 110, locale: "en" }) });
   assert.equal(updated.data.profile.displayName, "New Name"); assert.equal(updated.data.profile.timezone, "Europe/London");
   assert.equal(updated.data.appearance.fontScale, 110);
+  assert.equal(updated.data.appearance.locale, "en");
   await api(`/task-categories/${categoryId}`, { method: "PUT", body: JSON.stringify({ enabled: false }) });
   assert.equal(await scalar("SELECT category_id FROM tasks WHERE title='Historical category task'"), categoryId); assert.equal(await scalar("SELECT enabled FROM task_categories WHERE id=?", [categoryId]), 0);
 });
