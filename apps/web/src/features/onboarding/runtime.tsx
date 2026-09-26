@@ -80,7 +80,8 @@ function OnboardingRuntime({ children, request, userId, tasks, assignments, curr
     if (!step || progress?.status !== "IN_PROGRESS") return;
     const onClick = (event: MouseEvent) => {
       const element = (event.target as HTMLElement).closest<HTMLElement>("[data-guide-anchor]");
-      if (element && step.id === "publish" && element === target && !element.dataset.guideAnchor?.endsWith(".entry")) void advance("publish");
+      const liveTarget = target ?? (step.target ? resolveGuideAnchor(step.target) : null);
+      if (element && step.id === "publish" && element === liveTarget && !element.dataset.guideAnchor?.endsWith(".entry")) void advance("publish");
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

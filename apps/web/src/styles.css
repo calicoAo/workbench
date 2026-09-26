@@ -517,14 +517,14 @@ select {
   }
 
   .app-brand > span {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-card bg-mint-500 text-xs font-bold text-white;
+    @apply inline-flex items-center justify-center text-2xl font-bold leading-none;
   }
 
   .app-sidebar nav {
     @apply grid gap-1;
   }
 
-  .sidebar-toggle { @apply absolute right-[-12px] top-20 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-white text-soft shadow-glass hover:bg-mint-50 hover:text-mint-700; }
+  .sidebar-toggle { @apply absolute right-[-14px] top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/90 bg-white text-soft shadow-glass transition hover:bg-mint-50 hover:text-mint-700; }
   .sidebar-collapsed .app-sidebar { @apply px-2; }
   .sidebar-collapsed .app-brand { @apply justify-center px-0; }
   .sidebar-collapsed .app-brand strong,

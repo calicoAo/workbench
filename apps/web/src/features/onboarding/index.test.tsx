@@ -98,6 +98,7 @@ describe("onboarding runtime", () => {
       throw new Error(`unexpected request ${path}`);
     }) as unknown as Request;
     renderOnboarding(request);
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/status"));
     fireEvent.click(await screen.findByRole("button", { name: "开始新手教学" }));
     expect(await screen.findByRole("dialog", { name: "发布一个小悬赏" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "发布" }));

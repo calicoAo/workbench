@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowDownCircle, ArrowLeftRight, ArrowUpCircle, BarChart3, CalendarDays, CheckSquare2, ChevronLeft, CircleDollarSign, Droplets, Ellipsis, FolderKanban, Gift, Home, Moon, NotebookPen, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, ShieldCheck, Sparkles, Square, Wrench } from "lucide-react";
+import { Activity, ArrowDownCircle, ArrowLeftRight, ArrowUpCircle, BarChart3, CalendarDays, CheckSquare2, ChevronLeft, ChevronRight, CircleDollarSign, Droplets, Ellipsis, FolderKanban, Gift, Home, Moon, NotebookPen, Plus, Search, Settings, ShieldCheck, Sparkles, Square, Wrench } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router";
 import type { Request } from "../api";
@@ -260,7 +260,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
   return <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
     <aside className="app-sidebar">
       <Link className="app-brand" to={link("/today")}><span aria-hidden="true">{APP_BRAND.icon}</span><strong>{tx(APP_BRAND.name)}</strong></Link>
-      <button className="sidebar-toggle" type="button" title={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} aria-label={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} onClick={toggleSidebar}>{sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button>
+      <button className="sidebar-toggle" type="button" title={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} aria-label={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} onClick={toggleSidebar}>{sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2.25} /> : <ChevronLeft size={18} strokeWidth={2.25} />}</button>
       <nav aria-label={tx("主导航")}>
         <ShellLink to={link("/today")} icon={<Home size={17} />}>{tx("今日")}</ShellLink>
         <ShellLink to={link("/tasks")} icon={<CheckSquare2 size={17} />}>{tx("任务")}</ShellLink>
