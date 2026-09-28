@@ -5,7 +5,7 @@ import { getCurrentUserId } from "../auth.js";
 import { db, type DatabaseClient } from "../db/index.js";
 import { schedules, tasks, users } from "../db/schema.js";
 import { ActualTimeClass, ScheduleKind, ScheduleLifecycle, ScheduleSource } from "../enums.js";
-import { dailyExecutionForUser } from "../execution-read-model.js";
+import { actualTimeForRange, dailyExecutionForUser } from "../execution-read-model.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ok } from "../http.js";
 import { cancelManualActual, correctManualActual, recordManualActual } from "../manual-actual.js";
@@ -50,6 +50,7 @@ const correctSchema = z.object({
 });
 const cancelSchema = z.object({ operationId, expectedVersion: z.number().int().positive() });
 const rangeSchema = z.object({ from: date, to: date, timezone: z.string().refine(isValidTimezone) });
+const summaryRangeSchema = rangeSchema.refine((value) => daysBetween(value.from, value.to) >= 0 && daysBetween(value.from, value.to) <= 370, "calendar summary range must contain 1-371 days");
 const plannedUpdateSchema = z.object({
   operationId,
   expectedVersion: z.number().int().positive(),
@@ -91,13 +92,37 @@ async function insertPlannedSchedule(client: DatabaseClient, userId: number, bod
 }
 
 function rangeDates(from: string, to: string) {
-  const start = new Date(`${from}T00:00:00Z`), end = new Date(`${to}T00:00:00Z`);
-  const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+  const start = new Date(`${from}T00:00:00Z`);
+  const days = daysBetween(from, to);
   if (days < 0 || days > 6) throw new BusinessError(ErrorCode.PARAM_ERROR, "calendar range must contain 1-7 days");
   return Array.from({ length: days + 1 }, (_, index) => new Date(start.getTime() + index * 86400000).toISOString().slice(0, 10));
 }
 
+function daysBetween(from: string, to: string) {
+  const start = new Date(`${from}T00:00:00Z`), end = new Date(`${to}T00:00:00Z`);
+  return Math.round((end.getTime() - start.getTime()) / 86400000);
+}
+
+function rangeDatesLong(from: string, to: string) {
+  const start = new Date(`${from}T00:00:00Z`);
+  return Array.from({ length: daysBetween(from, to) + 1 }, (_, index) => new Date(start.getTime() + index * 86400000).toISOString().slice(0, 10));
+}
+
 export const schedulesRoute = new Hono()
+  .get("/summary", async (c) => {
+    const query = summaryRangeSchema.parse(c.req.query());
+    const userId = getCurrentUserId(c);
+    const [entries, planned] = await Promise.all([
+      actualTimeForRange(userId, query.from, query.to, query.timezone),
+      db.select({ scheduleDate: schedules.scheduleDate }).from(schedules).where(and(eq(schedules.userId, userId), between(schedules.scheduleDate, query.from, query.to), eq(schedules.kind, ScheduleKind.PLANNED), isNull(schedules.deletedAt)))
+    ]);
+    const days = rangeDatesLong(query.from, query.to).map((businessDate) => ({
+      businessDate,
+      actualMinutes: Math.floor(entries.filter((entry) => entry.businessDate === businessDate).reduce((sum, entry) => sum + entry.durationSeconds, 0) / 60),
+      plannedCount: planned.filter((item) => item.scheduleDate === businessDate).length
+    }));
+    return ok(c, { ...query, days });
+  })
   .get("/", async (c) => {
     const query = rangeSchema.parse(c.req.query());
     const dates = rangeDates(query.from, query.to);

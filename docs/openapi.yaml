@@ -146,7 +146,7 @@ paths:
           description: Inclusive product business date; defaults from the user's configured timezone.
           schema: { type: string, format: date }
       responses:
-        "200": { description: Hero progression, period summary, dimension distribution, unmapped attribution and derived recent activity }
+        "200": { description: Rewards progression, period summary, dimension distribution, unmapped attribution, recent sources, and derived ActualTime/task/Habit trend buckets }
   /growth/dimensions:
     get:
       summary: Read GrowthDimension configuration and current TaskCategory mappings
@@ -200,6 +200,143 @@ paths:
       responses:
         "200": { description: Current mapping }
         "400": { description: Dimension is missing or disabled }
+  /hero:
+    get:
+      summary: Read Hero presentation, Rewards-backed progress, Earth Online day, and selected-date status
+      description: Level and EXP remain owned by Rewards. Earth Online day uses local calendar-day distance from birthDate, with the birth date as day one.
+      parameters:
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Hero profile, Rewards progress, daily status, timezone, and optional Earth Online day }
+  /hero/profile:
+    put:
+      summary: Update versioned Hero presentation metadata
+      description: Hero Profile does not own Level, EXP, Growth, Task, Timer, or Finance facts. A future birth date is rejected using the user's current timezone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+                displayName: { type: string, minLength: 1, maxLength: 64 }
+                avatarRef: { type: string, nullable: true, maxLength: 255 }
+                portraitRef: { type: string, nullable: true, maxLength: 255 }
+                title: { type: string, nullable: true, maxLength: 80 }
+                birthDate: { type: string, format: date, nullable: true }
+                visualPreferences: { type: object, nullable: true, additionalProperties: true }
+      responses:
+        "200": { description: Updated profile version }
+        "409": { description: Stale profile version }
+  /hero/daily-status:
+    put:
+      summary: Create or correct one versioned self-reported status for a business date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessDate, periodTimezone, statusKey, expectedVersion]
+              properties:
+                businessDate: { type: string, format: date }
+                periodTimezone: { type: string }
+                statusKey: { type: string, enum: [GREAT, GOOD, OKAY, TIRED, LOW] }
+                expectedVersion: { type: integer, minimum: 0 }
+      responses:
+        "200": { description: Current daily status identity and version }
+        "409": { description: Timezone or version conflict }
+  /hero/daily-entry/claim:
+    post:
+      summary: Atomically claim the current business day's one-time Earth Online entry
+      description: Unresolved core onboarding wins. Replay or multi-device claims return ALREADY_ENTERED and never create another fact, streak, or reward. Existing users with no onboarding flow are eligible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [businessDate]
+              properties:
+                businessDate: { type: string, format: date }
+      responses:
+        "200": { description: Claimed Hero summary, or ONBOARDING/ALREADY_ENTERED reason }
+        "409": { description: Requested date is not the user's current business date }
+  /adventure/snapshots:
+    get:
+      summary: List deterministic Daily Adventure snapshots
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Up to 120 snapshots newest first }
+  /adventure/snapshots/{date}:
+    get:
+      summary: Read a Daily Adventure snapshot and detect source-fingerprint staleness
+      description: Facts may include Task, Assignment, ActualTime, Habit, Sleep, Water, Writing-existence metadata, Rewards, Growth mapping, and Daily Status. Private Writing bodies are never read.
+      parameters: [{ in: path, name: date, required: true, schema: { type: string, format: date } }]
+      responses:
+        "200": { description: Stored snapshot, current source fingerprint, and stale state }
+  /adventure/snapshots/{date}/regenerate:
+    post:
+      summary: Idempotently create or regenerate a deterministic Daily Adventure snapshot
+      parameters: [{ in: path, name: date, required: true, schema: { type: string, format: date } }]
+      responses:
+        "200": { description: Current snapshot; version increases only when source facts changed }
+  /adventure/period-reviews:
+    get:
+      summary: Read deterministic WEEK or MONTH facts and detect review staleness
+      parameters:
+        - in: query
+          name: type
+          required: true
+          schema: { type: string, enum: [WEEK, MONTH] }
+        - in: query
+          name: anchor
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: Stored review when present, current facts, source fingerprint, and stale state }
+  /adventure/period-reviews/regenerate:
+    post:
+      summary: Idempotently regenerate deterministic period facts without overwriting user review text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, anchor]
+              properties:
+                type: { type: string, enum: [WEEK, MONTH] }
+                anchor: { type: string, format: date }
+      responses:
+        "200": { description: Current versioned period review }
+  /adventure/period-reviews/{id}:
+    put:
+      summary: Update only the user-authored Period Review body with optimistic concurrency
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion, userReviewBody]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+                userReviewBody: { type: string, maxLength: 20000 }
+      responses:
+        "200": { description: Updated review identity and version }
+        "409": { description: Stale review version }
   /finance/initialize:
     post:
       summary: Explicitly initialize the authenticated user's default Finance categories
@@ -461,7 +598,7 @@ paths:
   /habits/summary:
     get:
       summary: Derive daily and Monday-based weekly Habit status plus specialized life projections
-      description: Pending and missed are derived without occurrence writes. Water, Morning Writing, and Sleep remain projections of their specialized owners.
+      description: Pending and missed are derived without occurrence writes. Each item exposes the selected-date occurrence and optional linkedTaskId so Adventure can project unlinked Habit occurrences as Daily Quests without creating Tasks. Water, Morning Writing, and Sleep remain projections of their specialized owners.
       parameters:
         - in: query
           name: date
@@ -870,6 +1007,25 @@ paths:
       responses:
         "200":
           description: Created time block
+  /schedules/summary:
+    get:
+      summary: Read a one-to-371-day Calendar summary
+      description: Daily actualMinutes come only from the canonical ActualTime range capability. Planned count is a Schedule presentation summary; no daily score or aggregate is persisted.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: timezone
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Inclusive days with businessDate, actualMinutes, and plannedCount }
   /schedules/{id}:
     put:
       summary: Update a Planned block or correct a Manual Actual record
@@ -2055,6 +2211,164 @@ paths:
       summary: Read-only Finance account reconciliation and anomaly report
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FinanceOperationRequest" } } } }
 
+  /library/items:
+    get:
+      summary: List user-owned Library items by type, status, or search text
+      parameters:
+        - { in: query, name: type, schema: { type: string, enum: [BOOK, MOVIE, SERIES, GAME] } }
+        - { in: query, name: status, schema: { type: string, enum: [WANT, IN_PROGRESS, FINISHED, DROPPED] } }
+        - { in: query, name: q, schema: { type: string, maxLength: 120 } }
+      responses: { "200": { description: Library item summaries with relation counts } }
+    post:
+      summary: Create a Library-owned metadata record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibraryItemInput" }
+      responses: { "200": { description: Created Library item } }
+  /library/items/{id}:
+    get:
+      summary: Read a Library item and Notebook relation summaries without copied bodies
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      responses: { "200": { description: Library item detail and relations } }
+    put:
+      summary: Update a Library item with optimistic concurrency
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/LibraryItemInput" }
+                - type: object
+                  required: [expectedVersion]
+                  properties: { expectedVersion: { type: integer, minimum: 1 } }
+      responses:
+        "200": { description: Updated Library item }
+        "409": { description: Version conflict }
+  /library/items/{id}/relations:
+    post:
+      summary: Add a same-user Notebook reference without copying its body
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetType, targetId]
+              properties:
+                targetType: { type: string, enum: [QUICK_NOTE, JOURNAL, INSPIRATION] }
+                targetId: { type: integer, format: int64 }
+      responses: { "200": { description: Updated Library detail } }
+  /backpack:
+    get:
+      summary: Read user-owned achievements, milestones, keepsakes, and source availability
+      responses: { "200": { description: Backpack overview } }
+  /backpack/achievements/evaluate:
+    post:
+      summary: Idempotently unlock achievements from deterministic domain facts
+      responses: { "200": { description: Achievement overview } }
+  /backpack/milestones:
+    get:
+      summary: List user-owned milestones
+      responses: { "200": { description: Milestone list } }
+    post:
+      summary: Create an idempotent milestone
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MilestoneInput" } } }
+      responses: { "200": { description: Created or replayed milestone identity } }
+  /backpack/milestones/{id}:
+    put:
+      summary: Update a milestone with optimistic concurrency
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 1 }
+                title: { type: string, maxLength: 160 }
+                description: { type: string, maxLength: 1000, nullable: true }
+                happenedOn: { type: string, format: date }
+      responses:
+        "200": { description: Updated milestone identity and version }
+        "409": { description: Version conflict }
+  /backpack/keepsakes:
+    get:
+      summary: List user-owned structured keepsakes and source availability
+      responses: { "200": { description: Keepsake list } }
+    post:
+      summary: Create an idempotent structured keepsake without file uploads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/MilestoneInput" }
+                - type: object
+                  required: [iconKey, themeKey]
+                  properties:
+                    iconKey: { type: string, maxLength: 64 }
+                    themeKey: { type: string, maxLength: 32 }
+      responses: { "200": { description: Created or replayed keepsake identity } }
+  /ai/settings:
+    get:
+      summary: Read the global AI switch and per-domain permissions
+      responses: { "200": { description: AI settings; all permissions default off } }
+    put:
+      summary: Update AI settings with optimistic concurrency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, minimum: 0 }
+                enabled: { type: boolean }
+                allowAdventure: { type: boolean }
+                allowNotebook: { type: boolean }
+                allowGrowth: { type: boolean }
+                allowLibrary: { type: boolean }
+                allowWallet: { type: boolean, default: false }
+      responses:
+        "200": { description: Updated AI settings }
+        "409": { description: Version conflict }
+  /ai/artifacts:
+    get:
+      summary: List the authenticated user's AI artifacts
+      responses: { "200": { description: Artifacts with validated results, source versions, status, stale, usage, and cost } }
+  /ai/usage:
+    get:
+      summary: Read recorded AI request and token usage; cost is null when unavailable
+      responses: { "200": { description: AI usage and cost summary } }
+  /ai/morning-writing-insight:
+    post:
+      summary: Generate or retry a permission-gated insight from a saved Morning Writing source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId, sourceDate]
+              properties:
+                operationId: { type: string, format: uuid }
+                sourceDate: { type: string, format: date }
+      responses:
+        "200": { description: Validated AI artifact }
+        "403": { description: AI or Notebook permission is disabled }
+        "409": { description: Operation identity was used with changed source input }
+        "500": { description: Provider or structure validation failure persisted for retry }
 components:
   securitySchemes:
     BearerAuth:
@@ -2062,6 +2376,31 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    LibraryItemInput:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, enum: [BOOK, MOVIE, SERIES, GAME] }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        originalTitle: { type: string, maxLength: 200, nullable: true }
+        creator: { type: string, maxLength: 160, nullable: true }
+        coverRef: { type: string, maxLength: 500, nullable: true }
+        status: { type: string, enum: [WANT, IN_PROGRESS, FINISHED, DROPPED] }
+        rating: { type: integer, minimum: 1, maximum: 5, nullable: true }
+        startedOn: { type: string, format: date, nullable: true }
+        finishedOn: { type: string, format: date, nullable: true }
+        externalRef: { type: string, maxLength: 500, nullable: true }
+        shortNote: { type: string, maxLength: 1000, nullable: true }
+    MilestoneInput:
+      type: object
+      required: [operationId, title, happenedOn]
+      properties:
+        operationId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string, maxLength: 1000, nullable: true }
+        happenedOn: { type: string, format: date }
+        sourceType: { type: string, enum: [PROJECT, MILESTONE, ACHIEVEMENT, LIBRARY, ADVENTURE_LOG, MANUAL_TEXT], nullable: true }
+        sourceId: { type: integer, format: int64, nullable: true }
     OnboardingProgress:
       type: object
       required: [flowId, flowVersion, status, currentStepId, updatedAt]
@@ -3722,6 +4061,10 @@ components:
       type: object
       required: [sourceType, sourceDate, content]
       properties:
+        operationId:
+          type: string
+          format: uuid
+          description: Stable generation identity used by the migrated Morning Writing branch.
         sourceType:
           type: string
           enum: [morning, journal]

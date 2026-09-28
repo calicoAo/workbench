@@ -75,7 +75,7 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       .innerJoin(tasks, and(eq(taskCompletionEvents.taskId, tasks.id), eq(taskCompletionEvents.userId, tasks.userId)))
       .where(and(eq(taskCompletionEvents.userId, userId), gte(taskCompletionEvents.businessDate, from), lte(taskCompletionEvents.businessDate, to)))
       .orderBy(desc(taskCompletionEvents.occurredAt)),
-    db.select({ id: habitOccurrences.id }).from(habitOccurrences).where(and(
+    db.select({ id: habitOccurrences.id, occurrenceDate: habitOccurrences.occurrenceDate }).from(habitOccurrences).where(and(
       eq(habitOccurrences.userId, userId),
       eq(habitOccurrences.status, HabitOccurrenceStatus.COMPLETED),
       gte(habitOccurrences.occurrenceDate, from),
@@ -124,6 +124,18 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       lastActivityDate: total.lastActivityDate
     };
   });
+  const bucketDays = days === 7 ? 1 : days === 30 ? 5 : 10;
+  const trend = Array.from({ length: Math.ceil(days / bucketDays) }, (_, index) => {
+    const bucketFrom = addDate(from, index * bucketDays);
+    const bucketTo = addDate(from, Math.min(days - 1, (index + 1) * bucketDays - 1));
+    return {
+      from: bucketFrom,
+      to: bucketTo,
+      actualMinutes: Math.floor(entries.filter((entry) => entry.businessDate >= bucketFrom && entry.businessDate <= bucketTo).reduce((sum, entry) => sum + entry.durationSeconds, 0) / 60),
+      completedTaskCount: completionRows.filter((entry) => entry.businessDate >= bucketFrom && entry.businessDate <= bucketTo).length,
+      habitCompletedCount: habits.filter((entry) => String(entry.occurrenceDate).slice(0, 10) >= bucketFrom && String(entry.occurrenceDate).slice(0, 10) <= bucketTo).length
+    };
+  });
   return {
     period: { days, from, to, timezone: user.timezone },
     hero: growthSummary(growthRows[0] ?? { level: 1, xpTotal: 0, coins: 0 }),
@@ -134,6 +146,7 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       habitCompletedCount: habits.length
     },
     dimensions,
+    trend,
     unmapped: {
       actualMinutes: Math.floor(unmapped.seconds / 60),
       completedTaskCount: unmapped.completedTaskCount,
@@ -153,6 +166,11 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       };
     })
   };
+}
+
+function addDate(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days, 12)).toISOString().slice(0, 10);
 }
 
 export async function createGrowthDimension(userId: number, input: { name: string; iconKey?: string | null; color: string; sortOrder: number }) {

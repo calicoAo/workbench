@@ -26,6 +26,15 @@ export async function seedOnboardingForNewUser(client: DatabaseClient, userId: n
   });
 }
 
+export async function coreOnboardingResolved(client: DatabaseClient, userId: number) {
+  const [progress] = await client.select({ status: onboardingFlowProgress.status }).from(onboardingFlowProgress).where(and(
+    eq(onboardingFlowProgress.userId, userId),
+    eq(onboardingFlowProgress.flowId, CORE_FLOW_ID),
+    eq(onboardingFlowProgress.flowVersion, CORE_FLOW_VERSION)
+  ));
+  return !progress || progress.status === "COMPLETED" || progress.status === "SKIPPED";
+}
+
 export async function onboardingStatus(userId: number) {
   const [flow, hints, published, accepted, started, completed, note] = await Promise.all([
     db.select().from(onboardingFlowProgress).where(and(eq(onboardingFlowProgress.userId, userId), eq(onboardingFlowProgress.flowId, CORE_FLOW_ID), eq(onboardingFlowProgress.flowVersion, CORE_FLOW_VERSION))),

@@ -215,9 +215,15 @@ export function WritingReflectionFeature({
     }
     setAiLoading(kind);
     try {
+      if (kind === "morning") {
+        await request("/api/morning-writings", {
+          method: "POST",
+          body: JSON.stringify({ writingDate: selectedDate, content: morning.content, moodScore: Number(morning.moodScore) })
+        });
+      }
       const insight = await request<AiInsight>("/api/ai-insights/analyze", {
         method: "POST",
-        body: JSON.stringify({ sourceType: kind, sourceDate: selectedDate, content })
+        body: JSON.stringify({ sourceType: kind, sourceDate: selectedDate, content, operationId: crypto.randomUUID() })
       });
       setInsights((current) => ({ ...current, [kind]: insight }));
       await onChanged();

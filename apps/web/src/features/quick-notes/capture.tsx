@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Lightbulb, X } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
@@ -16,17 +16,19 @@ type CaptureDraft = {
   tag: string;
 };
 
-export function QuickNoteCaptureButton({ request, userId, selectedDate, label = "记一条", compact = false, onOpen, onCreated }: {
+export function QuickNoteCaptureButton({ request, userId, selectedDate, label = "记一条", compact = false, iconOnly = false, onOpen, onCreated, icon }: {
   request: Request;
   userId: number;
   selectedDate: string;
   label?: string;
   compact?: boolean;
+  iconOnly?: boolean;
   onOpen?: () => void;
   onCreated?: (note: QuickNote) => void | Promise<void>;
+  icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  return <><Button variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => { onOpen?.(); setOpen(true); }}><Lightbulb size={14} /><span>{tx(label)}</span></Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
+  return <><Button aria-label={iconOnly ? tx(label) : undefined} title={iconOnly ? tx(label) : undefined} iconOnly={iconOnly} variant={compact ? "secondary" : "primary"} size={compact ? "sm" : "md"} onClick={() => { onOpen?.(); setOpen(true); }}>{icon ?? <Lightbulb size={14} />}{iconOnly ? null : <span>{tx(label)}</span>}</Button>{open ? <QuickNoteCaptureDialog request={request} userId={userId} selectedDate={selectedDate} onClose={() => setOpen(false)} onCreated={onCreated} /> : null}</>;
 }
 
 function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCreated }: {

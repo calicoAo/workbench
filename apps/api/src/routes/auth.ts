@@ -11,7 +11,7 @@ import { DEFAULT_TIMEZONE } from "../time.js";
 import { seedWritingSlots } from "../writing-slots.js";
 import { seedGrowthDimensions } from "../growth.js";
 
-type RegistrationMetadataSeeder = (client: DatabaseClient, userId: number, now: Date) => Promise<void>;
+type RegistrationMetadataSeeder = (client: DatabaseClient, userId: number, now: Date, displayName: string) => Promise<void>;
 
 const registerSchema = z.object({
   username: z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
@@ -65,7 +65,7 @@ export function createAuthRoute(seedRegistrationMetadata?: RegistrationMetadataS
       await seedDefaultCategories(tx, registeredUser.id, now);
       await seedGrowthDimensions(tx, registeredUser.id, now);
       await seedWritingSlots(tx, registeredUser.id, now);
-      await seedRegistrationMetadata?.(tx, registeredUser.id, now);
+      await seedRegistrationMetadata?.(tx, registeredUser.id, now, registeredUser.displayName);
       return registeredUser;
     });
 

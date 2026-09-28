@@ -193,10 +193,11 @@ export async function habitSummary(userId: number, date: string) {
   const definitions = await db.select().from(habitDefinitions).where(and(eq(habitDefinitions.userId, userId), lte(habitDefinitions.startDate, date))).orderBy(asc(habitDefinitions.name));
   const ids = definitions.map((item) => item.id);
   const weekFrom = mondayOf(date), weekTo = sundayOf(date);
-  const [rules, goals, occurrenceRows, water, writing, sleep] = await Promise.all([
+  const [rules, goals, occurrenceRows, links, water, writing, sleep] = await Promise.all([
     ids.length ? db.select().from(habitRuleVersions).where(and(inArray(habitRuleVersions.habitId, ids), lte(habitRuleVersions.effectiveFrom, date))) : [],
     ids.length ? db.select().from(habitGoalVersions).where(and(inArray(habitGoalVersions.habitId, ids), lte(habitGoalVersions.effectiveFrom, date))) : [],
     ids.length ? db.select().from(habitOccurrences).where(and(eq(habitOccurrences.userId, userId), inArray(habitOccurrences.habitId, ids), lte(habitOccurrences.occurrenceDate, weekTo))) : [],
+    ids.length ? db.select().from(habitTaskLinks).where(and(eq(habitTaskLinks.userId, userId), inArray(habitTaskLinks.habitId, ids), eq(habitTaskLinks.occurrenceDate, date))) : [],
     db.select().from(waterRecords).where(and(eq(waterRecords.userId, userId), eq(waterRecords.waterDate, date), isNull(waterRecords.deletedAt))),
     db.select().from(morningWritings).where(and(eq(morningWritings.userId, userId), eq(morningWritings.writingDate, date), isNull(morningWritings.deletedAt))),
     db.select().from(sleepRecords).where(and(eq(sleepRecords.userId, userId), eq(sleepRecords.sleepDate, date), isNull(sleepRecords.deletedAt)))
@@ -206,15 +207,18 @@ export async function habitSummary(userId: number, date: string) {
     const rule = latestAt(rules, habit.id, date), goal = latestAt(goals, habit.id, date);
     if (!rule?.enabled || !goal) return [];
     const target = Number(goal.targetValue);
+    const linkedTaskId = links.find((row) => row.habitId === habit.id)?.taskId ?? null;
     if (rule.frequencyType === HabitFrequency.WEEKLY_N) {
       const weekRows = occurrenceRows.filter((row) => row.habitId === habit.id && dateOnly(row.occurrenceDate) >= weekFrom && dateOnly(row.occurrenceDate) <= weekTo);
       const completed = weekRows.filter((row) => row.status === HabitOccurrenceStatus.COMPLETED).length;
-      return [{ ...habit, frequencyType: rule.frequencyType, weeklyTarget: rule.weeklyTarget, targetValue: target, weekFrom, weekTo, completed, status: completed >= (rule.weeklyTarget ?? 1) ? "COMPLETED" : "IN_PROGRESS", occurrence: null }];
+      const occurrence = weekRows.find((row) => dateOnly(row.occurrenceDate) === date) ?? null;
+      const status = completed >= (rule.weeklyTarget ?? 1) ? "COMPLETED" : occurrence?.status === HabitOccurrenceStatus.SKIPPED ? "SKIPPED" : occurrence?.status === HabitOccurrenceStatus.PARTIAL ? "PARTIAL" : "IN_PROGRESS";
+      return [{ ...habit, frequencyType: rule.frequencyType, weeklyTarget: rule.weeklyTarget, targetValue: target, weekFrom, weekTo, completed, status, occurrence, linkedTaskId }];
     }
     if (!expectedForDate(rule, date)) return [];
     const occurrence = occurrenceRows.find((row) => row.habitId === habit.id && dateOnly(row.occurrenceDate) === date) ?? null;
     const status = occurrence ? ["PARTIAL", "COMPLETED", "SKIPPED"][occurrence.status] : date < today ? "MISSED" : "PENDING";
-    return [{ ...habit, frequencyType: rule.frequencyType, targetValue: target, status, occurrence }];
+    return [{ ...habit, frequencyType: rule.frequencyType, targetValue: target, status, occurrence, linkedTaskId }];
   });
   return { date, weekFrom, weekTo, items, specialized: { water: water[0] ? { cups: water[0].cups, targetCups: water[0].targetCups, status: water[0].cups >= water[0].targetCups ? "COMPLETED" : "PARTIAL" } : { cups: 0, targetCups: 8, status: "PENDING" }, morningWriting: { completed: Boolean(writing[0]?.content?.trim()) }, sleep: sleep[0] ? { recorded: true, durationMinutes: sleep[0].durationMinutes, qualityScore: sleep[0].qualityScore } : { recorded: false } } };
 }

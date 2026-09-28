@@ -81,6 +81,8 @@ test("Habit to Task is unique and binary Task completion writes one occurrence i
   const habit = await createHabit(); const operationId = op();
   const first = await api<{ taskId: number }>(`/habits/${habit.data.id}/task`, { method: "POST", body: JSON.stringify({ operationId, occurrenceDate: "2026-09-21", recordTimezone: "Asia/Shanghai" }) });
   const replay = await api<{ taskId: number }>(`/habits/${habit.data.id}/task`, { method: "POST", body: JSON.stringify({ operationId, occurrenceDate: "2026-09-21", recordTimezone: "Asia/Shanghai" }) }); assert.equal(replay.data.taskId, first.data.taskId);
+  const projected = await api<{ items: Array<{ id: number; linkedTaskId: number | null }> }>("/habits/summary?date=2026-09-21");
+  assert.equal(projected.data.items.find((item) => item.id === habit.data.id)?.linkedTaskId, first.data.taskId);
   assert.equal(await scalar("SELECT COUNT(*) FROM habit_task_links"), 1); assert.equal(await scalar("SELECT COUNT(*) FROM tasks WHERE id=?", [first.data.taskId]), 1);
   const completeOp = op(); const completed = await api(`/tasks/${first.data.taskId}/complete`, { method: "PUT", body: JSON.stringify({ operationId: completeOp, expectedVersion: 1 }) }); assert.equal(completed.response.status, 200);
   const completedReplay = await api(`/tasks/${first.data.taskId}/complete`, { method: "PUT", body: JSON.stringify({ operationId: completeOp, expectedVersion: 1 }) }); assert.equal(completedReplay.response.status, 200);

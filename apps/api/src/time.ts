@@ -46,6 +46,21 @@ export function businessDateAt(instant: Date, timeZone: string) {
   return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 }
 
+export function calendarDayNumber(value: string) {
+  const [sourceYear, month, day] = value.split("-").map(Number);
+  const year = sourceYear - (month <= 2 ? 1 : 0);
+  const era = Math.floor(year / 400);
+  const yearOfEra = year - era * 400;
+  const monthPrime = month + (month > 2 ? -3 : 9);
+  const dayOfYear = Math.floor((153 * monthPrime + 2) / 5) + day - 1;
+  const dayOfEra = yearOfEra * 365 + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100) + dayOfYear;
+  return era * 146097 + dayOfEra;
+}
+
+export function calendarDaysBetween(from: string, to: string) {
+  return calendarDayNumber(to) - calendarDayNumber(from);
+}
+
 export function localTimeAt(instant: Date, timeZone: string) {
   const { hour, minute, second } = partsAt(instant, timeZone);
   return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:${second.toString().padStart(2, "0")}`;

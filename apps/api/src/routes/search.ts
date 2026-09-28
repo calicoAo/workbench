@@ -4,7 +4,7 @@ import { getCurrentUserId } from "../auth.js";
 import { pool } from "../db/index.js";
 import { ok } from "../http.js";
 
-const typeSchema = z.enum(["task", "project", "habit", "quick_note", "journal", "morning_writing", "schedule", "finance"]);
+const typeSchema = z.enum(["task", "project", "habit", "quick_note", "journal", "morning_writing", "schedule", "finance", "library", "achievement", "milestone", "keepsake"]);
 const querySchema = z.object({
   q: z.string().trim().min(1).max(120),
   type: typeSchema.optional(),
@@ -46,38 +46,50 @@ export const searchRoute = new Hono().get("/", async (c) => {
     try { cursor = decodeCursor(query.cursor); } catch { throw new z.ZodError([{ code: "custom", path: ["cursor"], message: "invalid cursor" }]); }
   }
   const union = `
-    SELECT 'task' AS type, id, title, COALESCE(description, '') AS body, COALESCE(due_date, DATE(created_at)) AS result_date, created_at
+    SELECT 'task' AS type, id, CONVERT(title USING utf8mb4) COLLATE utf8mb4_unicode_ci AS title, CONVERT(COALESCE(description, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS body, COALESCE(due_date, DATE(created_at)) AS result_date, created_at
       FROM tasks WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT 'project', id, name, CONCAT_WS(' ', name, description, notes), COALESCE(target_date, start_date, DATE(created_at)), created_at
+    SELECT 'project', id, CONVERT(name USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', name, description, notes) USING utf8mb4) COLLATE utf8mb4_unicode_ci, COALESCE(target_date, start_date, DATE(created_at)), created_at
       FROM projects WHERE user_id = ?
     UNION ALL
-    SELECT 'habit', id, name, CONCAT_WS(' ', name, description, unit), start_date, created_at
+    SELECT 'habit', id, CONVERT(name USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', name, description, unit) USING utf8mb4) COLLATE utf8mb4_unicode_ci, start_date, created_at
       FROM habit_definitions WHERE user_id = ?
     UNION ALL
-    SELECT 'quick_note', id, COALESCE(NULLIF(title, ''), '随手记'), CONCAT_WS(' ', title, content, tag), note_date, created_at
+    SELECT 'quick_note', id, CONVERT(COALESCE(NULLIF(title, ''), '随手记') USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', title, content, tag) USING utf8mb4) COLLATE utf8mb4_unicode_ci, note_date, created_at
       FROM quick_notes WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT 'journal', id, CONCAT('日记 · ', journal_date), COALESCE(content, ''), journal_date, created_at
+    SELECT 'journal', id, CONVERT(CONCAT('日记 · ', journal_date) USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(COALESCE(content, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci, journal_date, created_at
       FROM journals WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT 'morning_writing', id, CONCAT('晨写 · ', writing_date), COALESCE(content, ''), writing_date, created_at
+    SELECT 'morning_writing', id, CONVERT(CONCAT('晨写 · ', writing_date) USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(COALESCE(content, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci, writing_date, created_at
       FROM morning_writings WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT 'schedule', id, title, CONCAT_WS(' ', title, note), schedule_date, created_at
+    SELECT 'schedule', id, CONVERT(title USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', title, note) USING utf8mb4) COLLATE utf8mb4_unicode_ci, schedule_date, created_at
       FROM schedules WHERE user_id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT 'finance', t.id, COALESCE(c.name, CASE t.type WHEN 1 THEN '收入' WHEN 2 THEN '支出' WHEN 3 THEN '转账' ELSE '财务流水' END), CONCAT_WS(' ', c.name, a.name, t.note), t.business_date, t.created_at
+    SELECT 'finance', t.id, CONVERT(COALESCE(c.name, CASE t.type WHEN 1 THEN '收入' WHEN 2 THEN '支出' WHEN 3 THEN '转账' ELSE '财务流水' END) USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', c.name, a.name, t.note) USING utf8mb4) COLLATE utf8mb4_unicode_ci, t.business_date, t.created_at
       FROM finance_transactions t
       LEFT JOIN finance_categories c ON c.id = t.category_id AND c.user_id = t.user_id
       LEFT JOIN finance_entries e ON e.transaction_id = t.id AND e.user_id = t.user_id
       LEFT JOIN finance_accounts a ON a.id = e.account_id AND a.user_id = t.user_id
       WHERE t.user_id = ? AND t.status <> 2
+    UNION ALL
+    SELECT 'library', id, CONVERT(title USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', title, original_title, creator, short_note) USING utf8mb4) COLLATE utf8mb4_unicode_ci, COALESCE(finished_on, started_on, DATE(created_at)), created_at
+      FROM library_items WHERE user_id = ?
+    UNION ALL
+    SELECT 'milestone', id, CONVERT(title USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', title, description) USING utf8mb4) COLLATE utf8mb4_unicode_ci, happened_on, created_at
+      FROM milestones WHERE user_id = ?
+    UNION ALL
+    SELECT 'keepsake', id, CONVERT(title USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', title, description) USING utf8mb4) COLLATE utf8mb4_unicode_ci, happened_on, created_at
+      FROM keepsake_cards WHERE user_id = ?
+    UNION ALL
+    SELECT 'achievement', u.id, CONVERT(d.title USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(CONCAT_WS(' ', d.title, d.description) USING utf8mb4) COLLATE utf8mb4_unicode_ci, DATE(u.unlocked_at), u.unlocked_at
+      FROM achievement_unlocks u JOIN achievement_definitions d ON d.id = u.achievement_id WHERE u.user_id = ?
   `;
   const where = ["(title LIKE ? OR body LIKE ?)"];
   const keyword = `%${query.q}%`;
   const userId = getCurrentUserId(c);
-  const values: unknown[] = [userId, userId, userId, userId, userId, userId, userId, userId, keyword, keyword];
+  const values: unknown[] = [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, keyword, keyword];
   if (query.type) { where.push("type = ?"); values.push(query.type); }
   if (query.from) { where.push("result_date >= ?"); values.push(query.from); }
   if (query.to) { where.push("result_date <= ?"); values.push(query.to); }
@@ -95,7 +107,7 @@ export const searchRoute = new Hono().get("/", async (c) => {
     title: row.title,
     snippet: snippet(row.body || row.title, query.q),
     date: resultDate(row.result_date),
-    deepLink: row.type === "project" ? `/projects/${row.id}` : row.type === "habit" ? `/routines?habit=${row.id}` : row.type === "task" ? `/tasks/${row.id}?date=${resultDate(row.result_date)}` : row.type === "quick_note" ? `/notes/${row.id}?date=${resultDate(row.result_date)}` : row.type === "schedule" ? `/calendar?date=${resultDate(row.result_date)}` : row.type === "finance" ? `/finance?tab=transactions&transactionId=${row.id}` : `/journal?date=${resultDate(row.result_date)}`
+    deepLink: row.type === "project" ? `/projects/${row.id}` : row.type === "habit" ? `/routines?habit=${row.id}` : row.type === "task" ? `/tasks/${row.id}?date=${resultDate(row.result_date)}` : row.type === "quick_note" ? `/notes/${row.id}?date=${resultDate(row.result_date)}` : row.type === "schedule" ? `/calendar?date=${resultDate(row.result_date)}` : row.type === "finance" ? `/finance?tab=transactions&transactionId=${row.id}` : row.type === "library" ? `/library/${row.id}` : ["achievement", "milestone", "keepsake"].includes(row.type) ? `/backpack?view=${row.type === "achievement" ? "achievements" : row.type === "milestone" ? "milestones" : "keepsakes"}&id=${row.id}` : `/journal?date=${resultDate(row.result_date)}`
   }));
   return ok(c, { items, nextCursor: rows.length > query.limit && page.length ? encodeCursor(page[page.length - 1]) : null, archivedPolicy: "Archived Projects, Tasks and Quick Notes are included; soft-deleted records are excluded." });
 });

@@ -33,6 +33,77 @@ export const onboardingHintState = mysqlTable("onboarding_hint_state", {
   dismissedAt: datetime("dismissed_at")
 });
 
+export const heroProfiles = mysqlTable("hero_profiles", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
+  displayName: varchar("display_name", { length: 64 }).notNull(),
+  avatarRef: varchar("avatar_ref", { length: 255 }),
+  portraitRef: varchar("portrait_ref", { length: 255 }),
+  title: varchar("title", { length: 80 }),
+  birthDate: date("birth_date", { mode: "string" }),
+  visualPreferences: json("visual_preferences"),
+  version: int("version", { unsigned: true }).notNull().default(1),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const heroDailyStatuses = mysqlTable("hero_daily_statuses", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  periodTimezone: varchar("period_timezone", { length: 64 }).notNull(),
+  statusKey: varchar("status_key", { length: 24 }).notNull(),
+  version: int("version", { unsigned: true }).notNull().default(1),
+  createdAt: datetime("created_at").notNull(),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const heroDailyEntries = mysqlTable("hero_daily_entries", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  periodTimezone: varchar("period_timezone", { length: 64 }).notNull(),
+  enteredAt: datetime("entered_at").notNull()
+});
+
+export const libraryItems = mysqlTable("library_items", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  type: varchar("type", { length: 16 }).notNull(), title: varchar("title", { length: 200 }).notNull(),
+  originalTitle: varchar("original_title", { length: 200 }), creator: varchar("creator", { length: 160 }), coverRef: varchar("cover_ref", { length: 500 }),
+  status: varchar("status", { length: 16 }).notNull(), rating: tinyint("rating", { unsigned: true }),
+  startedOn: date("started_on", { mode: "string" }), finishedOn: date("finished_on", { mode: "string" }), externalRef: varchar("external_ref", { length: 500 }), shortNote: varchar("short_note", { length: 1000 }),
+  version: int("version", { unsigned: true }).notNull().default(1), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+});
+
+export const libraryItemRelations = mysqlTable("library_item_relations", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  libraryItemId: bigint("library_item_id", { mode: "number", unsigned: true }).notNull(), targetType: varchar("target_type", { length: 24 }).notNull(), targetId: bigint("target_id", { mode: "number", unsigned: true }).notNull(), createdAt: datetime("created_at").notNull()
+});
+
+export const achievementDefinitions = mysqlTable("achievement_definitions", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), achievementKey: varchar("achievement_key", { length: 64 }).notNull(), title: varchar("title", { length: 120 }).notNull(), description: varchar("description", { length: 500 }).notNull(), iconKey: varchar("icon_key", { length: 64 }).notNull(), themeKey: varchar("theme_key", { length: 32 }).notNull(), ruleKey: varchar("rule_key", { length: 64 }).notNull(), ruleVersion: int("rule_version", { unsigned: true }).notNull().default(1), enabled: tinyint("enabled").notNull().default(1), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+});
+
+export const achievementUnlocks = mysqlTable("achievement_unlocks", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), achievementId: bigint("achievement_id", { mode: "number", unsigned: true }).notNull(), unlockedAt: datetime("unlocked_at").notNull(), sourceType: varchar("source_type", { length: 32 }).notNull(), sourceId: bigint("source_id", { mode: "number", unsigned: true })
+});
+
+export const milestones = mysqlTable("milestones", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), operationId: char("operation_id", { length: 36 }).notNull(), title: varchar("title", { length: 160 }).notNull(), description: varchar("description", { length: 1000 }), happenedOn: date("happened_on", { mode: "string" }).notNull(), sourceType: varchar("source_type", { length: 32 }), sourceId: bigint("source_id", { mode: "number", unsigned: true }), version: int("version", { unsigned: true }).notNull().default(1), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+});
+
+export const keepsakeCards = mysqlTable("keepsake_cards", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), operationId: char("operation_id", { length: 36 }).notNull(), title: varchar("title", { length: 160 }).notNull(), description: varchar("description", { length: 1000 }), happenedOn: date("happened_on", { mode: "string" }).notNull(), sourceType: varchar("source_type", { length: 32 }), sourceId: bigint("source_id", { mode: "number", unsigned: true }), iconKey: varchar("icon_key", { length: 64 }).notNull(), themeKey: varchar("theme_key", { length: 32 }).notNull(), createdAt: datetime("created_at").notNull()
+});
+
+export const userAiSettings = mysqlTable("user_ai_settings", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(), enabled: tinyint("enabled").notNull().default(0), allowAdventure: tinyint("allow_adventure").notNull().default(0), allowNotebook: tinyint("allow_notebook").notNull().default(0), allowGrowth: tinyint("allow_growth").notNull().default(0), allowLibrary: tinyint("allow_library").notNull().default(0), allowWallet: tinyint("allow_wallet").notNull().default(0), version: int("version", { unsigned: true }).notNull().default(1), updatedAt: datetime("updated_at").notNull()
+});
+
+export const aiArtifacts = mysqlTable("ai_artifacts", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), operationId: char("operation_id", { length: 36 }).notNull(), artifactType: varchar("artifact_type", { length: 64 }).notNull(), featureKey: varchar("feature_key", { length: 64 }).notNull(), sourceRefs: json("source_refs").notNull(), sourceVersions: json("source_versions").notNull(), sourceFingerprint: char("source_fingerprint", { length: 64 }).notNull(), provider: varchar("provider", { length: 64 }).notNull(), model: varchar("model", { length: 120 }).notNull(), promptVersion: varchar("prompt_version", { length: 32 }).notNull(), resultPayload: json("result_payload"), status: varchar("status", { length: 16 }).notNull(), stale: tinyint("stale").notNull().default(0), usageInputTokens: int("usage_input_tokens", { unsigned: true }), usageOutputTokens: int("usage_output_tokens", { unsigned: true }), costMicrounits: bigint("cost_microunits", { mode: "number", unsigned: true }), errorCode: varchar("error_code", { length: 64 }), errorMessage: varchar("error_message", { length: 500 }), generatedAt: datetime("generated_at"), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+});
+
 export const taskCategories = mysqlTable("task_categories", {
   id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
@@ -346,6 +417,35 @@ export const userSettings = mysqlTable("user_settings", {
   showRewards: tinyint("show_rewards").notNull().default(1),
   fontScale: tinyint("font_scale").notNull().default(100),
   locale: varchar("locale", { length: 8 }).notNull().default("zh-CN"),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const dailyAdventureSnapshots = mysqlTable("daily_adventure_snapshots", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  businessDate: date("business_date", { mode: "string" }).notNull(),
+  periodTimezone: varchar("period_timezone", { length: 64 }).notNull(),
+  sourceFingerprint: char("source_fingerprint", { length: 64 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("CURRENT"),
+  snapshotPayload: json("snapshot_payload").notNull(),
+  version: int("version", { unsigned: true }).notNull().default(1),
+  generatedAt: datetime("generated_at").notNull(),
+  updatedAt: datetime("updated_at").notNull()
+});
+
+export const periodReviews = mysqlTable("period_reviews", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
+  periodType: varchar("period_type", { length: 8 }).notNull(),
+  periodStart: date("period_start", { mode: "string" }).notNull(),
+  periodEnd: date("period_end", { mode: "string" }).notNull(),
+  periodTimezone: varchar("period_timezone", { length: 64 }).notNull(),
+  sourceFingerprint: char("source_fingerprint", { length: 64 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("CURRENT"),
+  factsPayload: json("facts_payload").notNull(),
+  userReviewBody: text("user_review_body"),
+  version: int("version", { unsigned: true }).notNull().default(1),
+  generatedAt: datetime("generated_at").notNull(),
   updatedAt: datetime("updated_at").notNull()
 });
 

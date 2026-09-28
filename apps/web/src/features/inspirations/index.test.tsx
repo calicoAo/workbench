@@ -43,6 +43,8 @@ describe("Writing inspiration library", () => {
     render(wrapper(<InspirationLibraryPage request={request} userId={7} selectedDate="2026-09-20" onError={vi.fn()} />));
     const favorite = await screen.findByRole("button", { name: "取消收藏" });
     expect(favorite.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
+    expect(favorite.getAttribute("aria-pressed")).toBe("true");
+    expect(favorite.classList.contains("is-active")).toBe(false);
   });
 
   it("uses the archive command route without falling back to PUT", async () => {

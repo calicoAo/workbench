@@ -18,6 +18,7 @@
 
 ## 文件
 
+- `PRD_CURRENT_STATE.md`：基于当前代码、迁移和测试整理的产品现状基线；区分已实现、局部实现和待实施。
 - `PRD_VNEXT.md`：产品范围、优先级、当前状态。
 - `FUNCTIONAL_DESIGN_VNEXT.md`：页面、交互、AI/Finance 目标设计。
 - `DEVELOPMENT_PLAN_VNEXT.md`：当前执行顺序和 gate。
@@ -27,3 +28,10 @@
 - `WORKBENCH_ROADMAP_REVIEW_2026-09-21.md`：本次路线复审摘要。
 
 注意：R2D0 当前实现的新用户 Writing Slot 仍是 Morning Writing ON / Journal ON / Stock Review OFF；文档目标已改为三个都显式 opt-in，须先完成 R2D0.1 小修，不能把目标状态误写成已部署事实。
+
+## 2026-09-28 当前增量
+
+- Library 已作为独立作品 metadata/status/rating/date/relation owner 激活（V39）。
+- Backpack 已作为 Achievement/Milestone/Keepsake owner 激活（V40）。
+- AI Foundation 已激活 provider gateway、permission、artifact、source stale/retry 与 usage/cost contract，Morning Writing 是首个迁移 flow（V41）。
+- Pixel Visual Final 尚未激活：正式 slot assets 未提供，审计结果见 `reports/WB-PIXEL-VISUAL-FINAL-013.md`。

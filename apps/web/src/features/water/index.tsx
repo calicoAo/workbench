@@ -77,7 +77,7 @@ export function WaterFeature({
         }, (_, index) => {
           const filled = index < water.cups;
           const reminder = plan.isDue && !filled && index === Math.min(water.cups, 7);
-          return <GlassWater aria-hidden="true" className={`water-cup ${filled ? "is-filled" : ""} ${reminder ? "is-reminder" : ""}`} key={index} size={20} />;
+          return <button type="button" className={`water-cup-toggle ${reminder ? "is-reminder" : ""}`} aria-label={filled ? tx("撤销第 {value0} 杯", { value0: index + 1 }) : tx("记录第 {value0} 杯", { value0: index + 1 })} aria-pressed={filled} key={index} onClick={() => void saveCups(filled ? index : water.cups + 1)}><GlassWater aria-hidden="true" className={`water-cup ${filled ? "is-filled" : ""}`} size={20} /></button>;
         })}
           {water.cups > 8 ? <span className={`water-cup-extra ${plan.isDue ? "is-reminder" : ""}`}>+{water.cups - 8}</span> : null}
           <Button className="water-add-button" size="sm" variant="primary" type="button" aria-label={tx("再喝一杯")} onClick={() => void saveCups(water.cups + 1)}>+1</Button>

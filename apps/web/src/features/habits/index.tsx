@@ -12,7 +12,7 @@ type Rule = { id: number; effectiveFrom: string; frequencyType: number; weekdayM
 type Goal = { id: number; effectiveFrom: string; targetValue: string };
 export type Habit = { id: number; name: string; description: string | null; categoryId: number | null; startDate: string; endDate: string | null; recordMode: number; unit: string | null; taskCompletionEnabled: number; version: number; archivedAt: string | null; rules: Rule[]; goals: Goal[] };
 type Occurrence = { id: number; occurrenceDate: string; status: number; actualValue: string | null; skipReason: string | null; source: number; version: number };
-type SummaryItem = Habit & { frequencyType: number; targetValue: number; weeklyTarget?: number; completed?: number; weekFrom?: string; weekTo?: string; status: "PENDING" | "MISSED" | "PARTIAL" | "COMPLETED" | "SKIPPED" | "IN_PROGRESS"; occurrence: Occurrence | null };
+type SummaryItem = Habit & { frequencyType: number; targetValue: number; weeklyTarget?: number; completed?: number; weekFrom?: string; weekTo?: string; status: "PENDING" | "MISSED" | "PARTIAL" | "COMPLETED" | "SKIPPED" | "IN_PROGRESS"; occurrence: Occurrence | null; linkedTaskId?: number | null };
 export type HabitSummary = { date: string; weekFrom: string; weekTo: string; items: SummaryItem[]; specialized: { water: { cups: number; targetCups: number; status: string }; morningWriting: { completed: boolean }; sleep: { recorded: boolean; durationMinutes?: number; qualityScore?: number | null } } };
 type Detail = { habit: Omit<Habit, "rules" | "goals">; rules: Rule[]; goals: Goal[]; occurrences: Occurrence[]; links: Array<{ id: number; occurrenceDate: string; taskId: number; completeHabitOnTask: number }> };
 type Category = { id: number; name: string };
@@ -31,6 +31,32 @@ export function HabitTodaySnapshot({ request, userId, date }: { request: Request
   const items = query.data?.items ?? [];
   const done = items.filter((item) => item.status === "COMPLETED").length;
   return <Link className="habit-snapshot" to={`/routines?date=${date}`}><Activity size={17} /><span><strong>{tx("今日习惯")} {done}/{items.length}</strong><small>{items.length ? items.slice(0, 2).map((item) => item.name).join(" · ") : tx("今天没有应发生的通用习惯")}</small></span><ChevronRight size={16} /></Link>;
+}
+
+export function HabitDailyQuests({ request, userId, date, timezone, onError }: { request: Request; userId: number; date: string; timezone: string; onError: (message: string, title?: string) => void }) {
+  const queryClient = useQueryClient();
+  const query = useHabitSummary(request, userId, date);
+  const items = (query.data?.items ?? []).filter((item) => !item.linkedTaskId);
+  async function changed() { await queryClient.invalidateQueries({ queryKey: queryKeys.habitSummary(userId, date) }); }
+  if (query.isPending) return <section className="daily-quest-section" aria-label={tx("每日任务")}><p className="route-state">{tx("正在加载每日任务...")}</p></section>;
+  if (!items.length) return null;
+  return <section className="daily-quest-section" aria-label={tx("每日任务")}><header><span><Activity size={15} /><strong>{tx("每日任务")}</strong></span><small>{tx("默认已接取")}</small></header><div className="daily-quest-list">{items.map((item) => <HabitDailyQuest key={item.id} item={item} request={request} date={date} timezone={timezone} onChanged={changed} onError={onError} />)}</div></section>;
+}
+
+function HabitDailyQuest({ item, request, date, timezone, onChanged, onError }: { item: SummaryItem; request: Request; date: string; timezone: string; onChanged: () => Promise<void>; onError: (message: string, title?: string) => void }) {
+  const [value, setValue] = useState(item.occurrence?.actualValue ?? "");
+  const [pending, setPending] = useState(false);
+  async function record(skipped = false) {
+    setPending(true);
+    try {
+      await request(`/api/habits/${item.id}/occurrences`, { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), occurrenceDate: date, recordTimezone: timezone, expectedVersion: item.occurrence?.version ?? 0, actualValue: item.recordMode === 0 ? undefined : Number(value || 0), skipped, skipReason: skipped ? "主动跳过" : undefined }) });
+      await onChanged();
+    } catch (error) { onError(message(error), tx("习惯记录没有保存")); }
+    finally { setPending(false); }
+  }
+  const weekly = item.frequencyType === 2;
+  const done = item.status === "COMPLETED";
+  return <article className="daily-quest" data-source-type="HABIT_OCCURRENCE" data-source-id={item.occurrence?.id ?? item.id}><div className="daily-quest-copy"><span className={`habit-status is-${item.status.toLowerCase()}`}>{tx(statusLabels[item.status])}</span><strong>{item.name}</strong><small>{weekly ? tx("本周 {value0}/{value1} 次", { value0: item.completed ?? 0, value1: item.weeklyTarget ?? 1 }) : tx("每日 · 目标 {value0}{value1}", { value0: item.targetValue, value1: item.unit ? ` ${item.unit}` : "" })}</small></div><div className="habit-card-actions">{item.recordMode !== 0 ? <input aria-label={tx("{value0}实际值", { value0: item.name })} className="field habit-value" min="0" step="any" type="number" value={value} onChange={(event) => setValue(event.target.value)} /> : null}<Button variant="primary" size="sm" loading={pending} disabled={done} onClick={() => void record(false)}><Check size={15} />{item.recordMode === 0 ? tx("完成") : tx("记录")}</Button><IconButton size="sm" label={tx("跳过{value0}", { value0: item.name })} disabled={pending || done} onClick={() => void record(true)}><CircleSlash2 size={15} /></IconButton></div></article>;
 }
 
 export function RoutinesFeature({ request, userId, date, timezone, categories, lifeContent, onError }: { request: Request; userId: number; date: string; timezone: string; categories: Category[]; lifeContent: ReactNode; onError: (message: string, title?: string) => void }) {

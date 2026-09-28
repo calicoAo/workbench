@@ -29,6 +29,7 @@ describe("Settings", () => {
     }) as Request;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "外观" }));
     fireEvent.click(await screen.findByRole("button", { name: "110%" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/settings", expect.objectContaining({ method: "PATCH" })));
     const call = (request as ReturnType<typeof vi.fn>).mock.calls.find(([path, init]) => path === "/api/settings" && init?.method === "PATCH");
@@ -41,6 +42,7 @@ describe("Settings", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
 
+    fireEvent.click(await screen.findByRole("button", { name: "笔记本" }));
     expect(await screen.findByText("选择你想使用的书写模块。")).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "晨写：关闭" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "日记：关闭" })).toBeTruthy();
@@ -61,13 +63,19 @@ describe("Settings", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
     expect(await screen.findByText("新的记录将使用此时区；已有历史日期不会重新归属。")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "停用" })); await waitFor(() => expect(request).toHaveBeenCalledWith("/api/task-categories/3", expect.objectContaining({ method: "PUT" }))); expect(String((request as ReturnType<typeof vi.fn>).mock.calls.find(([path]) => path === "/api/task-categories/3")?.[1]?.body)).toContain('"enabled":false');
+    fireEvent.click(screen.getByRole("button", { name: "冒险" }));
+    fireEvent.click(await screen.findByRole("button", { name: "编辑分类 Coding" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "分类已启用" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存分类" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/task-categories/3", expect.objectContaining({ method: "PUT" })));
+    expect(String((request as ReturnType<typeof vi.fn>).mock.calls.find(([path]) => path === "/api/task-categories/3")?.[1]?.body)).toContain('"enabled":false');
   });
 
   it("restarts only the onboarding core loop from Settings", async () => {
     const request = vi.fn(async (path: string, init?: RequestInit) => path === "/api/onboarding/flows/core-loop/restart" && init?.method === "POST" ? { status: "IN_PROGRESS" } : snapshot) as Request;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "帮助" }));
     fireEvent.click(await screen.findByRole("button", { name: "重新开始新手教学" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/onboarding/flows/core-loop/restart", { method: "POST" }));
     expect(await screen.findByText("新手教学已重置，下次进入今日时会重新开始。")).toBeTruthy();
@@ -77,8 +85,8 @@ describe("Settings", () => {
     const request = vi.fn(async (path: string) => path.startsWith("/api/exports/") ? { fileName: "notes.md", contentType: "text/markdown", recordCount: 2, content: "# Export" } : snapshot) as Request;
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:test") }); Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() }); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
-    await screen.findByText("数据导出"); const writingSelect = screen.getByLabelText("个人文字导出格式"); fireEvent.change(writingSelect, { target: { value: "markdown" } }); const writingRow = writingSelect.closest(".export-row")!; fireEvent.click(withinRowButton(writingRow));
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    await screen.findByText("备份、恢复与导出"); const writingSelect = screen.getByLabelText("个人文字导出格式"); fireEvent.change(writingSelect, { target: { value: "markdown" } }); const writingRow = writingSelect.closest(".export-row")!; fireEvent.click(withinRowButton(writingRow));
     await waitFor(() => expect(screen.getByText("2 条")).toBeTruthy()); expect(request).toHaveBeenCalledWith("/api/exports/writing?format=markdown&includeTrash=false");
   });
 
@@ -88,8 +96,8 @@ describe("Settings", () => {
     const createObjectURL = vi.fn();
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={onError} /></MemoryRouter></QueryClientProvider>);
-    await screen.findByText("数据导出");
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={onError} /></MemoryRouter></QueryClientProvider>);
+    await screen.findByText("备份、恢复与导出");
     const taskRow = screen.getByLabelText("任务导出格式").closest(".export-row")!;
     fireEvent.click(withinRowButton(taskRow));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("export unavailable", "导出失败"));
@@ -100,7 +108,7 @@ describe("Settings", () => {
     const request = vi.fn(async (path: string) => path.startsWith("/api/exports/") ? { fileName: "habits.json", contentType: "application/json", recordCount: 5, content: "[]" } : snapshot) as Request;
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:habits") }); Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() }); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
     const row = (await screen.findByLabelText("习惯导出格式")).closest(".export-row")!; fireEvent.click(withinRowButton(row));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/exports/habits?format=json&includeTrash=false"));
   });
@@ -114,7 +122,7 @@ describe("Settings", () => {
     ] };
     const request = vi.fn(async (path: string) => path === "/api/finance/imports/external/preview" ? preview : snapshot) as Request;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MemoryRouter><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
     const file = { name: "preview.csv", text: async () => "date,amount\n2026-09-11,10.00" } as File;
     fireEvent.change(await screen.findByLabelText("导入外部流水 CSV"), { target: { files: [file] } });
     expect(await screen.findByText(/2026-09-11 · -¥10\.00/)).toBeTruthy();

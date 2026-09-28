@@ -66,8 +66,8 @@ describe("R1C router and AppShell", () => {
 
   it("redirects root to the current Today route", async () => {
     renderShell("/");
-    expect(await screen.findByRole("heading", { name: "今日" })).toBeTruthy();
-    expect(document.title).toContain("今日");
+    expect(await screen.findByRole("heading", { name: "冒险" })).toBeTruthy();
+    expect(document.title).toContain("冒险");
   });
 
   it("applies the Settings font scale to the document root", async () => {
@@ -104,7 +104,7 @@ describe("R1C router and AppShell", () => {
     renderHistoryShell();
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "test-back" }));
-    expect(await screen.findByRole("heading", { name: "今日" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "冒险" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "test-forward" }));
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
   });
@@ -114,7 +114,7 @@ describe("R1C router and AppShell", () => {
     renderShell("/today?date=2026-09-19", request);
     expect(await screen.findByLabelText("当前专注控制")).toBeTruthy();
     expect(screen.queryByLabelText("当前计时")).toBeNull();
-    fireEvent.click((await screen.findAllByRole("link", { name: "文字" }))[0]);
+    fireEvent.click((await screen.findAllByRole("link", { name: "笔记本" }))[0]);
     expect(await screen.findByLabelText("当前计时")).toBeTruthy();
     const currentCalls = (request as ReturnType<typeof vi.fn>).mock.calls.filter(([path]) => path === "/api/timer-sessions/current");
     expect(currentCalls).toHaveLength(1);
@@ -137,14 +137,14 @@ describe("R1C router and AppShell", () => {
   it("shows a yearly heatmap using actual-time minutes without inventing an activity score", async () => {
     const fallbackRequest = requestFor();
     const request = vi.fn(async (path: string, init?: RequestInit) => {
-      if (path.startsWith("/api/schedules?from=2026-01-01&to=2026-12-31")) return { schedules: [{ id: 91, scheduleDate: "2026-09-19", startTime: "09:00:00", endTime: "10:30:00", title: "专注", kind: 1, source: 2 }] };
+      if (path.startsWith("/api/schedules/summary?from=2026-01-01&to=2026-12-31")) return { days: [{ businessDate: "2026-09-19", actualMinutes: 90, plannedCount: 1 }] };
       return fallbackRequest(path, init);
     }) as unknown as Request;
     renderShell("/calendar?date=2026-09-19", request);
     await screen.findByRole("heading", { name: "日历", level: 1 });
     fireEvent.click(screen.getByRole("button", { name: "年" }));
     await screen.findByRole("grid", { name: "年度热力图" });
-    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.startsWith("/api/schedules?from=2026-01-01&to=2026-12-31"))).toBe(true));
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.startsWith("/api/schedules/summary?from=2026-01-01&to=2026-12-31"))).toBe(true));
     await waitFor(() => expect(screen.getByRole("grid", { name: "年度热力图" }).querySelectorAll(".calendar-year-cell")).toHaveLength(365));
     const selectedDay = screen.getByRole("grid", { name: "年度热力图" }).querySelector(".calendar-year-cell.is-selected") as HTMLAnchorElement;
     expect(selectedDay.getAttribute("aria-label")).toBe("2026-09-19，实际投入 90 分钟");
@@ -193,7 +193,7 @@ describe("R1C router and AppShell", () => {
     expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(true);
     settings.unmount();
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "今日" });
+    await screen.findByRole("heading", { name: "冒险" });
     expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(false);
     expect(screen.getByRole("button", { name: "打开快捷操作" })).toBeTruthy();
   });
@@ -207,28 +207,28 @@ describe("R1C router and AppShell", () => {
 
   it("keeps Writing actions inside the Writing surface and exposes the sidebar handle", async () => {
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "今日" });
+    await screen.findByRole("heading", { name: "冒险" });
     expect(document.querySelector(".app-top-actions .writing-shortcut-wrap")).toBeNull();
     expect(screen.getByRole("button", { name: "收起侧栏" })).toBeTruthy();
   });
 
-  it("keeps the hourly record in the fixed-width right utility column while moving it above the other cards", async () => {
+  it("keeps Water and Sleep above the hourly record in the right context column", async () => {
     renderShell("/today?date=2026-09-19");
     await screen.findByRole("heading", { name: "小时记录" });
-    const utility = document.querySelector(".today-utility");
-    expect(utility).toBeTruthy();
-    expect(utility?.querySelector("h2")?.textContent).toBe("喝水");
-    const headings = [...utility!.querySelectorAll("h2")].map((heading) => heading.textContent?.trim());
-    expect(headings.indexOf("小时记录")).toBeLessThan(headings.indexOf("睡眠"));
-    expect(utility?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
+    const lifestyle = document.querySelector(".today-lifestyle");
+    const timeline = document.querySelector(".today-timeline");
+    expect(lifestyle?.querySelector("h2")?.textContent).toBe("喝水");
+    expect(timeline?.querySelector("h2")?.textContent).toBe("小时记录");
+    expect(lifestyle?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
+    expect(timeline?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
   });
 
   it("keeps Current Focus in the same main column as Today tasks", async () => {
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "今日" });
+    await screen.findByRole("heading", { name: "冒险" });
     const focus = document.querySelector(".current-focus");
-    expect(focus?.closest(".today-main")).toBeTruthy();
-    expect(focus?.closest(".today-utility")).toBeNull();
+    expect(focus?.closest(".today-current")).toBeTruthy();
+    expect(focus?.closest(".today-timeline")).toBeNull();
   });
 
   it("closes Quick Action on outside tap, Escape, action selection, and route change", async () => {

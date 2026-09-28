@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../../app/api";
-import { HabitTodaySnapshot, RoutinesFeature } from ".";
+import { HabitDailyQuests, HabitTodaySnapshot, RoutinesFeature } from ".";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 function client() { return new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } }); }
@@ -81,5 +81,16 @@ describe("Habits", () => {
     const request = vi.fn(async () => summary) as Request;
     render(<QueryClientProvider client={client()}><MemoryRouter><HabitTodaySnapshot request={request} userId={7} date="2026-09-21" /></MemoryRouter></QueryClientProvider>);
     const link = await screen.findByRole("link", { name: /今日习惯 0\/2/ }); expect(link.getAttribute("href")).toBe("/routines?date=2026-09-21");
+  });
+
+  it("projects unlinked occurrences as Daily Quests and writes through Habit commands", async () => {
+    const linked = { ...habit, id: 13, name: "关联任务习惯", frequencyType: 0, targetValue: 1, status: "PENDING", occurrence: null, linkedTaskId: 91 };
+    const request = vi.fn(async (_path: string, init?: RequestInit) => init?.method === "POST" ? { id: 1, version: 1, status: 1 } : { ...summary, items: [...summary.items, linked] }) as Request;
+    render(<QueryClientProvider client={client()}><MemoryRouter><HabitDailyQuests request={request} userId={7} date="2026-09-21" timezone="Asia/Shanghai" onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    expect(await screen.findByText("阅读")).toBeTruthy();
+    expect(screen.queryByText("关联任务习惯")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "完成" })[0]);
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/habits/9/occurrences", expect.objectContaining({ method: "POST" })));
+    expect(document.querySelector('[data-source-type="HABIT_OCCURRENCE"]')).toBeTruthy();
   });
 });

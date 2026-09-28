@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { generateMorningWritingInsight } from "../ai-foundation.js";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
 import { aiInsights } from "../db/schema.js";
@@ -17,7 +18,8 @@ const insightQuerySchema = z.object({
 const analyzeSchema = z.object({
   sourceType: z.enum(["morning", "journal"]),
   sourceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  content: z.string().trim().min(1).max(10000)
+  content: z.string().trim().min(1).max(10000),
+  operationId: z.string().uuid().optional()
 });
 
 const aiResultSchema = z.object({
@@ -108,7 +110,9 @@ export const aiInsightsRoute = new Hono()
     const body = analyzeSchema.parse(await c.req.json());
     const userId = getCurrentUserId(c);
     const now = new Date();
-    const result = await analyzeWriting(body.sourceType, body.content);
+    const result = body.sourceType === "morning"
+      ? (await generateMorningWritingInsight(userId, { operationId: body.operationId ?? crypto.randomUUID(), sourceDate: body.sourceDate })).resultPayload as z.infer<typeof aiResultSchema>
+      : await analyzeWriting(body.sourceType, body.content);
 
     await db
       .insert(aiInsights)
@@ -116,7 +120,7 @@ export const aiInsightsRoute = new Hono()
         userId,
         sourceType: body.sourceType,
         sourceDate: body.sourceDate,
-        sourceContent: body.content,
+        sourceContent: body.sourceType === "morning" ? null : body.content,
         summary: result.summary,
         emotionTags: result.emotionTags.join(","),
         energyScore: result.energyScore,
@@ -128,7 +132,7 @@ export const aiInsightsRoute = new Hono()
       })
       .onDuplicateKeyUpdate({
         set: {
-          sourceContent: body.content,
+          sourceContent: body.sourceType === "morning" ? null : body.content,
           summary: result.summary,
           emotionTags: result.emotionTags.join(","),
           energyScore: result.energyScore,

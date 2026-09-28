@@ -20,6 +20,11 @@ export function OnboardingFeature({ children, request, userId, tasks, assignment
   return <OnboardingRuntime request={request} userId={userId} tasks={tasks} assignments={assignments} currentSession={currentSession} hasActualTime={hasActualTime} onError={onError}>{children}</OnboardingRuntime>;
 }
 
+export function useCoreOnboardingResolved(request: Request, userId: number) {
+  const query = useQuery({ queryKey: ["onboarding", userId], queryFn: () => request<Status>("/api/onboarding/status"), staleTime: 15_000 });
+  return { resolved: query.data?.flow?.status === "COMPLETED" || query.data?.flow?.status === "SKIPPED", loading: query.isPending };
+}
+
 function OnboardingRuntime({ children, request, userId, tasks, assignments, currentSession, hasActualTime, onError }: { children: ReactNode; request: Request; userId: number; tasks: TaskSnapshot[]; assignments: number[]; currentSession: CurrentSession | null; hasActualTime: boolean; onError: (message: string, title?: string) => void }) {
   const location = useLocation();
   const navigate = useNavigate();

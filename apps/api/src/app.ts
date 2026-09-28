@@ -31,7 +31,14 @@ import { financeRoute } from "./routes/finance.js";
 import { growthRoute } from "./routes/growth.js";
 import { inspirationRoute } from "./routes/inspiration.js";
 import { onboardingRoute } from "./routes/onboarding.js";
-import { seedOnboardingForNewUser } from "./onboarding.js";
+import { coreOnboardingResolved, seedOnboardingForNewUser } from "./onboarding.js";
+import { createHeroRoute } from "./routes/hero.js";
+import { seedHeroForNewUser } from "./hero.js";
+import { libraryRoute } from "./routes/library.js";
+import { backpackRoute } from "./routes/backpack.js";
+import { aiFoundationRoute } from "./routes/ai-foundation.js";
+import { adventureRoute } from "./routes/adventure.js";
+import { db } from "./db/index.js";
 
 export const app = new Hono();
 
@@ -40,7 +47,10 @@ app.onError(handleError);
 app.use("/api/*", authMiddleware);
 
 app.route("/api/health", healthRoute);
-app.route("/api/auth", createAuthRoute(seedOnboardingForNewUser));
+app.route("/api/auth", createAuthRoute(async (client, userId, now, displayName) => {
+  await seedOnboardingForNewUser(client, userId, now);
+  await seedHeroForNewUser(client, userId, displayName, now);
+}));
 app.route("/api/ai-insights", aiInsightsRoute);
 app.route("/api/dashboard", dashboardRoute);
 app.route("/api/daily-carryovers", dailyCarryoversRoute);
@@ -67,3 +77,8 @@ app.route("/api/finance", financeRoute);
 app.route("/api/growth", growthRoute);
 app.route("/api/writing", inspirationRoute);
 app.route("/api/onboarding", onboardingRoute);
+app.route("/api/hero", createHeroRoute((userId) => coreOnboardingResolved(db, userId)));
+app.route("/api/library", libraryRoute);
+app.route("/api/backpack", backpackRoute);
+app.route("/api/ai", aiFoundationRoute);
+app.route("/api/adventure", adventureRoute);

@@ -16,7 +16,7 @@ export { TaskDetailPage, TasksIntegrationPage, useTask, useTasks, type TaskDetai
 
 type TaskCategoryFilter = "all" | "none" | DimensionKey;
 type ContextValue = {
-  panel: ReactNode;
+  panel: (dailyQuests?: ReactNode) => ReactNode;
   openCreate: (options?: { projectId?: number }) => void;
   openSelector: () => void;
   openEditor: (task: Task) => void;
@@ -169,7 +169,7 @@ export function TasksFeature({
     });
   }
 
-  function renderPanel(openCreate: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>) {
+  function renderPanel(openCreate: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>, dailyQuests?: ReactNode) {
     const focusSet = new Set(focusTaskIds ?? []);
     const focusedTasks = pendingTasks.filter((task) => focusSet.has(task.id));
     const otherTasks = pendingTasks.filter((task) => !focusSet.has(task.id));
@@ -200,7 +200,7 @@ export function TasksFeature({
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <span className="text-mint-700"><CheckCircle2 size={17} /></span>
-          <h2 className="section-title">{tx("今日悬赏")}</h2>
+          <h2 className="section-title">{tx("任务板")}</h2>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" type="button" aria-label={tx("查看已完成任务")} onClick={() => setCompletedOpen(true)}>
@@ -224,6 +224,7 @@ export function TasksFeature({
       )}
 
       <div className="space-y-2 pr-1">
+        {dailyQuests}
         {loading && <EmptyText text={tx("加载中...")} />}
         {!loading && !tasks.length && <EmptyText text={tx("任务池还没有任务，先添加一个悬赏。")} />}
         {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text={tx("今天还没有接取任务，点击上方“接取悬赏”开始选择。")} />}
@@ -267,7 +268,7 @@ export function TasksFeature({
               {(openEditor) => (
                 <CompleteTaskWorkflow request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
-                    <TasksContext.Provider value={{ panel: renderPanel(openCreate, openSelector, openEditor, toggleDone), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
+                    <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
                       {children}
                       {completedOpen && <CompletedTasksModal tasks={completedTasks} categories={categories} rewardsByTaskId={rewardsByTaskId} onClose={() => setCompletedOpen(false)} />}
                     </TasksContext.Provider>
@@ -282,10 +283,10 @@ export function TasksFeature({
   );
 }
 
-export function TasksPanel() {
+export function TasksPanel({ dailyQuests }: { dailyQuests?: ReactNode } = {}) {
   const value = useContext(TasksContext);
   if (!value) throw new Error("TasksPanel must be rendered inside TasksFeature");
-  return value.panel;
+  return value.panel(dailyQuests);
 }
 
 export function useTaskSurfaces() {

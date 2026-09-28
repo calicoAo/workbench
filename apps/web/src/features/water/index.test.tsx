@@ -75,7 +75,20 @@ describe("WaterFeature workflow ownership", () => {
     const selectedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const view = render(feature({ selectedDate, record: { ...record, waterDate: selectedDate, cups: 0 } }));
 
-    expect(view.container.querySelector(".water-cup.is-reminder")).toBeTruthy();
+    expect(view.container.querySelector(".water-cup-toggle.is-reminder")).toBeTruthy();
+  });
+
+  it("uses each cup as a real owner-backed toggle", async () => {
+    const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
+    render(feature({ request: requestMock as FeatureProps["request"] }));
+
+    fireEvent.click(screen.getByRole("button", { name: "记录第 4 杯" }));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).cups).toBe(4);
+
+    fireEvent.click(screen.getByRole("button", { name: "撤销第 3 杯" }));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(requestMock.mock.calls[1][1]?.body)).cups).toBe(2);
   });
 
   it("reports a failed mutation without refreshing", async () => {

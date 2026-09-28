@@ -9,6 +9,7 @@
 
 ## vNext 产品设计与计划
 
+- [当前产品基线 PRD：按实际代码、迁移与测试整理](docs/PRD_CURRENT_STATE.md)
 - [新版 PRD：悬赏板驱动的 Personal OS](docs/PRD_VNEXT.md)
 - [功能设计：页面、执行流程、状态与数据规则](docs/FUNCTIONAL_DESIGN_VNEXT.md)
 - [开发计划：工作包、依赖、迁移与验收](docs/DEVELOPMENT_PLAN_VNEXT.md)
