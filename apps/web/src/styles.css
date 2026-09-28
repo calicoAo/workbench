@@ -557,6 +557,8 @@ select {
     @apply sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-white/70 bg-white/75 px-3 py-2 backdrop-blur-xl md:px-5;
   }
 
+  .app-heading { @apply flex min-w-0 items-center; }
+
   .app-topbar h2,
   .route-panel h1,
   .task-detail h1 {
@@ -570,6 +572,10 @@ select {
   .app-top-actions {
     @apply mr-32 flex min-w-0 items-center justify-end gap-2;
   }
+
+  .app-module-nav { @apply flex min-h-10 items-center gap-1 overflow-x-auto border-b border-white/70 bg-white/45 px-3 md:px-5; }
+  .app-module-nav a { @apply flex min-h-8 shrink-0 items-center rounded-card px-3 text-[11px] font-semibold text-soft transition hover:bg-white/80 hover:text-ink; }
+  .app-module-nav a.active { @apply bg-mint-100 text-mint-700; }
 
   .growth-header-link { @apply hidden min-w-28 items-center gap-1.5 rounded-card border border-white/80 bg-white/70 px-2 py-1 text-[10px] font-semibold text-ink transition hover:bg-mint-50 lg:inline-flex; }
   .growth-header-level { @apply shrink-0 text-mint-700; }
@@ -638,13 +644,19 @@ select {
 
   .today-grid {
     @apply grid min-w-0 items-start gap-2.5 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)];
-    grid-template-areas: "current" "quests" "lifestyle" "timeline";
+    grid-template-areas: "current" "status" "quests" "timeline";
   }
 
-  .today-current { @apply min-w-0; grid-area: current; }
-  .today-quests { @apply grid min-w-0 content-start gap-2.5; grid-area: quests; }
-  .today-lifestyle { @apply grid min-w-0 content-start gap-2.5; grid-area: lifestyle; }
-  .today-timeline { @apply grid min-w-0 content-start gap-2.5; grid-area: timeline; }
+  .today-current { @apply min-w-0 self-stretch; grid-area: current; }
+  .today-quests { @apply grid min-w-0 content-start gap-2.5; grid-area: quests; grid-template-columns: minmax(0,1fr); }
+  .today-status-surface { @apply grid min-w-0 self-stretch gap-2.5; grid-area: status; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); }
+  .today-status-block { @apply min-w-0 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; }
+  .water-utility { @apply min-w-0; }
+  .water-utility > div:first-child { @apply mb-1; }
+  .today-status-block .sleep-utility { @apply min-w-0 border-0 bg-transparent p-0 shadow-none; }
+  .today-sleep-block .sleep-utility-main > div:first-child { @apply shrink-0; }
+  .today-sleep-block .sleep-utility-main h2 { @apply whitespace-nowrap; }
+  .today-timeline { @apply grid min-w-0 content-start gap-2.5; grid-area: timeline; grid-template-columns: minmax(0,1fr); }
   .today-utility-strip { @apply grid min-w-0 grid-cols-2 gap-2.5; }
   .sleep-utility, .utility-capture { @apply flex min-h-14 min-w-0 items-center gap-2 rounded-card border border-white/80 bg-white/70 p-2 shadow-glass; }
   .sleep-utility-main { @apply flex min-w-0 flex-1 items-center gap-2; }
@@ -816,7 +828,7 @@ select {
   .historical-banner a { @apply ml-auto font-semibold text-mint-700; }
 
   .current-focus {
-    @apply mb-2.5 grid min-h-20 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-card border border-mint-100 bg-white/80 p-3 shadow-glass;
+    @apply grid h-full min-h-32 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-card border border-mint-100 bg-white/80 p-4 shadow-glass;
   }
 
   .current-focus h2 { @apply mt-1 text-base font-bold; }
@@ -828,8 +840,7 @@ select {
     @apply mb-3 flex min-h-8 items-center justify-between gap-2;
   }
 
-  .today-timeline-column,
-  .today-lifestyle { @apply grid content-start gap-2.5; }
+  .today-timeline-column { @apply grid content-start gap-2.5; }
 
   .review-handoff {
     @apply flex min-h-24 items-center justify-between gap-3 rounded-card border border-white/80 bg-white/70 p-3 shadow-glass;
@@ -855,7 +866,7 @@ select {
   .timeline-legend span { @apply rounded-full border border-white/90 bg-white/70 px-2 py-1; }
 
   .continuation-panel {
-    @apply mb-2.5 rounded-card border border-amber-100 bg-white/75 p-3 shadow-glass;
+    @apply border-b border-amber-100 bg-amber-50/40 px-1 pb-2.5;
   }
   .continuation-panel > header { @apply mb-2 flex items-center justify-between; }
   .continuation-panel > header h2 { @apply text-sm font-bold; }
@@ -1239,8 +1250,12 @@ select {
   .ui-button { min-height: 44px; }
   .ui-icon-button { width: 44px; height: 44px; }
   .timeline-block-actions .ui-icon-button { width: 44px; height: 44px; }
+  .app-topbar { @apply flex-wrap; }
+  .app-heading { @apply w-auto; }
+  .app-top-actions { @apply w-full; }
   .today-grid { grid-template-columns: minmax(0, 1fr); }
-  .today-lifestyle { grid-template-columns: minmax(0, 1fr); }
+  .today-sleep-block .sleep-utility { @apply flex-col items-stretch gap-1; }
+  .today-sleep-block .sleep-utility-main { @apply justify-between gap-1; }
   .routines-head { @apply flex-col; }
   .habit-library-row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .habit-library-row > .ui-badge { display: none; }
@@ -1300,7 +1315,7 @@ select {
 }
 
 @media (min-width: 1024px) {
-  .today-grid { grid-template-areas: "current lifestyle" "quests timeline"; }
+  .today-grid { grid-template-areas: "current status" "quests timeline"; }
 }
 
 @media (max-width: 600px) {

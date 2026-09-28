@@ -66,9 +66,8 @@ export function HeroHud({ request, userId, date }: { request: Request; userId: n
   const hero = useHero(request, userId, date);
   if (!isHeroSummary(hero.data)) return null;
   const value = hero.data;
-  const status = STATUS_OPTIONS.find((item) => item.key === value.dailyStatus?.statusKey)?.label;
   const progress = Math.min(1, value.progress.xpInLevel / Math.max(1, value.progress.xpForNextLevel));
-  return <Link className="hero-hud" to={`/hero?date=${date}`} aria-label={tx("打开 Hero Profile")}><span className="hero-hud-avatar"><PixelAsset slot="hero-avatar" label={tx("英雄头像")} size={34} /></span><span className="hero-hud-copy"><strong>{value.profile.displayName}</strong><small>Lv.{value.progress.level}{status ? ` · ${tx(status)}` : ""}</small></span><span className="hero-hud-xp"><i style={{ width: `${progress * 100}%` }} /></span></Link>;
+  return <Link className="hero-hud" to={`/hero?date=${date}`} aria-label={tx("打开 Hero Profile")}><span className="hero-hud-avatar"><PixelAsset slot="hero-avatar" label={tx("英雄头像")} size={34} /></span><span className="hero-hud-copy"><strong>{value.profile.displayName}</strong><small>Lv.{value.progress.level} · {value.progress.xpInLevel}/{value.progress.xpForNextLevel} EXP</small></span><span className="hero-hud-xp"><i style={{ width: `${progress * 100}%` }} /></span></Link>;
 }
 
 export function HeroProfilePage({ request, userId, date, onError }: { request: Request; userId: number; date: string; onError: (message: string, title?: string) => void }) {

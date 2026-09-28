@@ -44,6 +44,7 @@ export function WaterFeature({
   selectedDate,
   record,
   sleep,
+  compact = false,
   onError,
   onChanged
 }: {
@@ -51,6 +52,7 @@ export function WaterFeature({
   selectedDate: string;
   record: WaterRecord | null;
   sleep: SleepWindow | null;
+  compact?: boolean;
   onError: (message: string, title?: string) => void;
   onChanged: () => void | Promise<void>;
 }) {
@@ -64,7 +66,7 @@ export function WaterFeature({
       onError(errorMessage(error), tx("操作没有成功"));
     }
   }
-  return <section className="glass-panel p-3">
+  return <section className={compact ? "water-utility" : "glass-panel p-3"}>
       <div className="mb-3 flex items-center gap-2">
         <span className="text-mint-700"><Droplets size={17} /></span>
         <h2 className="section-title">{tx("喝水")}</h2>
@@ -77,7 +79,7 @@ export function WaterFeature({
         }, (_, index) => {
           const filled = index < water.cups;
           const reminder = plan.isDue && !filled && index === Math.min(water.cups, 7);
-          return <button type="button" className={`water-cup-toggle ${reminder ? "is-reminder" : ""}`} aria-label={filled ? tx("撤销第 {value0} 杯", { value0: index + 1 }) : tx("记录第 {value0} 杯", { value0: index + 1 })} aria-pressed={filled} key={index} onClick={() => void saveCups(filled ? index : water.cups + 1)}><GlassWater aria-hidden="true" className={`water-cup ${filled ? "is-filled" : ""}`} size={20} /></button>;
+          return <button type="button" className={`water-cup-toggle ${reminder ? "is-reminder" : ""}`} aria-label={filled ? tx("撤销第 {value0} 杯", { value0: index + 1 }) : tx("记录第 {value0} 杯", { value0: index + 1 })} aria-pressed={filled} key={index} onClick={() => void saveCups(filled ? Math.max(0, water.cups - 1) : water.cups + 1)}><GlassWater aria-hidden="true" className={`water-cup ${filled ? "is-filled" : ""}`} size={20} /></button>;
         })}
           {water.cups > 8 ? <span className={`water-cup-extra ${plan.isDue ? "is-reminder" : ""}`}>+{water.cups - 8}</span> : null}
           <Button className="water-add-button" size="sm" variant="primary" type="button" aria-label={tx("再喝一杯")} onClick={() => void saveCups(water.cups + 1)}>+1</Button>

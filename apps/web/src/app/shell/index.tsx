@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowDownCircle, ArrowLeftRight, ArrowUpCircle, Backpack as BackpackIcon, BookOpenText, CalendarDays, CheckSquare2, ChevronLeft, ChevronRight, CircleDollarSign, Droplets, Ellipsis, Feather, FolderKanban, Gift, Home, LibraryBig, Moon, NotebookPen, Plus, Search, Settings, ShieldCheck, Sparkles, Square, Wrench } from "lucide-react";
+import { Activity, ArrowDownCircle, ArrowLeftRight, ArrowUpCircle, Backpack as BackpackIcon, CalendarDays, CheckSquare2, ChevronLeft, ChevronRight, CircleDollarSign, Droplets, Ellipsis, Feather, FolderKanban, Home, LibraryBig, Moon, NotebookPen, Plus, Search, Settings, ShieldCheck, Sparkles, Square } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router";
 import type { Request } from "../api";
@@ -186,6 +186,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
       queryClient.invalidateQueries({ queryKey: queryKeys.today(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks(session.user.id) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments(session.user.id, date) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.continuations(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.timeline(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.currentSession(session.user.id) }),
       queryClient.invalidateQueries({ queryKey: ["projects", session.user.id] }),
@@ -254,6 +255,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
   const [quickMoreOpen, setQuickMoreOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("personal-workbench:sidebar-collapsed") === "true");
   const enabledWritingSlots = (context.settings?.writingSlots ?? []).filter((slot) => slot.enabled).sort((a, b) => a.sortOrder - b.sortOrder).map((slot) => slot.slotKey);
+  const moduleLinks = secondaryNavigation(location.pathname);
   const quickPrimaryWritingSlots = enabledWritingSlots.slice(0, 1);
   const quickSecondaryWritingSlots = enabledWritingSlots.slice(1);
   function closeQuickMenu() { setQuickOpen(false); setQuickMoreOpen(false); }
@@ -277,32 +279,25 @@ function AppShell({ context }: { context: WorkspaceContext }) {
       <Link className="app-brand" to={link("/today")}><span aria-hidden="true">{APP_BRAND.icon}</span><strong>{tx(APP_BRAND.name)}</strong></Link>
       <button className="sidebar-toggle" type="button" title={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} aria-label={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} onClick={toggleSidebar}>{sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2.25} /> : <ChevronLeft size={18} strokeWidth={2.25} />}</button>
       <nav aria-label={tx("主导航")}>
-        <ShellLink to={link("/today")} icon={<Home size={17} />}>{tx("冒险")}</ShellLink>
-        <ShellLink to={link("/tasks")} icon={<CheckSquare2 size={17} />}>{tx("任务")}</ShellLink>
-        <ShellLink to={link("/projects")} icon={<FolderKanban size={17} />}>{tx("项目")}</ShellLink>
-        <ShellLink to={link("/calendar")} icon={<CalendarDays size={17} />}>{tx("日历")}</ShellLink>
+        <ShellLink to={link("/today")} activePaths={["/today", "/tasks", "/projects", "/calendar", "/routines", "/adventure-log", "/period-review"]} icon={<Home size={17} />}>{tx("冒险")}</ShellLink>
         <ShellLink to={link("/writing")} activePaths={["/writing", "/journal", "/notes", "/inspirations"]} icon={<NotebookPen size={17} />}>{tx("笔记本")}</ShellLink>
-        <ShellLink to={link("/routines")} icon={<Activity size={17} />}>{tx("生活")}</ShellLink>
+        <ShellLink to={link("/growth")} activePaths={["/growth", "/rewards"]} icon={<ShieldCheck size={17} />}>{tx("成长")}</ShellLink>
         <ShellLink to={link("/finance")} icon={<CircleDollarSign size={17} />}>{tx("钱包")}</ShellLink>
-        <ShellLink to={link("/adventure-log")} icon={<BookOpenText size={17} />}>{tx("历程")}</ShellLink>
-        <ShellLink to={link("/growth")} icon={<ShieldCheck size={17} />}>{tx("成长")}</ShellLink>
         <ShellLink to={link("/library")} icon={<LibraryBig size={17} />}>{tx("图书馆")}</ShellLink>
         <ShellLink to={link("/backpack")} icon={<BackpackIcon size={17} />}>{tx("背包")}</ShellLink>
-        {context.settings?.rewards?.show !== false ? <ShellLink to={link("/rewards")} icon={<Gift size={17} />}>{tx("奖励")}</ShellLink> : null}
-        <ShellLink to={link("/tools")} icon={<Wrench size={17} />}>{tx("工具")}</ShellLink>
       </nav>
       <NavLink className="shell-settings" to={link("/settings")}><Settings size={17} /><span>{tx("设置")}</span></NavLink>
     </aside>
     <div className="app-stage">
       <header className="app-topbar">
-        <div><p className="route-eyebrow">{context.date}</p><h2>{tx(title)}</h2></div>
+        <div className="app-heading"><HeroHud request={context.request} userId={context.session.user.id} date={context.date} /></div>
         <div className="app-top-actions">
-          <HeroHud request={context.request} userId={context.session.user.id} date={context.date} />
           <QuickNoteCaptureButton compact iconOnly label={tx("随手记")} request={context.request} userId={context.session.user.id} selectedDate={context.date} onCreated={context.refresh} icon={<Feather size={17} />} />
           <Link className="topbar-search" aria-label={tx("全局搜索")} title={tx("全局搜索")} to={link("/search")}><Search size={17} /></Link>
           <input aria-label={tx("工作日期")} type="date" value={context.date} onChange={(event) => navigate(`${location.pathname}?date=${event.target.value}`)} />
         </div>
       </header>
+      {moduleLinks.length ? <nav className="app-module-nav" aria-label={tx("主导航")}>{moduleLinks.map((item) => <NavLink key={item.path} end={item.path === "/today" || item.path === "/growth"} to={link(item.path)}>{tx(item.label)}</NavLink>)}</nav> : null}
       <div className={`quick-add-wrap ${location.pathname.startsWith("/settings") ? "is-mobile-hidden" : ""}`} ref={quickMenuRef}>
         <button data-guide-anchor="quick-action.task.publish.entry" type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label={tx("打开快捷操作")} onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>Quick Action</span></button>
         {quickOpen ? <div className={`quick-add-menu ${quickMoreOpen ? "is-more-open" : ""}`} id="quick-add-menu" role="menu">
@@ -331,7 +326,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
       {context.currentSession && location.pathname !== "/today" ? <MiniTimer session={context.currentSession} taskTitle={timerTitle} taskVersion={timerTaskVersion} date={context.date} commands={context.timer} /> : null}
       {context.queryError ? <p className="query-error" role="alert">{tx("同步失败，正在显示可保留的旧快照：")}{context.queryError}</p> : null}
       <main ref={mainRef} tabIndex={-1} className="app-content"><Outlet context={context} /></main>
-      <nav className="mobile-nav" aria-label={tx("移动端主导航")}><ShellLink to={link("/today")} icon={<Home size={18} />}>{tx("冒险")}</ShellLink><ShellLink to={link("/tasks")} icon={<CheckSquare2 size={18} />}>{tx("任务")}</ShellLink><ShellLink to={link("/calendar")} icon={<CalendarDays size={18} />}>{tx("日历")}</ShellLink><ShellLink to={link("/writing")} activePaths={["/writing", "/journal", "/notes", "/inspirations"]} icon={<NotebookPen size={18} />}>{tx("笔记本")}</ShellLink><ShellLink to={link("/settings")} icon={<Settings size={18} />}>{tx("设置")}</ShellLink></nav>
+      <nav className="mobile-nav" aria-label={tx("移动端主导航")}><ShellLink to={link("/today")} activePaths={["/today", "/tasks", "/projects", "/calendar", "/routines"]} icon={<Home size={18} />}>{tx("冒险")}</ShellLink><ShellLink to={link("/writing")} activePaths={["/writing", "/journal", "/notes", "/inspirations"]} icon={<NotebookPen size={18} />}>{tx("笔记本")}</ShellLink><ShellLink to={link("/growth")} activePaths={["/growth", "/rewards"]} icon={<ShieldCheck size={18} />}>{tx("成长")}</ShellLink><ShellLink to={link("/finance")} icon={<CircleDollarSign size={18} />}>{tx("钱包")}</ShellLink><ShellLink to={link("/settings")} icon={<Settings size={18} />}>{tx("设置")}</ShellLink></nav>
     </div>
   </div>;
 }
@@ -353,13 +348,12 @@ function TodayRoute() {
       <div className="today-current">
         <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
       </div>
-      <aside className="today-lifestyle" aria-label={tx("饮水与睡眠")}>
-        <WaterFeature request={value.request} selectedDate={value.date} record={dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} />
-        <SleepFeature compact request={value.request} selectedDate={value.date} record={sleep} snapshotReady={Boolean(dashboard)} recordTimezone={value.session.user.timezone} openEditorSignal={sleepEditorSignal} onError={value.feedback.notice} onChanged={value.refresh} />
+      <aside className="today-status-surface" aria-label={tx("饮水与睡眠")}>
+        <div className="today-status-block today-water-block"><WaterFeature compact request={value.request} selectedDate={value.date} record={dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /></div>
+        <div className="today-status-block today-sleep-block"><SleepFeature compact request={value.request} selectedDate={value.date} record={sleep} snapshotReady={Boolean(dashboard)} recordTimezone={value.session.user.timezone} openEditorSignal={sleepEditorSignal} onError={value.feedback.notice} onChanged={value.refresh} /></div>
       </aside>
       <div className="today-quests">
-        <ContinuationPanel candidates={value.continuations} targetDate={value.date} timezone={value.session.user.timezone} request={value.request} pending={continuationPending} onPending={setContinuationPending} onError={value.feedback.notice} onChanged={value.refresh} />
-        <TasksPanel dailyQuests={<HabitDailyQuests request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} onError={value.feedback.notice} />} />
+        <TasksPanel dailyQuests={<><ContinuationPanel candidates={value.continuations} targetDate={value.date} timezone={value.session.user.timezone} request={value.request} pending={continuationPending} onPending={setContinuationPending} onError={value.feedback.notice} onChanged={value.refresh} /><HabitDailyQuests request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} onError={value.feedback.notice} /></>} />
       </div>
       <aside className="today-timeline" aria-label={tx("实际时间线")}>
         <CalendarFeature request={value.request} selectedDate={value.date} loading={value.loading} items={timelineItems} tasks={value.tasks} acceptedTaskIds={value.assignments} categories={dashboard?.categories ?? []} projects={value.projects} actualSeconds={value.summary?.actualSeconds} onEditSleep={() => setSleepEditorSignal((value) => value + 1)} onError={value.feedback.notice} onChanged={value.refresh} />
@@ -468,6 +462,13 @@ function ShellLink({ to, icon, children, activePaths }: { to: string; icon: Reac
   const location = useLocation();
   const routeActive = activePaths?.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
   return <NavLink className={({ isActive }) => `shell-link ${isActive || routeActive ? "is-active" : ""}`} title={typeof children === "string" ? children : undefined} to={to}>{icon}<span>{children}</span></NavLink>;
+}
+function secondaryNavigation(path: string) {
+  if (["/today", "/tasks", "/projects", "/calendar", "/routines"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    return [{ path: "/today", label: "冒险" }, { path: "/tasks", label: "任务" }, { path: "/projects", label: "项目" }, { path: "/calendar", label: "日历" }, { path: "/routines", label: "生活" }];
+  }
+  if (path === "/growth" || path === "/rewards") return [{ path: "/growth", label: "成长" }, { path: "/rewards", label: "奖励" }];
+  return [];
 }
 function useWorkspace() { return useOutletContext<WorkspaceContext>(); }
 function routeTitle(path: string) { if (path.startsWith("/tasks/")) return "任务详情"; if (path.startsWith("/projects/")) return "项目详情"; if (path.startsWith("/notes/")) return "随手记详情"; if (path.startsWith("/library/")) return "作品详情"; if (path.startsWith("/journal/")) return "笔记本"; if (path.startsWith("/settings/")) return "数据维护"; if (path.startsWith("/adventure-log/")) return "冒险历程"; return ({ "/today": "冒险", "/tasks": "任务", "/projects": "项目", "/calendar": "日历", "/journal": "笔记本", "/writing": "笔记本", "/writing/archive": "文字归档", "/notes": "随手记", "/inspirations": "灵感库", "/routines": "生活", "/finance": "钱包", "/growth": "成长", "/hero": "Hero Profile", "/adventure-log": "冒险历程", "/period-review": "周期复盘", "/library": "图书馆", "/backpack": "背包", "/rewards": "奖励", "/tools": "工具", "/insights": "旧版回看", "/search": "搜索", "/settings": "设置" } as Record<string, string>)[path] ?? "工作台"; }

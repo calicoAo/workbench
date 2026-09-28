@@ -10,7 +10,7 @@ import type { FeedbackActions } from "../feedback";
 import { queryKeys } from "../query";
 import { WorkspaceRouter } from ".";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 const task = { id: 11, title: "R1C integration", description: "real contract", categoryId: 1, status: 0, priority: 2, difficulty: 2, pinned: 0, sortOrder: 1, dueAt: null, progressPercent: 0, version: 1, createdAt: "2026-09-19T00:00:00Z", completedAt: null, completionNote: null };
 const current = { id: 5, taskId: 11, startTime: "2026-09-19T09:00:00Z", durationMinutes: 0, status: 0, version: 1, recordTimezone: "Asia/Shanghai", segments: [{ id: 1, timerSessionId: 5, taskId: 11, status: 0, startedAt: "2026-09-19 09:00:00", endedAt: null, businessDate: "2026-09-19" }] };
@@ -29,6 +29,7 @@ function requestFor(active: boolean | null = null, writingSlots: Array<{ slotKey
     if (path === "/api/timer-sessions/current") return active ? current : null;
     if (path.startsWith("/api/timer-sessions/actual-time")) return { date: "2026-09-19", timezone: "Asia/Shanghai", entries: [] };
     if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false, fontScale: 100, locale: "zh-CN" }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
+    if (path.startsWith("/api/hero?date=")) return { businessDate: "2026-09-19", timezone: "Asia/Shanghai", profile: { userId: 7, displayName: "Owner", avatarRef: null, portraitRef: null, title: null, birthDate: null, visualPreferences: null, version: 1 }, progress: { level: 2, xpTotal: 130, coins: 0, xpInLevel: 30, xpForNextLevel: 200 }, dailyStatus: null, earthOnlineDay: null };
     if (path === "/api/rewards") return { growth: dashboard("2026-09-19").growth, items: [], events: [], redemptions: [] };
     if (path.startsWith("/api/growth/overview")) return { period: { days: 30, from: "2026-08-21", to: "2026-09-19", timezone: "Asia/Shanghai" }, hero: dashboard("2026-09-19").growth, summary: { actualMinutes: 0, mappedActualMinutes: 0, completedTaskCount: 0, habitCompletedCount: 0 }, dimensions: [], unmapped: { actualMinutes: 0, completedTaskCount: 0, lastActivityDate: null }, recent: [] };
     if (path === "/api/growth/dimensions") return { dimensions: [], categories: [] };
@@ -66,7 +67,7 @@ describe("R1C router and AppShell", () => {
 
   it("redirects root to the current Today route", async () => {
     renderShell("/");
-    expect(await screen.findByRole("heading", { name: "冒险" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "小时记录" })).toBeTruthy();
     expect(document.title).toContain("冒险");
   });
 
@@ -104,7 +105,7 @@ describe("R1C router and AppShell", () => {
     renderHistoryShell();
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "test-back" }));
-    expect(await screen.findByRole("heading", { name: "冒险" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "小时记录" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "test-forward" }));
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
   });
@@ -193,39 +194,98 @@ describe("R1C router and AppShell", () => {
     expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(true);
     settings.unmount();
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "冒险" });
+    await screen.findByRole("heading", { name: "小时记录" });
     expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(false);
     expect(screen.getByRole("button", { name: "打开快捷操作" })).toBeTruthy();
   });
 
-  it("adds Growth to desktop navigation while mobile navigation stays five items", async () => {
+  it("uses major modules in desktop and mobile navigation", async () => {
     renderShell("/growth?date=2026-09-19");
     expect(await screen.findByRole("heading", { name: "我的成长" })).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: "成长" })).toHaveLength(1);
-    expect(document.querySelectorAll(".mobile-nav .shell-link")).toHaveLength(5);
+    expect([...document.querySelectorAll(".app-sidebar nav .shell-link span")].map((item) => item.textContent)).toEqual(["冒险", "笔记本", "成长", "钱包", "图书馆", "背包"]);
+    expect([...document.querySelectorAll(".mobile-nav .shell-link span")].map((item) => item.textContent)).toEqual(["冒险", "笔记本", "成长", "钱包", "设置"]);
+    expect([...document.querySelectorAll(".app-module-nav a")].map((item) => item.textContent)).toEqual(["成长", "奖励"]);
+  });
+
+  it("keeps legacy Adventure routes reachable through secondary navigation", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "小时记录" });
+    expect([...document.querySelectorAll(".app-module-nav a")].map((item) => item.textContent)).toEqual(["冒险", "任务", "项目", "日历", "生活"]);
+    fireEvent.click(screen.getByRole("link", { name: "任务" }));
+    expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
   });
 
   it("keeps Writing actions inside the Writing surface and exposes the sidebar handle", async () => {
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "冒险" });
+    await screen.findByRole("heading", { name: "小时记录" });
     expect(document.querySelector(".app-top-actions .writing-shortcut-wrap")).toBeNull();
     expect(screen.getByRole("button", { name: "收起侧栏" })).toBeTruthy();
   });
 
-  it("keeps Water and Sleep above the hourly record in the right context column", async () => {
+  it("places Water and Sleep in separate horizontal status blocks above the hourly record", async () => {
     renderShell("/today?date=2026-09-19");
     await screen.findByRole("heading", { name: "小时记录" });
-    const lifestyle = document.querySelector(".today-lifestyle");
+    const lifestyle = document.querySelector(".today-status-surface");
     const timeline = document.querySelector(".today-timeline");
-    expect(lifestyle?.querySelector("h2")?.textContent).toBe("喝水");
+    expect(lifestyle?.querySelectorAll(":scope > .today-status-block")).toHaveLength(2);
+    expect(lifestyle?.querySelector(".today-water-block h2")?.textContent).toBe("喝水");
+    expect(lifestyle?.querySelector(".today-sleep-block h2")?.textContent).toBe("睡眠");
+    expect(lifestyle?.querySelectorAll(".water-cup-toggle")).toHaveLength(8);
     expect(timeline?.querySelector("h2")?.textContent).toBe("小时记录");
     expect(lifestyle?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
     expect(timeline?.closest(".today-grid")?.classList.contains("today-grid")).toBe(true);
   });
 
+  it("places the Hero HUD in the header identity area", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("link", { name: "打开 Hero Profile" });
+    expect(document.querySelector(".app-heading .hero-hud")?.textContent).toContain("Lv.2 · 30/200 EXP");
+    expect(document.querySelector(".app-top-actions .hero-hud")).toBeNull();
+    expect(document.querySelector(".app-heading .route-eyebrow")).toBeNull();
+    expect(document.querySelector(".app-heading h2")).toBeNull();
+  });
+
+  it("moves a successful continuation into the accepted Quest Board immediately", async () => {
+    const fallbackRequest = requestFor();
+    let resolved = false;
+    const candidate = { assignment: { id: 41, taskId: 11, taskDate: "2026-09-18", version: 1, continuationState: 1 }, task: { id: 11, title: "R1C integration", version: 1 } };
+    const accepted = { id: 42, taskId: 11, version: 1, sortOrder: 1, focusRank: null, assignmentStatus: 0, recordTimezone: "Asia/Shanghai" };
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/task-days/continuations/resolve" && init?.method === "POST") { resolved = true; return { sourceAssignmentIds: [41], targetAssignmentId: 42 }; }
+      if (path.startsWith("/api/task-days/continuations?")) return resolved ? [] : [candidate];
+      if (path.startsWith("/api/task-days?")) return resolved ? { taskDate: "2026-09-19", taskIds: [11], assignments: [accepted] } : { taskDate: "2026-09-19", taskIds: [], assignments: [] };
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/today?date=2026-09-19", request);
+    const continuation = await screen.findByText("待续接");
+    expect(continuation.closest(".glass-panel")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "接取到今天" }));
+    await waitFor(() => expect(document.querySelector(".continuation-panel")).toBeNull());
+    expect(await screen.findByRole("checkbox", { name: "完成R1C integration" })).toBeTruthy();
+  });
+
+  it("keeps a continuation visible when the mutation fails", async () => {
+    const fallbackRequest = requestFor();
+    const candidate = { assignment: { id: 41, taskId: 11, taskDate: "2026-09-18", version: 1, continuationState: 1 }, task: { id: 11, title: "R1C integration", version: 1 } };
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/task-days/continuations/resolve" && init?.method === "POST") throw new Error("continuation conflict");
+      if (path.startsWith("/api/task-days/continuations?")) return [candidate];
+      if (path.startsWith("/api/task-days?")) return { taskDate: "2026-09-19", taskIds: [], assignments: [] };
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/today?date=2026-09-19", request);
+    await screen.findByText("待续接");
+    fireEvent.click(screen.getByRole("button", { name: "接取到今天" }));
+    await waitFor(() => expect(feedback.notice).toHaveBeenCalled());
+    expect(document.querySelector(".continuation-panel")).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: "完成R1C integration" })).toBeNull();
+  });
+
   it("keeps Current Focus in the same main column as Today tasks", async () => {
     renderShell("/today?date=2026-09-19");
-    await screen.findByRole("heading", { name: "冒险" });
+    await screen.findByRole("heading", { name: "小时记录" });
     const focus = document.querySelector(".current-focus");
     expect(focus?.closest(".today-current")).toBeTruthy();
     expect(focus?.closest(".today-timeline")).toBeNull();
