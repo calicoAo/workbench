@@ -1790,7 +1790,7 @@ paths:
   /tasks/{id}:
     get:
       summary: Read a Task detail aggregate
-      description: Returns the Task, Assignment history, Planned blocks, and canonical Timer/Manual/Legacy Actual history.
+      description: Returns the Task, Assignment history, Planned blocks, and canonical Timer/Manual/Legacy Actual history. Actual history entries include the optional note attached to the source execution record.
       parameters:
         - in: path
           name: id
@@ -3078,7 +3078,7 @@ components:
                 $ref: "#/components/schemas/TimerSegment"
     ActualTimeEntry:
       type: object
-      required: [source, sourceId, startedAt, endedAt, durationSeconds, recordTimezone, businessDate, projectAttributionStatus, categoryAttributionStatus]
+      required: [source, sourceId, startedAt, endedAt, durationSeconds, recordTimezone, businessDate, projectAttributionStatus, categoryAttributionStatus, note]
       properties:
         source:
           type: string
@@ -3089,6 +3089,10 @@ components:
         taskId:
           type: integer
           format: int64
+          nullable: true
+        note:
+          type: string
+          maxLength: 500
           nullable: true
         startedAt:
           type: string

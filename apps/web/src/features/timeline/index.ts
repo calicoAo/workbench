@@ -6,6 +6,7 @@ export type ActualTimeEntry = {
   source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   sourceId: number;
   taskId: number | null;
+  note: string | null;
   startedAt: string;
   endedAt: string;
   durationSeconds: number;
@@ -17,6 +18,7 @@ export type TimelineViewItem = {
   id: string;
   kind: "PLANNED" | "TIMER_ACTUAL" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   taskId: number | null;
+  note: string | null;
   title: string;
   startedAt: string;
   endedAt: string;
@@ -32,6 +34,7 @@ export function mapTimeline(plannedSchedules: PlannedSchedule[], actual: ActualT
     id: `planned:${item.id}`,
     kind: "PLANNED" as const,
     taskId: item.taskId,
+    note: null,
     title: item.title,
     startedAt: `${item.scheduleDate ?? date}T${item.startTime}`,
     endedAt: `${item.scheduleDate ?? date}T${item.endTime}`,
@@ -41,6 +44,7 @@ export function mapTimeline(plannedSchedules: PlannedSchedule[], actual: ActualT
     id: `${item.source}:${item.sourceId}`,
     kind: item.source === "TIMER_SEGMENT" ? "TIMER_ACTUAL" as const : item.source,
     taskId: item.taskId,
+    note: item.note,
     title: item.source === "TIMER_SEGMENT" ? "计时实际" : item.source === "MANUAL_ACTUAL" ? "手工实际" : "历史实际",
     startedAt: item.startedAt,
     endedAt: item.endedAt,

@@ -29,6 +29,7 @@ export type ActualTimeEntry = {
   source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   sourceId: number;
   taskId: number | null;
+  note: string | null;
   startedAt: Date;
   endedAt: Date;
   durationSeconds: number;
@@ -51,10 +52,12 @@ export async function actualTimeForRange(userId: number, fromDate: string, toDat
   const start = businessDayBoundsUtc(fromDate, queryTimezone).start;
   const end = businessDayBoundsUtc(toDate, queryTimezone).end;
   const segmentRows = await client
-    .select()
+    .select({ segment: timerSegments, note: timerSessions.note })
     .from(timerSegments)
+    .innerJoin(timerSessions, eq(timerSegments.timerSessionId, timerSessions.id))
     .where(and(
       eq(timerSegments.userId, userId),
+      eq(timerSessions.userId, userId),
       eq(timerSegments.status, TimerSegmentStatus.CLOSED),
       lt(timerSegments.startedAt, formatUtcDateTime(end)),
       gt(timerSegments.endedAt, formatUtcDateTime(start)),
@@ -74,19 +77,20 @@ export async function actualTimeForRange(userId: number, fromDate: string, toDat
 
   return [
     ...segmentRows.flatMap((row) => {
-      if (!row.endedAt) return [];
+      if (!row.segment.endedAt) return [];
       const entry = clippedEntry({
         source: "TIMER_SEGMENT",
-        sourceId: row.id,
-        taskId: row.taskId,
-        startedAt: parseUtcDateTime(row.startedAt),
-        endedAt: parseUtcDateTime(row.endedAt),
-        recordTimezone: row.recordTimezone,
-        businessDate: row.businessDate,
-        projectIdAtOccurrence: row.projectIdAtOccurrence,
-        projectAttributionStatus: row.projectAttributionStatus,
-        categoryIdAtOccurrence: row.categoryIdAtOccurrence,
-        categoryAttributionStatus: row.categoryAttributionStatus
+        sourceId: row.segment.id,
+        taskId: row.segment.taskId,
+        note: row.note,
+        startedAt: parseUtcDateTime(row.segment.startedAt),
+        endedAt: parseUtcDateTime(row.segment.endedAt),
+        recordTimezone: row.segment.recordTimezone,
+        businessDate: row.segment.businessDate,
+        projectIdAtOccurrence: row.segment.projectIdAtOccurrence,
+        projectAttributionStatus: row.segment.projectAttributionStatus,
+        categoryIdAtOccurrence: row.segment.categoryIdAtOccurrence,
+        categoryAttributionStatus: row.segment.categoryAttributionStatus
       }, start, end);
       return entry ? [entry] : [];
     }),
@@ -96,6 +100,7 @@ export async function actualTimeForRange(userId: number, fromDate: string, toDat
         source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL",
         sourceId: row.id,
         taskId: row.taskId,
+        note: row.note,
         startedAt: parseUtcDateTime(row.actualStartedAt),
         endedAt: parseUtcDateTime(row.actualEndedAt),
         recordTimezone: row.recordTimezone,

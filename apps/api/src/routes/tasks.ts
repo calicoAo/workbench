@@ -4,7 +4,7 @@ import { inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments } from "../db/schema.js";
+import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments, timerSessions } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ActualTimeClass, canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus, type TaskStatusValue } from "../enums.js";
 import { ok } from "../http.js";
@@ -92,7 +92,7 @@ export const tasksRoute = new Hono()
     const [assignments, plannedSchedules, segments, actualSchedules, sourceRows] = await Promise.all([
       db.select().from(taskDailyAssignments).where(and(eq(taskDailyAssignments.userId, userId), eq(taskDailyAssignments.taskId, id))).orderBy(desc(taskDailyAssignments.taskDate)),
       db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), eq(schedules.kind, ScheduleKind.PLANNED))).orderBy(desc(schedules.scheduleDate)),
-      db.select().from(timerSegments).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))).orderBy(desc(timerSegments.startedAt)),
+      db.select({ segment: timerSegments, note: timerSessions.note }).from(timerSegments).innerJoin(timerSessions, eq(timerSegments.timerSessionId, timerSessions.id)).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSessions.userId, userId), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))).orderBy(desc(timerSegments.startedAt)),
       db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), inArray(schedules.actualTimeClass, [ActualTimeClass.MANUAL_ACTUAL, ActualTimeClass.LEGACY_ACTUAL]), isNull(schedules.deletedAt))).orderBy(desc(schedules.actualStartedAt)),
       db.select({ noteId: quickNoteTaskLinks.quickNoteId }).from(quickNoteTaskLinks).where(and(eq(quickNoteTaskLinks.userId, userId), eq(quickNoteTaskLinks.taskId, id)))
     ]);
@@ -102,8 +102,8 @@ export const tasksRoute = new Hono()
       assignments,
       plannedSchedules,
       actualEntries: [
-        ...segments.filter((row) => row.endedAt).map((row) => ({ source: "TIMER_SEGMENT", sourceId: row.id, startedAt: row.startedAt, endedAt: row.endedAt, businessDate: row.businessDate, recordTimezone: row.recordTimezone })),
-        ...actualSchedules.map((row) => ({ source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL", sourceId: row.id, startedAt: row.actualStartedAt, endedAt: row.actualEndedAt, businessDate: row.scheduleDate, recordTimezone: row.recordTimezone }))
+        ...segments.filter((row) => row.segment.endedAt).map((row) => ({ source: "TIMER_SEGMENT", sourceId: row.segment.id, startedAt: row.segment.startedAt, endedAt: row.segment.endedAt, businessDate: row.segment.businessDate, recordTimezone: row.segment.recordTimezone, note: row.note })),
+        ...actualSchedules.map((row) => ({ source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL", sourceId: row.id, startedAt: row.actualStartedAt, endedAt: row.actualEndedAt, businessDate: row.scheduleDate, recordTimezone: row.recordTimezone, note: row.note }))
       ].sort((left, right) => String(right.startedAt).localeCompare(String(left.startedAt)))
     });
   })

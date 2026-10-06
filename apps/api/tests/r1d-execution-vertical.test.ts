@@ -75,9 +75,14 @@ test("finish records optional progress and note but leaves Task incomplete", asy
   assert.equal(await scalar("SELECT progress_percent FROM tasks WHERE id = ?", [taskId]), 45);
   assert.equal((await rows<{ note: string }>("SELECT note FROM timer_sessions WHERE id = ?", [started.id]))[0].note, "first pass");
   const daily = await readModel.dailyExecutionForUser(1, "2026-09-20", "Asia/Shanghai");
+  assert.equal(daily.entries[0].note, "first pass");
   assert.equal(daily.summary.focusedSeconds, 1800);
   assert.equal(daily.summary.actualSeconds, 1800);
   assert.equal(daily.summary.completedAssignments, 0);
+  const detailResponse = await appModule.app.request(`/api/tasks/${taskId}`, { headers });
+  assert.equal(detailResponse.status, 200);
+  const detail = (await detailResponse.json()) as { data: { actualEntries: Array<{ note: string | null }> } };
+  assert.equal(detail.data.actualEntries[0].note, "first pass");
 });
 
 test("a 23:50 to 00:20 Session is attributed as 10m plus 20m in its timezone", async () => {

@@ -65,6 +65,18 @@ describe("R1C router and AppShell", () => {
     expect(document.title).toContain("任务详情");
   });
 
+  it("shows a persisted execution note in task history", async () => {
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/tasks/11") return { task, assignments: [], plannedSchedules: [], actualEntries: [{ source: "TIMER_SEGMENT", sourceId: 21, startedAt: "2026-09-19T01:00:00Z", endedAt: "2026-09-19T01:30:00Z", businessDate: "2026-09-19", recordTimezone: "Asia/Shanghai", note: "first pass" }] };
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/tasks/11?date=2026-09-19", request);
+
+    expect(await screen.findByText("first pass")).toBeTruthy();
+  });
+
   it("redirects root to the current Today route", async () => {
     renderShell("/");
     expect(await screen.findByRole("heading", { name: "小时记录" })).toBeTruthy();
