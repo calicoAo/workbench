@@ -582,6 +582,12 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 - Decision: V39 creates a narrow Library owner for work metadata and Notebook references only. V40 creates Backpack definitions/unlocks, Milestones, and structured Keepsakes; unlock rules consume deterministic public facts and non-owning source references can become unavailable. V41 creates server-only AI settings and Artifact ownership. The global switch and per-domain permission gate source reads before provider invocation; the Morning Writing branch is the single migrated representative flow and persists validated structured output with source fingerprint/version, retry identity, telemetry, and stale state.
 - Consequences: No universal relation, media repository, vector database, agent orchestration, or direct AI-to-domain write is introduced. Wallet AI stays off by default. Legacy Journal and Decision provider calls remain explicit migration debt rather than being silently represented as Foundation consumers. Pixel Final remains separately blocked until formal slot assets are supplied; fallback icons are not final assets.
 
+### 2026-10-07 - Adopt Snow Soda v2 as the Web presentation token layer
+
+- Context: The Web surface had accumulated legacy mint, cream, and white-alpha values across shared primitives while the product visual direction had a supplied Snow Soda v2 palette.
+- Decision: `apps/web/src/styles.css` owns the semantic Snow Soda token layer and shared primitive presentation; `apps/web/tailwind.config.ts` maps existing utility names onto the supplied palette. Feature behavior, route composition, domain-selected category colors, chart dimensions, and semantic state ownership remain unchanged.
+- Consequences: Shared controls and surfaces converge on Snow Soda v2 without introducing a theme runtime, global state, or new feature boundary. Feature-local legacy colors remain migration debt until their owner can classify them as presentation or domain data.
+
 
 ## Current Deepen Priorities
 
