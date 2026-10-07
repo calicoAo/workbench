@@ -1,13 +1,15 @@
-import { Pencil, Plus, TimerReset, Trash2, X } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Search, TimerReset, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useState } from "react";
 import { tx } from "../../app/i18n";
+import { Button, IconButton } from "../../shared/ui";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Confirm = (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
 
 export type DimensionKey = "career" | "creative" | "learning" | "life" | "body" | "social" | "leisure" | "foundation";
-export type Category = { id: number; name: string; dimensionKey: DimensionKey | null; color: string; targetMinutes: number; totalMinutes: number };
+export type Category = { id: number; name: string; dimensionKey: DimensionKey | null; color: string; targetMinutes: number; totalMinutes: number; enabled?: number | boolean };
+export type CategoryEditorCategory = { id: number; name: string; dimensionKey: string | null; color: string; targetMinutes: number; enabled?: number | boolean };
 
 export const CORE_DIMENSIONS = [
   { key: "career", label: "事业力", hint: "主业、产品、编程", color: "#5B8DEF" },
@@ -203,6 +205,101 @@ function AbilityOverview({ categories, onEdit, onDelete }: { categories: Categor
 
 function CategoryTag({ category }: { category: Category }) {
   return <span className="category-tag" title={`${tx(dimensionMeta(category.dimensionKey).label)} · ${category.name}`} style={{ backgroundColor: `${category.color}24`, borderColor: `${category.color}88`, color: category.color }}><i style={{ backgroundColor: category.color }} /><span>{category.name}</span></span>;
+}
+
+const SETTINGS_PALETTE = ["#3B82F6", "#8B5CF6", "#EC4899", "#10B981", "#EF4444", "#F59E0B", "#64748B"];
+type CategoryDraft = {
+  id: number | null;
+  name: string;
+  color: string;
+  dimensionKey: string;
+  enabled: boolean;
+};
+
+/** Settings composes this Categories-owned surface so draft and save semantics have one owner. */
+export function CategorySettings({ categories, request, onError, onChanged }: { categories: CategoryEditorCategory[]; request: Request; onError: (message: string, title?: string) => void; onChanged: () => void | Promise<void> }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "disabled" | "unmapped">("all");
+  const [draft, setDraft] = useState<CategoryDraft | null>(null);
+  const [pending, setPending] = useState(false);
+  const visible = categories.filter((category) => category.name.toLowerCase().includes(search.trim().toLowerCase()) && (filter === "all" || (filter === "active" && Boolean(category.enabled)) || (filter === "disabled" && !category.enabled) || (filter === "unmapped" && category.dimensionKey === null)));
+
+  function edit(category?: CategoryEditorCategory) {
+    setDraft(category ? { id: category.id, name: category.name, color: category.color, dimensionKey: category.dimensionKey ?? "", enabled: Boolean(category.enabled) } : { id: null, name: "", color: SETTINGS_PALETTE[0], dimensionKey: "", enabled: true });
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (!draft || !draft.name.trim() || !/^#[0-9a-fA-F]{6}$/.test(draft.color)) return;
+    setPending(true);
+    try {
+      const payload = { name: draft.name.trim(), color: draft.color.toUpperCase(), dimensionKey: draft.dimensionKey || null, targetMinutes: 6000, ...(draft.id ? { enabled: draft.enabled } : {}) };
+      await request(draft.id ? `/api/task-categories/${draft.id}` : "/api/task-categories", { method: draft.id ? "PUT" : "POST", body: JSON.stringify(payload) });
+      setDraft(null);
+      await onChanged();
+    } catch (error) {
+      onError(errorMessage(error), draft.id ? tx("分类没有更新") : tx("分类没有创建"));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="settings-section settings-categories">
+      <div className="settings-section-head">
+        <div>
+          <h2>{tx("任务分类")}</h2>
+          <p className="settings-note">{tx("颜色只用于展示；成长维度可暂不映射。")}</p>
+        </div>
+        <Button variant="primary" size="sm" onClick={() => edit()}><Plus size={14} />{tx("新增分类")}</Button>
+      </div>
+      <div className="settings-category-tools">
+        <label>
+          <Search size={15} />
+          <input aria-label={tx("搜索分类")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tx("搜索分类")} />
+        </label>
+        <select aria-label={tx("分类状态筛选")} className="field" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>
+          <option value="all">{tx("全部")}</option><option value="active">{tx("启用中")}</option><option value="disabled">{tx("已停用")}</option><option value="unmapped">{tx("未映射")}</option>
+        </select>
+      </div>
+      <div className="settings-category-list">
+        {visible.map((category) => (
+          <button type="button" aria-label={tx("编辑分类 {value0}", { value0: category.name })} className={!category.enabled ? "is-disabled" : ""} key={category.id} onClick={() => edit(category)}>
+            <i style={{ backgroundColor: category.color }} /><span><strong>{category.name}</strong><small>{category.enabled ? category.dimensionKey ? dimensionLabel(category.dimensionKey) : tx("未映射") : tx("{value0} · 已停用", { value0: category.dimensionKey ? dimensionLabel(category.dimensionKey) : tx("未映射") })}</small></span><ChevronRight size={16} />
+          </button>
+        ))}
+      </div>
+      {draft ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setDraft(null)}>
+          <div className="modal-shell settings-category-dialog" role="dialog" aria-modal="true" aria-labelledby="category-editor-title" onMouseDown={(event) => event.stopPropagation()}>
+            <form onSubmit={save}>
+              <header><h3 id="category-editor-title">{draft.id ? tx("编辑分类") : tx("新增分类")}</h3><IconButton type="button" label={tx("关闭")} size="sm" onClick={() => setDraft(null)}><X size={16} /></IconButton></header>
+              <label>{tx("名称")}<input aria-label={draft.id ? tx("分类名称") : tx("新分类名称")} className="field" required maxLength={64} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+              <label>{tx("成长维度")}<select aria-label={draft.id ? tx("分类成长维度") : tx("新分类成长维度")} className="field" value={draft.dimensionKey} onChange={(event) => setDraft({ ...draft, dimensionKey: event.target.value })}><option value="">{tx("暂不映射")}</option><DimensionOptions /></select></label>
+              <CategoryColorControl color={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+              {draft.id ? <CategoryEnabledToggle enabled={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} /> : null}
+              <div className="category-form-actions"><Button type="button" onClick={() => setDraft(null)}>{tx("取消")}</Button><Button variant="primary" loading={pending} type="submit">{tx("保存分类")}</Button></div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function CategoryEnabledToggle({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) {
+  const label = enabled ? tx("分类已启用") : tx("分类已停用");
+  return <label className="settings-toggle"><span>{label}</span><input type="checkbox" aria-label={label} checked={enabled} onChange={(event) => onChange(event.target.checked)} /></label>;
+}
+
+function CategoryColorControl({ color, onChange }: { color: string; onChange: (value: string) => void }) {
+  const [hex, setHex] = useState(color);
+  const applyHex = () => { if (/^#[0-9a-fA-F]{6}$/.test(hex)) onChange(hex.toUpperCase()); };
+  return <fieldset className="category-color-control"><legend>{tx("颜色")}</legend><div className="category-current-color"><i style={{ background: color }} /><strong>{color.toUpperCase()}</strong></div><div className="color-presets">{SETTINGS_PALETTE.map((value) => <button aria-label={tx("使用颜色 {value0}", { value0: value })} className={value === color ? "is-active" : ""} key={value} style={{ background: value }} type="button" onClick={() => { setHex(value); onChange(value); }} />)}<label className="color-custom-trigger" title={tx("自定义颜色")}><Plus size={14} /><input aria-label={tx("自定义分类颜色")} type="color" value={color} onChange={(event) => { const value = event.target.value.toUpperCase(); setHex(value); onChange(value); }} /></label></div><label>{tx("HEX")}<input aria-label={tx("分类 Hex 颜色")} className="field" value={hex} onChange={(event) => setHex(event.target.value)} onBlur={applyHex} /></label></fieldset>;
+}
+
+function dimensionLabel(value: string | null) {
+  return value ? tx(({ career: "事业力", creative: "创造力", learning: "学习力", life: "生活力", body: "身体力", social: "社交力", leisure: "兴趣成长", foundation: "基础状态" } as Record<string, string>)[value] ?? value) : tx("暂不映射");
 }
 
 function DimensionOptions() {

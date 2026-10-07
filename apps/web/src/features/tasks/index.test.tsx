@@ -2,8 +2,9 @@
 
 import { type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TasksFeature, TasksPanel } from ".";
+import { TaskDetailPage, TasksFeature, TasksPanel, type TaskDetailPayload } from ".";
 
 type Props = ComponentProps<typeof TasksFeature>;
 
@@ -66,6 +67,22 @@ function openCreate() {
 }
 
 describe("TasksFeature ownership", () => {
+  it("collapses cross-midnight slices to one Session note and keeps completion note separate", () => {
+    const detail: TaskDetailPayload = {
+      task: { ...task, status: 2, completionNote: "Task outcome" },
+      assignments: [],
+      plannedSchedules: [],
+      actualEntries: [
+        { source: "TIMER_SEGMENT", sourceId: 21, title: "任务 A", startedAt: "2026-10-06T15:55:00Z", endedAt: "2026-10-06T16:00:00Z", businessDate: "2026-10-06", recordTimezone: "Asia/Shanghai", note: "session note", timerSessionId: 44, sessionNote: "session note", sessionStartedAt: "2026-10-06T15:55:00Z", sessionEndedAt: "2026-10-06T16:15:00Z", sessionDurationSeconds: 1200, isTerminalSlice: false },
+        { source: "TIMER_SEGMENT", sourceId: 22, title: "任务 A", startedAt: "2026-10-06T16:00:00Z", endedAt: "2026-10-06T16:15:00Z", businessDate: "2026-10-07", recordTimezone: "Asia/Shanghai", note: "session note", timerSessionId: 44, sessionNote: "session note", sessionStartedAt: "2026-10-06T15:55:00Z", sessionEndedAt: "2026-10-06T16:15:00Z", sessionDurationSeconds: 1200, isTerminalSlice: true }
+      ]
+    };
+    render(<MemoryRouter><TaskDetailPage detail={detail} assigned active={false} paused={false} date="2026-10-07" pending={false} onAccept={vi.fn()} onStart={vi.fn()} onComplete={vi.fn()} onEdit={vi.fn()} onArchive={vi.fn()} /></MemoryRouter>);
+
+    expect(screen.getByText("Task outcome")).toBeTruthy();
+    expect(screen.getAllByText("session note")).toHaveLength(1);
+  });
+
   it("preserves an active create draft across an ordinary snapshot refresh", () => {
     const view = render(feature());
     openCreate();

@@ -39,7 +39,17 @@ function openEditor() {
 
 describe("CalendarFeature workflow ownership", () => {
   it("does not expose Timer projections as Calendar-owned deletes", () => {
-    render(feature({ items: [{ ...items[0], source: 1, actualTimeClass: 3 }] }));
+    render(feature({ items: [{ ...items[0], source: 1, actualTimeClass: 3, timerSessionId: 45, sessionNote: null }] }));
+    expect(screen.queryByRole("button", { name: "删除时间记录" })).toBeNull();
+  });
+
+  it("opens the canonical Session note from a read-only Timer projection", () => {
+    render(feature({ items: [{ ...items[0], source: 1, actualTimeClass: 3, timerSessionId: 44, sessionNote: "还卡在 scene 上", sessionNotePreview: "还卡在 scene 上", sessionStartedAt: "2026-09-19T01:00:00Z", sessionEndedAt: "2026-09-19T01:15:00Z", sessionDurationSeconds: 900 }] }));
+
+    fireEvent.click(screen.getByRole("button", { name: "打开计时记录" }));
+
+    expect(screen.getByRole("heading", { name: "计时记录详情" })).toBeTruthy();
+    expect(screen.getAllByText("还卡在 scene 上")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "删除时间记录" })).toBeNull();
   });
 
@@ -51,6 +61,7 @@ describe("CalendarFeature workflow ownership", () => {
     expect(screen.getByText("1h")).toBeTruthy();
     expect(screen.getByText("1段")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "删除时间记录" })).toHaveLength(2);
+    expect(screen.queryByLabelText("备注")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "删除时间记录" })[0]);
 
     await waitFor(() => expect(requestMock).toHaveBeenCalledWith("/api/schedules/1", expect.objectContaining({ method: "DELETE", body: expect.any(String) })));

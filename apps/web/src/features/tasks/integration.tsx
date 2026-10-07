@@ -55,7 +55,7 @@ export type TaskDetailPayload = {
   source?: { type: "QUICK_NOTE"; id: number } | null;
   assignments: Array<{ id: number; taskDate: string; assignmentStatus: number; focusRank: number | null }>;
   plannedSchedules: Array<{ id: number; scheduleDate: string; startTime: string; endTime: string; lifecycleState: number; title: string }>;
-  actualEntries: Array<{ source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL"; sourceId: number; startedAt: string | null; endedAt: string | null; businessDate: string; recordTimezone: string; note: string | null }>;
+  actualEntries: Array<{ source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL"; sourceId: number; title?: string; startedAt: string | null; endedAt: string | null; businessDate: string; recordTimezone: string; note: string | null; timerSessionId?: number | null; sessionNote?: string | null; sessionStartedAt?: string | null; sessionEndedAt?: string | null; sessionDurationSeconds?: number | null; isTerminalSlice?: boolean }>;
 };
 
 export function TasksIntegrationPage({ tasks, date, loading }: { tasks: TaskSnapshot[]; date: string; loading: boolean }) {
@@ -96,6 +96,12 @@ export function TaskDetailPage({ detail, assigned, active, paused, date, pending
   if (detail === undefined) return <p role="status" className="route-state">{tx("正在加载任务...")}</p>;
   if (detail === null) return <section className="route-panel"><h1>{tx("任务不存在")}</h1><Link to={`/tasks?date=${date}`}>{tx("返回悬赏板")}</Link></section>;
   const task = detail.task;
+  const history = new Map<string, TaskDetailPayload["actualEntries"][number]>();
+  for (const item of detail.actualEntries) {
+    const identity = item.timerSessionId ? `session:${item.timerSessionId}` : `${item.source}:${item.sourceId}:${item.businessDate}`;
+    if (!history.has(identity) || item.isTerminalSlice) history.set(identity, item);
+  }
+  const actualHistory = [...history.values()];
   return (
     <article className="route-panel task-detail" aria-labelledby="task-detail-heading">
       <Link className="inline-command" to={`/tasks?date=${date}`}><ArrowLeft size={15} />{tx("返回悬赏板")}</Link>
@@ -107,7 +113,7 @@ export function TaskDetailPage({ detail, assigned, active, paused, date, pending
       <div className="task-detail-actions">{task.status < 2 && !assigned ? <Button onClick={onAccept}>{tx("接取到今天")}</Button> : null}{!active && task.status < 2 ? <Button variant="primary" disabled={pending} onClick={() => onStart(task, assigned)}><Play size={16} />{pending ? tx("正在开始...") : assigned ? tx("开始") : tx("接取并开始")}</Button> : null}{active && onPauseResume ? <Button disabled={pending} onClick={onPauseResume}>{paused ? <CirclePlay size={16} /> : <CirclePause size={16} />}{paused ? tx("继续") : tx("暂停")}</Button> : null}{active ? finishAction : null}{task.status < 2 && !active ? <Button disabled={pending} onClick={() => onComplete(task)}>{tx("直接完成")}</Button> : null}{active && onCompleteAndFinish ? <Button variant="primary" disabled={pending} onClick={() => onCompleteAndFinish(task)}>{tx("完成悬赏并结束")}</Button> : null}<Button onClick={() => onEdit(task)}><Pencil size={15} />{tx("编辑")}</Button>{task.status !== 3 ? <Button variant="danger" onClick={() => onArchive(task)}><Archive size={15} />{tx("归档")}</Button> : null}</div>
       {task.completionNote ? <section className="detail-section"><h2>{tx("完成结果")}</h2><p>{task.completionNote}</p></section> : null}
       <section className="detail-section"><h2>{tx("计划块")}</h2>{detail.plannedSchedules.length ? <div className="detail-history">{detail.plannedSchedules.map((item) => <div key={item.id}><span>{tx("计划")}</span><strong>{item.scheduleDate} · {item.startTime.slice(0, 5)}-{item.endTime.slice(0, 5)}</strong><small>{["PENDING", "EXECUTED", "CANCELLED", "RESCHEDULED"][item.lifecycleState]}</small></div>)}</div> : <p className="muted">{tx("暂无计划。")}</p>}</section>
-      <section className="detail-section"><h2>{tx("ActualTime 历史")}</h2>{detail.actualEntries.length ? <div className="detail-history">{detail.actualEntries.map((item) => <div key={`${item.source}:${item.sourceId}`}><Clock3 size={15} /><strong>{item.businessDate} · {sourceLabel(item.source)}</strong><small>{item.startedAt ? formatDate(item.startedAt) : tx("未知开始")} - {item.endedAt ? formatDate(item.endedAt) : tx("未知结束")} · {item.recordTimezone}</small>{item.note ? <p className="detail-history-note">{item.note}</p> : null}</div>)}</div> : <p className="muted">{tx("尚无真实投入，不会显示虚构时长。")}</p>}</section>
+      <section className="detail-section"><h2>{tx("ActualTime 历史")}</h2>{actualHistory.length ? <div className="detail-history">{actualHistory.map((item) => { const note = item.timerSessionId ? item.sessionNote : item.note; const startedAt = item.timerSessionId ? item.sessionStartedAt : item.startedAt; const endedAt = item.timerSessionId ? item.sessionEndedAt : item.endedAt; return <div key={item.timerSessionId ? `session:${item.timerSessionId}` : `${item.source}:${item.sourceId}:${item.businessDate}`}><Clock3 size={15} /><strong>{item.businessDate} · {sourceLabel(item.source)}</strong><small>{startedAt ? formatDate(startedAt) : tx("未知开始")} - {endedAt ? formatDate(endedAt) : tx("未知结束")} · {item.recordTimezone}</small>{note ? <p className="detail-history-note">{note}</p> : null}</div>; })}</div> : <p className="muted">{tx("尚无真实投入，不会显示虚构时长。")}</p>}</section>
     </article>
   );
 }

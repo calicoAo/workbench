@@ -7,12 +7,13 @@ import { db } from "../db/index.js";
 import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments, timerSessions } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ActualTimeClass, canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus, type TaskStatusValue } from "../enums.js";
+import { splitActualTimeEntry } from "../execution-read-model.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
 import { archiveTask, completeTask, removeTask, reopenTask } from "../task-completion.js";
 import { publishTask } from "../task-publishing.js";
 import { requireAssignableProjectInClient } from "../projects.js";
-import { isValidTimezone, localDateTimeToUtc } from "../time.js";
+import { formatUtcDateTime, isValidTimezone, localDateTimeToUtc, parseUtcDateTime } from "../time.js";
 
 
 const createTaskSchema = z.object({
@@ -74,6 +75,10 @@ function localDateTime(value: string) {
   return new Date(`${value}:00+08:00`);
 }
 
+function parseSessionDate(value: Date | string) {
+  return value instanceof Date ? value : parseUtcDateTime(value);
+}
+
 export const tasksRoute = new Hono()
   .get("/", async (c) => {
     const rows = await db
@@ -92,18 +97,93 @@ export const tasksRoute = new Hono()
     const [assignments, plannedSchedules, segments, actualSchedules, sourceRows] = await Promise.all([
       db.select().from(taskDailyAssignments).where(and(eq(taskDailyAssignments.userId, userId), eq(taskDailyAssignments.taskId, id))).orderBy(desc(taskDailyAssignments.taskDate)),
       db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), eq(schedules.kind, ScheduleKind.PLANNED))).orderBy(desc(schedules.scheduleDate)),
-      db.select({ segment: timerSegments, note: timerSessions.note }).from(timerSegments).innerJoin(timerSessions, eq(timerSegments.timerSessionId, timerSessions.id)).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSessions.userId, userId), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))).orderBy(desc(timerSegments.startedAt)),
+      db.select({ segment: timerSegments, note: timerSessions.note, sessionStartTime: timerSessions.startTime, sessionEndTime: timerSessions.endTime, sessionDurationMinutes: timerSessions.durationMinutes }).from(timerSegments).innerJoin(timerSessions, eq(timerSegments.timerSessionId, timerSessions.id)).where(and(eq(timerSegments.userId, userId), eq(timerSegments.taskId, id), eq(timerSessions.userId, userId), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))).orderBy(desc(timerSegments.startedAt)),
       db.select().from(schedules).where(and(eq(schedules.userId, userId), eq(schedules.taskId, id), inArray(schedules.actualTimeClass, [ActualTimeClass.MANUAL_ACTUAL, ActualTimeClass.LEGACY_ACTUAL]), isNull(schedules.deletedAt))).orderBy(desc(schedules.actualStartedAt)),
       db.select({ noteId: quickNoteTaskLinks.quickNoteId }).from(quickNoteTaskLinks).where(and(eq(quickNoteTaskLinks.userId, userId), eq(quickNoteTaskLinks.taskId, id)))
     ]);
+    const timerActualEntries = segments.filter((row) => row.segment.endedAt).flatMap((row) => splitActualTimeEntry({
+      source: "TIMER_SEGMENT",
+      sourceId: row.segment.id,
+      taskId: row.segment.taskId,
+      title: row.segment.taskTitleSnapshot,
+      note: row.note,
+      startedAt: parseUtcDateTime(row.segment.startedAt),
+      endedAt: parseUtcDateTime(row.segment.endedAt!),
+      recordTimezone: row.segment.recordTimezone,
+      businessDate: row.segment.businessDate,
+      timerSessionId: row.segment.timerSessionId,
+      sessionNote: row.note,
+      sessionStartedAt: row.segment.timerSessionId ? parseSessionDate(row.sessionStartTime) : null,
+      sessionEndedAt: row.sessionEndTime ? parseSessionDate(row.sessionEndTime) : null,
+      sessionDurationSeconds: row.sessionDurationMinutes * 60,
+      isTerminalSlice: false,
+      projectIdAtOccurrence: row.segment.projectIdAtOccurrence,
+      projectAttributionStatus: row.segment.projectAttributionStatus,
+      categoryIdAtOccurrence: row.segment.categoryIdAtOccurrence,
+      categoryAttributionStatus: row.segment.categoryAttributionStatus
+    }).map((entry) => ({
+      source: entry.source,
+      sourceId: entry.sourceId,
+      title: entry.title,
+      startedAt: formatUtcDateTime(entry.startedAt),
+      endedAt: formatUtcDateTime(entry.endedAt),
+      businessDate: entry.businessDate,
+      recordTimezone: entry.recordTimezone,
+      note: entry.note,
+      timerSessionId: entry.timerSessionId,
+      sessionNote: entry.sessionNote,
+      sessionStartedAt: entry.sessionStartedAt ? formatUtcDateTime(entry.sessionStartedAt) : null,
+      sessionEndedAt: entry.sessionEndedAt ? formatUtcDateTime(entry.sessionEndedAt) : null,
+      sessionDurationSeconds: entry.sessionDurationSeconds,
+      isTerminalSlice: entry.isTerminalSlice
+    })));
+    const manualActualEntries = actualSchedules.flatMap((row) => {
+      if (!row.actualStartedAt || !row.actualEndedAt) return [];
+      return splitActualTimeEntry({
+        source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL",
+        sourceId: row.id,
+        taskId: row.taskId,
+        title: row.title,
+        note: row.note,
+        startedAt: parseUtcDateTime(row.actualStartedAt),
+        endedAt: parseUtcDateTime(row.actualEndedAt),
+        recordTimezone: row.recordTimezone,
+        businessDate: row.scheduleDate,
+        timerSessionId: null,
+        sessionNote: null,
+        sessionStartedAt: null,
+        sessionEndedAt: null,
+        sessionDurationSeconds: null,
+        isTerminalSlice: false,
+        projectIdAtOccurrence: row.projectIdAtOccurrence,
+        projectAttributionStatus: row.projectAttributionStatus,
+        categoryIdAtOccurrence: row.categoryIdAtOccurrence,
+        categoryAttributionStatus: row.categoryAttributionStatus
+      }).map((entry) => ({
+        source: entry.source,
+        sourceId: entry.sourceId,
+        title: entry.title,
+        startedAt: formatUtcDateTime(entry.startedAt),
+        endedAt: formatUtcDateTime(entry.endedAt),
+        businessDate: entry.businessDate,
+        recordTimezone: entry.recordTimezone,
+        note: entry.note,
+        timerSessionId: entry.timerSessionId,
+        sessionNote: entry.sessionNote,
+        sessionStartedAt: entry.sessionStartedAt ? formatUtcDateTime(entry.sessionStartedAt) : null,
+        sessionEndedAt: entry.sessionEndedAt ? formatUtcDateTime(entry.sessionEndedAt) : null,
+        sessionDurationSeconds: entry.sessionDurationSeconds,
+        isTerminalSlice: entry.isTerminalSlice
+      }));
+    });
     return ok(c, {
       task,
       source: sourceRows[0] ? { type: "QUICK_NOTE", id: sourceRows[0].noteId } : null,
       assignments,
       plannedSchedules,
       actualEntries: [
-        ...segments.filter((row) => row.segment.endedAt).map((row) => ({ source: "TIMER_SEGMENT", sourceId: row.segment.id, startedAt: row.segment.startedAt, endedAt: row.segment.endedAt, businessDate: row.segment.businessDate, recordTimezone: row.segment.recordTimezone, note: row.note })),
-        ...actualSchedules.map((row) => ({ source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL", sourceId: row.id, startedAt: row.actualStartedAt, endedAt: row.actualEndedAt, businessDate: row.scheduleDate, recordTimezone: row.recordTimezone, note: row.note }))
+        ...timerActualEntries,
+        ...manualActualEntries
       ].sort((left, right) => String(right.startedAt).localeCompare(String(left.startedAt)))
     });
   })

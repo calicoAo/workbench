@@ -46,6 +46,7 @@ export function CalendarFeature({
   onChanged: () => void | Promise<void>;
 }) {
   const [state, setState] = useState<CalendarState>(() => initialState(selectedDate, initialKind));
+  const [viewingExecution, setViewingExecution] = useState<TimelineItem | null>(null);
   const [remoteCandidateIds, setRemoteCandidateIds] = useState<number[] | null>(null);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   let currentState = state;
@@ -159,7 +160,7 @@ export function CalendarFeature({
 
         {loading && <EmptyText text={tx("加载中...")} />}
         {!loading && !items.length && <EmptyText text={tx("这一天还没有时间记录。")} />}
-        {!!items.length && <TimelineBoard items={items} onDelete={deleteSchedule} onEdit={editSchedule} />}
+        {!!items.length && <TimelineBoard items={items} onDelete={deleteSchedule} onEdit={editSchedule} onViewExecution={setViewingExecution} />}
       </section>
 
       {currentState.editorOpen && (
@@ -177,8 +178,41 @@ export function CalendarFeature({
           onKeepExcluded={() => void saveSchedule(false)}
         />
       )}
+      {viewingExecution ? <ExecutionDetailDialog item={viewingExecution} onClose={() => setViewingExecution(null)} /> : null}
     </>
   );
+}
+
+function ExecutionDetailDialog({ item, onClose }: { item: TimelineItem; onClose: () => void }) {
+  return createPortal(
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <div className="modal-shell" role="dialog" aria-modal="true" aria-label={tx("计时记录详情")} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="time-modal">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">{tx("计时记录详情")}</h3>
+            <IconButton size="sm" label={tx("关闭")} onClick={onClose}><X size={15} /></IconButton>
+          </div>
+          <div className="detail-history">
+            <div>
+              <strong>{item.title}</strong>
+              <small>{item.sessionStartedAt ? formatExecutionDate(item.sessionStartedAt) : item.startTime.slice(0, 5)} - {item.sessionEndedAt ? formatExecutionDate(item.sessionEndedAt) : item.endTime.slice(0, 5)} · {formatDuration(Math.floor((item.sessionDurationSeconds ?? scheduleDurationMinutes(item) * 60) / 60))}</small>
+            </div>
+          </div>
+          <div className="mt-3 rounded-card bg-white/65 p-3">
+            <p className="text-[11px] font-semibold text-ink">{tx("备注")}</p>
+            <p className="mt-1 text-sm text-soft">{item.sessionNote || tx("暂无备注")}</p>
+          </div>
+          <div className="mt-4 flex justify-end"><Button variant="secondary" type="button" onClick={onClose}>{tx("关闭")}</Button></div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function formatExecutionDate(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(parsed);
 }
 
 function TimeBlockDialog({ categories, tasks, projects, draft, editing, overlapConflict, candidatesLoading, onChange, onClose, onSubmit, onKeepExcluded }: {

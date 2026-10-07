@@ -2,7 +2,7 @@ import { and, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { db, type DatabaseClient } from "./db/index.js";
 import { schedules, taskDailyAssignments, tasks, timerSegments, timerSessions, userExecutionSlots } from "./db/schema.js";
 import { ActualTimeClass, AssignmentStatus, ScheduleKind, ScheduleLifecycle, TimerSegmentStatus, TimerSessionModel, TimerStatus } from "./enums.js";
-import { businessDayBoundsUtc, formatUtcDateTime, parseUtcDateTime } from "./time.js";
+import { businessDayBoundsUtc, formatUtcDateTime, parseUtcDateTime, splitByBusinessDay } from "./time.js";
 
 export async function currentSessionForUser(userId: number) {
   const [session] = await db
@@ -29,12 +29,19 @@ export type ActualTimeEntry = {
   source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   sourceId: number;
   taskId: number | null;
+  title: string;
   note: string | null;
   startedAt: Date;
   endedAt: Date;
   durationSeconds: number;
   recordTimezone: string;
   businessDate: string;
+  timerSessionId: number | null;
+  sessionNote: string | null;
+  sessionStartedAt: Date | null;
+  sessionEndedAt: Date | null;
+  sessionDurationSeconds: number | null;
+  isTerminalSlice: boolean;
   projectIdAtOccurrence: number | null;
   projectAttributionStatus: number;
   categoryIdAtOccurrence: number | null;
@@ -48,11 +55,22 @@ function clippedEntry(entry: Omit<ActualTimeEntry, "durationSeconds">, start: Da
   return { ...entry, startedAt, endedAt, durationSeconds: (endedAt.getTime() - startedAt.getTime()) / 1000 };
 }
 
+export function splitActualTimeEntry(entry: Omit<ActualTimeEntry, "durationSeconds">): ActualTimeEntry[] {
+  return splitByBusinessDay(entry.startedAt, entry.endedAt, entry.recordTimezone).map((slice) => ({
+    ...entry,
+    startedAt: slice.start,
+    endedAt: slice.end,
+    durationSeconds: (slice.end.getTime() - slice.start.getTime()) / 1000,
+    businessDate: slice.businessDate,
+    isTerminalSlice: Boolean(entry.sessionEndedAt && slice.end.getTime() === entry.sessionEndedAt.getTime())
+  }));
+}
+
 export async function actualTimeForRange(userId: number, fromDate: string, toDate: string, queryTimezone: string, client: DatabaseClient = db) {
   const start = businessDayBoundsUtc(fromDate, queryTimezone).start;
   const end = businessDayBoundsUtc(toDate, queryTimezone).end;
   const segmentRows = await client
-    .select({ segment: timerSegments, note: timerSessions.note })
+    .select({ segment: timerSegments, session: timerSessions })
     .from(timerSegments)
     .innerJoin(timerSessions, eq(timerSegments.timerSessionId, timerSessions.id))
     .where(and(
@@ -78,39 +96,59 @@ export async function actualTimeForRange(userId: number, fromDate: string, toDat
   return [
     ...segmentRows.flatMap((row) => {
       if (!row.segment.endedAt) return [];
-      const entry = clippedEntry({
+      const entry = splitActualTimeEntry({
         source: "TIMER_SEGMENT",
         sourceId: row.segment.id,
         taskId: row.segment.taskId,
-        note: row.note,
+        title: row.segment.taskTitleSnapshot,
+        note: row.session.note,
         startedAt: parseUtcDateTime(row.segment.startedAt),
         endedAt: parseUtcDateTime(row.segment.endedAt),
         recordTimezone: row.segment.recordTimezone,
         businessDate: row.segment.businessDate,
+        timerSessionId: row.session.id,
+        sessionNote: row.session.note,
+        sessionStartedAt: row.session.startTime instanceof Date ? row.session.startTime : parseUtcDateTime(row.session.startTime),
+        sessionEndedAt: row.session.endTime ? (row.session.endTime instanceof Date ? row.session.endTime : parseUtcDateTime(row.session.endTime)) : null,
+        sessionDurationSeconds: row.session.durationMinutes * 60,
+        isTerminalSlice: false,
         projectIdAtOccurrence: row.segment.projectIdAtOccurrence,
         projectAttributionStatus: row.segment.projectAttributionStatus,
         categoryIdAtOccurrence: row.segment.categoryIdAtOccurrence,
         categoryAttributionStatus: row.segment.categoryAttributionStatus
-      }, start, end);
-      return entry ? [entry] : [];
+      }).flatMap((slice) => {
+        const entry = clippedEntry(slice, start, end);
+        return entry ? [entry] : [];
+      });
+      return entry;
     }),
     ...scheduleRows.flatMap((row) => {
       if (!row.actualStartedAt || !row.actualEndedAt) return [];
-      const entry = clippedEntry({
+      const entry = splitActualTimeEntry({
         source: row.actualTimeClass === ActualTimeClass.MANUAL_ACTUAL ? "MANUAL_ACTUAL" : "LEGACY_ACTUAL",
         sourceId: row.id,
         taskId: row.taskId,
+        title: row.title,
         note: row.note,
         startedAt: parseUtcDateTime(row.actualStartedAt),
         endedAt: parseUtcDateTime(row.actualEndedAt),
         recordTimezone: row.recordTimezone,
         businessDate: row.scheduleDate,
+        timerSessionId: null,
+        sessionNote: null,
+        sessionStartedAt: null,
+        sessionEndedAt: null,
+        sessionDurationSeconds: null,
+        isTerminalSlice: false,
         projectIdAtOccurrence: row.projectIdAtOccurrence,
         projectAttributionStatus: row.projectAttributionStatus,
         categoryIdAtOccurrence: row.categoryIdAtOccurrence,
         categoryAttributionStatus: row.categoryAttributionStatus
-      }, start, end);
-      return entry ? [entry] : [];
+      }).flatMap((slice) => {
+        const entry = clippedEntry(slice, start, end);
+        return entry ? [entry] : [];
+      });
+      return entry;
     })
   ].sort((left, right) => left.startedAt.getTime() - right.startedAt.getTime());
 }

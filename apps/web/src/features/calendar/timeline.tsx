@@ -1,4 +1,4 @@
-import { Droplets, Moon, Pencil, Trash2 } from "lucide-react";
+import { Droplets, FileText, Moon, Pencil, Trash2 } from "lucide-react";
 import { IconButton } from "../../shared/ui";
 import { tx } from "../../app/i18n";
 
@@ -20,6 +20,12 @@ export type Schedule = {
   version?: number;
   actualTimeClass?: number;
   lifecycleState?: number;
+  timerSessionId?: number | null;
+  sessionNote?: string | null;
+  sessionNotePreview?: string | null;
+  sessionStartedAt?: string | null;
+  sessionEndedAt?: string | null;
+  sessionDurationSeconds?: number | null;
 };
 
 export type TimelineItem = Schedule & { marker?: "water" | "sleep" };
@@ -54,7 +60,7 @@ export function scheduleDurationMinutes(item: Pick<Schedule, "startTime" | "endT
   return seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
 }
 
-export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem[]; onDelete: (id: number) => void; onEdit?: (item: TimelineItem) => void }) {
+export function TimelineBoard({ items, onDelete, onEdit, onViewExecution }: { items: TimelineItem[]; onDelete: (id: number) => void; onEdit?: (item: TimelineItem) => void; onViewExecution?: (item: TimelineItem) => void }) {
   const dayStart = HOUR_START * 60;
   const dayEnd = HOUR_END * 60;
   const blockLayouts = layoutTimelineBlocks(items, dayStart, dayEnd);
@@ -76,12 +82,21 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
         const short = minutes < 15;
         const planned = item.kind === 0;
         const sleepBlock = item.marker === "sleep";
+        const hasNote = Boolean(item.sessionNote || (item.kind !== 0 && item.note));
+        const notePreview = item.sessionNotePreview || (item.kind !== 0 ? item.note : null);
+        const showPreview = Boolean(notePreview && minutes >= 30);
+        const viewableExecution = Boolean(item.timerSessionId && onViewExecution);
         const laneWidth = 74 / laneCount;
         return (
           <div
             key={item.id}
             className={`timeline-block ${short ? "timeline-block-short" : ""} ${laneCount > 1 ? "timeline-block-overlap" : ""} ${planned ? "timeline-block-planned" : "timeline-block-actual"} ${sleepBlock ? "timeline-block-sleep" : ""}`}
-            title={[`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`, item.title, item.note ? tx("备注：{value0}", { value0: item.note }) : ""].filter(Boolean).join("\n")}
+            title={[`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`, item.title, hasNote && notePreview ? tx("备注：{value0}", { value0: item.sessionNote ?? notePreview }) : ""].filter(Boolean).join("\n")}
+            role={viewableExecution ? "button" : undefined}
+            tabIndex={viewableExecution ? 0 : undefined}
+            aria-label={viewableExecution ? tx("打开计时记录") : undefined}
+            onClick={viewableExecution ? () => onViewExecution?.(item) : undefined}
+            onKeyDown={viewableExecution ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onViewExecution?.(item); } } : undefined}
             style={{
               top: `${top}%`,
               height: `max(${height}%, ${short ? 28 : 34}px)`,
@@ -94,10 +109,12 @@ export function TimelineBoard({ items, onDelete, onEdit }: { items: TimelineItem
               <p className="timeline-block-title inline-flex max-w-full items-center gap-1.5">
                 {sleepBlock && <Moon className="shrink-0" size={12} />}
                 <span className="truncate">{item.title}</span>
+                {hasNote && <FileText className="timeline-block-note shrink-0" size={12} aria-label={tx("备注")} />}
               </p>
               <p className="timeline-block-meta">{`${item.startTime.slice(0, 5)}-${item.endTime.slice(0, 5)} · ${sourceText(item)} · ${formatDuration(minutes)}`}</p>
+              {showPreview ? <p className="timeline-block-note-preview truncate">{notePreview}</p> : null}
             </div>
-            <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={tx("{value0}{value1}", { value0: sleepBlock || (item.source !== 1 && item.actualTimeClass !== 2) ? tx("编辑") : tx("查看"), value1: sourceText(item) })} onClick={() => onEdit(item)}><Pencil size={11} /></IconButton> : null}{!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <IconButton size="sm" className="timeline-delete" label={tx("删除时间记录")} onClick={() => onDelete(item.id)}><Trash2 size={12} /></IconButton> : null}</span>
+            <span className="timeline-block-actions">{onEdit ? <IconButton size="sm" label={tx("{value0}{value1}", { value0: sleepBlock || (item.source !== 1 && item.actualTimeClass !== 2) ? tx("编辑") : tx("查看"), value1: sourceText(item) })} onClick={(event) => { event.stopPropagation(); onEdit(item); }}><Pencil size={11} /></IconButton> : null}{!sleepBlock && item.source !== 1 && item.actualTimeClass !== 2 ? <IconButton size="sm" className="timeline-delete" label={tx("删除时间记录")} onClick={(event) => { event.stopPropagation(); onDelete(item.id); }}><Trash2 size={12} /></IconButton> : null}</span>
           </div>
         );
       })}

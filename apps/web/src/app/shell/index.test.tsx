@@ -10,7 +10,7 @@ import type { FeedbackActions } from "../feedback";
 import { queryKeys } from "../query";
 import { WorkspaceRouter } from ".";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 const task = { id: 11, title: "R1C integration", description: "real contract", categoryId: 1, status: 0, priority: 2, difficulty: 2, pinned: 0, sortOrder: 1, dueAt: null, progressPercent: 0, version: 1, createdAt: "2026-09-19T00:00:00Z", completedAt: null, completionNote: null };
 const current = { id: 5, taskId: 11, startTime: "2026-09-19T09:00:00Z", durationMinutes: 0, status: 0, version: 1, recordTimezone: "Asia/Shanghai", segments: [{ id: 1, timerSessionId: 5, taskId: 11, status: 0, startedAt: "2026-09-19 09:00:00", endedAt: null, businessDate: "2026-09-19" }] };
@@ -41,10 +41,10 @@ function requestFor(active: boolean | null = null, writingSlots: Array<{ slotKey
 const feedback: FeedbackActions = { notice: vi.fn(), confirm: vi.fn(), taskReward: vi.fn(), recordReward: vi.fn() };
 const session = { user: { id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" }, logout: vi.fn() };
 
-function renderShell(path: string, request = requestFor()) {
+function renderShell(path: string, request = requestFor(), currentSession = session) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}>{children}</MemoryRouter></QueryClientProvider>;
-  return { ...render(<WorkspaceRouter request={request} session={session} feedback={feedback} />, { wrapper }), client, request };
+  return { ...render(<WorkspaceRouter request={request} session={currentSession} feedback={feedback} />, { wrapper }), client, request };
 }
 
 function HistoryDriver() {
@@ -77,10 +77,84 @@ describe("R1C router and AppShell", () => {
     expect(await screen.findByText("first pass")).toBeTruthy();
   });
 
+  it("keeps Daily Summary notes attached to their execution identity", async () => {
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/timer-sessions/actual-time")) {
+        return {
+          date: "2026-09-19",
+          timezone: "Asia/Shanghai",
+          entries: [{ source: "TIMER_SEGMENT", sourceId: 31, taskId: 11, title: "Agent 重构工程", note: "还卡在 scene 上", startedAt: "2026-09-19T01:12:00Z", endedAt: "2026-09-19T01:27:00Z", durationSeconds: 900, businessDate: "2026-09-19", recordTimezone: "Asia/Shanghai", timerSessionId: 12, sessionNote: "还卡在 scene 上", sessionStartedAt: "2026-09-19T01:12:00Z", sessionEndedAt: "2026-09-19T01:27:00Z", sessionDurationSeconds: 900, isTerminalSlice: true }],
+          summary: { completedAssignments: 0, totalAssignments: 0, focusedSeconds: 0, actualSeconds: 900, plannedSeconds: 0 }
+        };
+      }
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/today?date=2026-09-19", request);
+
+    expect(await screen.findByText("本日冒险记录")).toBeTruthy();
+    expect(screen.getByText(/Agent 重构工程/)).toBeTruthy();
+    expect(screen.getByText("还卡在 scene 上")).toBeTruthy();
+    expect(screen.queryByText(/^备注$/)).toBeNull();
+  });
+
   it("redirects root to the current Today route", async () => {
     renderShell("/");
     expect(await screen.findByRole("heading", { name: "小时记录" })).toBeTruthy();
     expect(document.title).toContain("冒险");
+  });
+
+  it("resolves a bare Today entry and daily preparation in the profile timezone", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-07T00:30:00Z"), shouldAdvanceTime: true });
+    const profileSession = { ...session, user: { ...session.user, timezone: "Pacific/Honolulu" } };
+    const request = requestFor();
+
+    renderShell("/today", request, profileSession);
+
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-06")).toBe(true));
+    const carryover = (request as ReturnType<typeof vi.fn>).mock.calls.find(([path, init]) => path === "/api/daily-carryovers" && init?.method === "POST");
+    expect(JSON.parse(String(carryover?.[1]?.body))).toMatchObject({ targetDate: "2026-10-06" });
+  });
+
+  it("preserves an explicit historical date even when the profile timezone has a different today", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-07T00:30:00Z"), shouldAdvanceTime: true });
+    const profileSession = { ...session, user: { ...session.user, timezone: "Pacific/Honolulu" } };
+    const request = requestFor();
+
+    renderShell("/today?date=2026-10-01", request, profileSession);
+
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-01")).toBe(true));
+    expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path, init]) => path === "/api/daily-carryovers" && init?.method === "POST")).toBe(false);
+  });
+
+  it("rolls a bare Today route to the next profile date at midnight", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-06T09:59:45Z"), shouldAdvanceTime: true });
+    const profileSession = { ...session, user: { ...session.user, timezone: "Asia/Shanghai" } };
+    const request = requestFor();
+
+    renderShell("/today", request, profileSession);
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-06")).toBe(true));
+
+    vi.setSystemTime(new Date("2026-10-06T16:00:05Z"));
+    vi.advanceTimersByTime(30_000);
+
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-07")).toBe(true));
+  });
+
+  it("does not roll an explicitly dated historical Today route at midnight", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-06T09:59:45Z"), shouldAdvanceTime: true });
+    const profileSession = { ...session, user: { ...session.user, timezone: "Asia/Shanghai" } };
+    const request = requestFor();
+
+    renderShell("/today?date=2026-10-06", request, profileSession);
+    await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-06")).toBe(true));
+
+    vi.setSystemTime(new Date("2026-10-06T16:00:05Z"));
+    vi.advanceTimersByTime(30_000);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/dashboard?date=2026-10-07")).toBe(false);
   });
 
   it("applies the Settings font scale to the document root", async () => {
@@ -120,6 +194,16 @@ describe("R1C router and AppShell", () => {
     expect(await screen.findByRole("heading", { name: "小时记录" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "test-forward" }));
     expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
+  });
+
+  it("returns Hero to the originating Settings topic", async () => {
+    renderShell("/settings?topic=hero");
+    await screen.findByRole("heading", { name: "设置" });
+    fireEvent.click(document.querySelector(".settings-topic-link") as HTMLElement);
+    await screen.findByRole("heading", { name: "Owner" });
+    fireEvent.click(screen.getByRole("button", { name: "返回设置" }));
+    expect(await screen.findByRole("heading", { name: "设置" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hero" }).classList.contains("is-active")).toBe(true);
   });
 
   it("keeps one current-session query while route composition deduplicates Timer controls", async () => {
@@ -255,6 +339,33 @@ describe("R1C router and AppShell", () => {
     expect(document.querySelector(".app-top-actions .hero-hud")).toBeNull();
     expect(document.querySelector(".app-heading .route-eyebrow")).toBeNull();
     expect(document.querySelector(".app-heading h2")).toBeNull();
+  });
+
+  it("shows and edits the canonical Hero daily status on Today", async () => {
+    let statusKey: "TIRED" | "GOOD" = "TIRED";
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/hero?date=2026-09-19") return { businessDate: "2026-09-19", timezone: "Asia/Shanghai", profile: { id: 7, userId: 7, displayName: "Owner", avatarRef: null, portraitRef: null, title: null, birthDate: null, visualPreferences: null, version: 1 }, progress: { level: 2, xpTotal: 130, coins: 0, xpInLevel: 30, xpForNextLevel: 200 }, dailyStatus: { id: 4, statusKey, version: 1 }, earthOnlineDay: null };
+      if (path === "/api/hero/daily-status") { statusKey = JSON.parse(String(init?.body)).statusKey; return {}; }
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+
+    renderShell("/today?date=2026-09-19", request);
+    const status = await screen.findByRole("button", { name: "编辑今日状态" });
+    expect(status.textContent).toContain("有点累");
+    expect(document.querySelector(".app-heading .hero-daily-status")).toBeTruthy();
+  });
+
+  it("preserves the canonical Hero status when navigating away and back", async () => {
+    const fallbackRequest = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/hero?date=2026-09-19") return { businessDate: "2026-09-19", timezone: "Asia/Shanghai", profile: { id: 7, userId: 7, displayName: "Owner", avatarRef: null, portraitRef: null, title: null, birthDate: null, visualPreferences: null, version: 1 }, progress: { level: 2, xpTotal: 130, coins: 0, xpInLevel: 30, xpForNextLevel: 200 }, dailyStatus: { id: 4, statusKey: "GOOD", version: 1 }, earthOnlineDay: null };
+      return fallbackRequest(path, init);
+    }) as unknown as Request;
+    renderHistoryShell(request);
+    expect(await screen.findByRole("heading", { name: "任务", level: 1 })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "test-back" }));
+    expect((await screen.findByRole("button", { name: "编辑今日状态" })).textContent).toBe("还不错");
   });
 
   it("moves a successful continuation into the accepted Quest Board immediately", async () => {

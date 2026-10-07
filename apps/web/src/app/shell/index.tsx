@@ -30,7 +30,7 @@ import type { AuthSession } from "../../features/auth";
 import { GrowthPage } from "../../features/growth";
 import { InspirationLibraryPage } from "../../features/inspirations";
 import { OnboardingFeature, useCoreOnboardingResolved } from "../../features/onboarding";
-import { HeroDailyEntry, HeroHud, HeroProfilePage } from "../../features/hero";
+import { HeroDailyEntry, HeroDailyStatus, HeroHud, HeroProfilePage } from "../../features/hero";
 import { AdventureLogDayPage, AdventureLogPage, PeriodReviewPage } from "../../features/adventure-log";
 import { defaultWritingTab, enabledWritingPlugins, pluginForTab, WritingArchivePage, WritingShell, type WritingPluginId } from "../../features/writing-shell";
 import { LibraryDetailPage, LibraryPage } from "../../features/library";
@@ -83,7 +83,7 @@ const DAILY_CARRYOVER_TIMEOUT_MS = 5_000;
 
 export function WorkspaceRouter({ request, session, feedback }: { request: Request; session: AuthSession; feedback: FeedbackActions }) {
   return <Routes>
-    <Route path="/" element={<Navigate replace to={`/today?date=${todayString()}`} />} />
+    <Route path="/" element={<Navigate replace to="/today" />} />
     <Route element={<WorkspaceRoot request={request} session={session} feedback={feedback} />}>
       <Route path="/today" element={<TodayRoute />} />
       <Route path="/tasks" element={<TasksRoute />} />
@@ -121,18 +121,53 @@ export function WorkspaceRouter({ request, session, feedback }: { request: Reque
 
 function WorkspaceRoot({ request, session, feedback }: { request: Request; session: AuthSession; feedback: FeedbackActions }) {
   const { setLocale } = useI18n();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const date = validDate(searchParams.get("date")) ? searchParams.get("date")! : todayString();
+  const currentBusinessDate = todayString(session.user.timezone);
+  const date = validDate(searchParams.get("date")) ? searchParams.get("date")! : currentBusinessDate;
   const [preparedDate, setPreparedDate] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const todayModeRef = useRef(location.pathname === "/today" && !searchParams.has("date"));
+  const previousPathRef = useRef(location.pathname);
+  const previousSelectedDateRef = useRef(date);
+  const previousBusinessDateRef = useRef(currentBusinessDate);
+  const [, setClockTick] = useState(0);
   useEffect(() => {
-    if (date !== todayString()) { setPreparedDate(date); return; }
+    const interval = window.setInterval(() => setClockTick((value) => value + 1), 30_000);
+    return () => window.clearInterval(interval);
+  }, [session.user.timezone]);
+  useEffect(() => {
+    const enteredToday = location.pathname === "/today" && previousPathRef.current !== "/today";
+    const selectedDateChanged = previousSelectedDateRef.current !== date;
+    if (location.pathname !== "/today") todayModeRef.current = false;
+    else if (enteredToday) todayModeRef.current = !searchParams.has("date");
+    else if (selectedDateChanged) todayModeRef.current = false;
+    previousPathRef.current = location.pathname;
+    previousSelectedDateRef.current = date;
+  }, [date, location.pathname, searchParams]);
+  useEffect(() => {
+    const previousBusinessDate = previousBusinessDateRef.current;
+    previousBusinessDateRef.current = currentBusinessDate;
+    if (
+      previousBusinessDate === currentBusinessDate ||
+      location.pathname !== "/today" ||
+      !todayModeRef.current ||
+      date !== previousBusinessDate
+    ) return;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("date", currentBusinessDate);
+      return next;
+    }, { replace: true });
+  }, [currentBusinessDate, date, location.pathname, setSearchParams]);
+  useEffect(() => {
+    if (date !== currentBusinessDate) { setPreparedDate(date); return; }
     if (searchParams.get("date") === date) return;
     setSearchParams((current) => { const next = new URLSearchParams(current); next.set("date", date); return next; }, { replace: true });
-  }, [date, searchParams, setSearchParams]);
+  }, [currentBusinessDate, date, searchParams, setSearchParams]);
   useEffect(() => {
     let current = true;
-    if (date !== todayString()) { setPreparedDate(date); return () => { current = false; }; }
+    if (date !== currentBusinessDate) { setPreparedDate(date); return () => { current = false; }; }
     setPreparedDate(null);
     const controller = new AbortController();
     let timedOut = false;
@@ -165,7 +200,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [date, feedback.notice, request]);
+  }, [currentBusinessDate, date, feedback.notice, request]);
 
   const dashboardQuery = useQuery({ queryKey: queryKeys.today(session.user.id, date), enabled: preparedDate === date, queryFn: () => request<Dashboard>(`/api/dashboard?date=${date}`) });
   const tasksQuery = useTasks(request, session.user.id);
@@ -179,7 +214,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
   const dashboard = dashboardQuery.data?.date === date ? dashboardQuery.data : null;
   const tasks = tasksQuery.data ?? [];
   const currentSession = currentQuery.data ?? null;
-  const timer = useTimerCommands({ request, userId: session.user.id, selectedDate: date, executionDate: todayString(), timezone: session.user.timezone, onError: feedback.notice });
+  const timer = useTimerCommands({ request, userId: session.user.id, selectedDate: date, executionDate: currentBusinessDate, timezone: session.user.timezone, onError: feedback.notice });
   const timelineQuery = useTimeline(request, session.user.id, date, session.user.timezone, dashboard?.schedules ?? [], Boolean(dashboard));
   const refresh = async () => {
     await Promise.all([
@@ -233,7 +268,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
     >
       <OnboardingFeature request={request} userId={session.user.id} tasks={tasks} assignments={appContext.assignments} currentSession={currentSession} hasActualTime={(appContext.summary?.actualSeconds ?? 0) > 0} onError={feedback.notice}>
         <AppShell context={appContext} />
-        <HeroDailyEntry request={request} userId={session.user.id} onboardingResolved={onboarding.resolved} onError={feedback.notice} />
+        <HeroDailyEntry request={request} userId={session.user.id} businessDate={currentBusinessDate} onboardingResolved={onboarding.resolved} onError={feedback.notice} />
       </OnboardingFeature>
     </TasksFeature>
   </WritingReflectionFeature>;
@@ -245,7 +280,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
   const mainRef = useRef<HTMLElement>(null);
   const title = routeTitle(location.pathname);
   useEffect(() => { document.title = `${tx(title)} · ${tx(APP_BRAND.name)}`; mainRef.current?.focus({ preventScroll: true }); }, [location.pathname, title]);
-  const link = (path: string) => `${path}?date=${context.date}`;
+  const link = (path: string) => path === "/today" && context.date === todayString(context.session.user.timezone) ? path : `${path}?date=${context.date}`;
   const timerTitle = context.tasks.find((task) => task.id === context.currentSession?.taskId)?.title ?? "当前任务";
   const timerTaskVersion = context.tasks.find((task) => task.id === context.currentSession?.taskId)?.version ?? 1;
   const taskSurfaces = useTaskSurfaces();
@@ -290,7 +325,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
     </aside>
     <div className="app-stage">
       <header className="app-topbar">
-        <div className="app-heading"><HeroHud request={context.request} userId={context.session.user.id} date={context.date} /></div>
+        <div className="app-heading"><HeroHud request={context.request} userId={context.session.user.id} date={context.date} /><HeroDailyStatus request={context.request} userId={context.session.user.id} date={context.date} onError={context.feedback.notice} /></div>
         <div className="app-top-actions">
           <QuickNoteCaptureButton compact iconOnly label={tx("随手记")} request={context.request} userId={context.session.user.id} selectedDate={context.date} onCreated={context.refresh} icon={<Feather size={17} />} />
           <Link className="topbar-search" aria-label={tx("全局搜索")} title={tx("全局搜索")} to={link("/search")}><Search size={17} /></Link>
@@ -343,7 +378,7 @@ function TodayRoute() {
   }, [dashboard?.schedules, dashboard?.waterRecord, sleep]);
   return <section className="today-boundary">
     <div data-guide-anchor="onboarding.checklist" />
-    {value.date !== todayString() ? <div className="historical-banner"><strong>{tx("查看")} {formatBusinessDate(value.date)}</strong><span>{tx("当前计时仍属于真实今天；从历史页开始会接取到今天并启动。")}</span><Link to={`/today?date=${todayString()}`}>{tx("回到今天")}</Link></div> : null}
+    {value.date !== todayString(value.session.user.timezone) ? <div className="historical-banner"><strong>{tx("查看")} {formatBusinessDate(value.date)}</strong><span>{tx("当前计时仍属于真实今天；从历史页开始会接取到今天并启动。")}</span><Link to="/today">{tx("回到今天")}</Link></div> : null}
     <div className="today-grid">
       <div className="today-current">
         <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
@@ -357,7 +392,7 @@ function TodayRoute() {
       </div>
       <aside className="today-timeline" aria-label={tx("实际时间线")}>
         <CalendarFeature request={value.request} selectedDate={value.date} loading={value.loading} items={timelineItems} tasks={value.tasks} acceptedTaskIds={value.assignments} categories={dashboard?.categories ?? []} projects={value.projects} actualSeconds={value.summary?.actualSeconds} onEditSleep={() => setSleepEditorSignal((value) => value + 1)} onError={value.feedback.notice} onChanged={value.refresh} />
-        <TimelineSummary items={value.timeline} summary={value.summary} />
+        <TimelineSummary items={value.timeline} summary={value.summary} timezone={value.session.user.timezone} />
       </aside>
     </div>
   </section>;
@@ -457,7 +492,25 @@ function SettingsRoute() { const { session, request, feedback } = useWorkspace()
 function TrashRoute() { const { session, request } = useWorkspace(); return <TrashPage request={request} userId={session.user.id} />; }
 function NotFoundRoute() { const { date } = useWorkspace(); return <section className="route-panel"><h1>{tx("页面不存在")}</h1><Link to={`/today?date=${date}`}>{tx("返回今日")}</Link></section>; }
 
-function TimelineSummary({ items, summary }: { items: TimelineViewItem[]; summary: ExecutionSummary | null }) { const notes = items.filter((item) => item.note?.trim()); return <section className="glass-panel p-3"><h2 className="section-title">{tx("今日摘要")}</h2><div className="execution-summary"><span><strong>{summary?.completedAssignments ?? 0}/{summary?.totalAssignments ?? 0}</strong>{tx("今日完成")}</span><span><strong>{formatSeconds(summary?.focusedSeconds ?? 0)}</strong>{tx("专注")}</span><span><strong>{formatSeconds(summary?.actualSeconds ?? 0)}</strong>{tx("实际投入")}</span><span><strong>{formatSeconds(summary?.plannedSeconds ?? 0)}</strong>{tx("计划")}</span></div><div className="timeline-legend">{(["PLANNED", "TIMER_ACTUAL", "MANUAL_ACTUAL", "LEGACY_ACTUAL"] as const).map((kind) => <span key={kind}>{kindLabel(kind)} {items.filter((item) => item.kind === kind).length}</span>)}</div>{notes.length ? <div className="timeline-notes"><h3>{tx("备注")}</h3>{notes.map((item) => <p key={item.id}>{item.note}</p>)}</div> : null}</section>; }
+function TimelineSummary({ items, summary, timezone }: { items: TimelineViewItem[]; summary: ExecutionSummary | null; timezone: string }) {
+  const notes = new Map<string, TimelineViewItem>();
+  for (const item of items) {
+    if (!item.note?.trim()) continue;
+    const identity = item.timerSessionId ? `session:${item.timerSessionId}` : item.id;
+    if (!notes.has(identity)) notes.set(identity, item);
+  }
+  return <section className="glass-panel p-3"><h2 className="section-title">{tx("今日摘要")}</h2><div className="execution-summary"><span><strong>{summary?.completedAssignments ?? 0}/{summary?.totalAssignments ?? 0}</strong>{tx("今日完成")}</span><span><strong>{formatSeconds(summary?.focusedSeconds ?? 0)}</strong>{tx("专注")}</span><span><strong>{formatSeconds(summary?.actualSeconds ?? 0)}</strong>{tx("实际投入")}</span><span><strong>{formatSeconds(summary?.plannedSeconds ?? 0)}</strong>{tx("计划")}</span></div><div className="timeline-legend">{(["PLANNED", "TIMER_ACTUAL", "MANUAL_ACTUAL", "LEGACY_ACTUAL"] as const).map((kind) => <span key={kind}>{kindLabel(kind)} {items.filter((item) => item.kind === kind).length}</span>)}</div>{notes.size ? <div className="timeline-notes"><h3>{tx("本日冒险记录")}</h3>{[...notes.values()].map((item) => <div className="timeline-note" key={item.timerSessionId ? `session:${item.timerSessionId}` : item.id}><strong>{item.title} · {summaryTimeRange(item, timezone)} · {formatSeconds(item.sessionDurationSeconds ?? item.durationSeconds)}</strong><p>{item.note}</p></div>)}</div> : null}</section>;
+}
+
+function summaryTimeRange(item: TimelineViewItem, timezone: string) {
+  const start = item.sessionStartedAt ?? item.startedAt;
+  const end = item.sessionEndedAt ?? item.endedAt;
+  const format = (value: string) => {
+    const parsed = new Date(value.includes(" ") ? `${value.replace(" ", "T")}Z` : value);
+    return Number.isNaN(parsed.getTime()) ? value.slice(11, 16) : new Intl.DateTimeFormat(undefined, { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(parsed);
+  };
+  return `${format(start)}–${format(end)}`;
+}
 function ShellLink({ to, icon, children, activePaths }: { to: string; icon: ReactNode; children: ReactNode; activePaths?: string[] }) {
   const location = useLocation();
   const routeActive = activePaths?.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
@@ -473,7 +526,11 @@ function secondaryNavigation(path: string) {
 function useWorkspace() { return useOutletContext<WorkspaceContext>(); }
 function routeTitle(path: string) { if (path.startsWith("/tasks/")) return "任务详情"; if (path.startsWith("/projects/")) return "项目详情"; if (path.startsWith("/notes/")) return "随手记详情"; if (path.startsWith("/library/")) return "作品详情"; if (path.startsWith("/journal/")) return "笔记本"; if (path.startsWith("/settings/")) return "数据维护"; if (path.startsWith("/adventure-log/")) return "冒险历程"; return ({ "/today": "冒险", "/tasks": "任务", "/projects": "项目", "/calendar": "日历", "/journal": "笔记本", "/writing": "笔记本", "/writing/archive": "文字归档", "/notes": "随手记", "/inspirations": "灵感库", "/routines": "生活", "/finance": "钱包", "/growth": "成长", "/hero": "Hero Profile", "/adventure-log": "冒险历程", "/period-review": "周期复盘", "/library": "图书馆", "/backpack": "背包", "/rewards": "奖励", "/tools": "工具", "/insights": "旧版回看", "/search": "搜索", "/settings": "设置" } as Record<string, string>)[path] ?? "工作台"; }
 function validDate(value: string | null): value is string { return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value)); }
-function todayString() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; }
+function todayString(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
 function sleepTimelineItem(sleep: SleepRecord): TimelineItem { return { id: -20001 - sleep.id, taskId: null, categoryId: null, startTime: timeText(sleep.sleepStart), endTime: timeText(sleep.wakeTime), title: "睡眠", note: sleep.qualityScore ? `质量 ${sleep.qualityScore}/5` : "睡眠记录", kind: 1, source: 0, color: "#7EC8E3", marker: "sleep" }; }
 function timeText(value?: string) { if (!value) return "00:00:00"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value.slice(0, 8) : date.toTimeString().slice(0, 8); }
 function formatSeconds(seconds: number) { const hours = Math.floor(seconds / 3600), minutes = Math.floor((seconds % 3600) / 60); return hours ? `${hours}h ${minutes}m` : `${minutes}m`; }

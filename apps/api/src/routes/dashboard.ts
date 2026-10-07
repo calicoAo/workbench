@@ -7,6 +7,7 @@ import { aiInsights, journals, morningWritings, rewardEvents, schedules, sleepRe
 import { ScheduleKind, TimerStatus } from "../enums.js";
 import { ok } from "../http.js";
 import { growthSummary, recentRewardEvents } from "../rewards.js";
+import { formatUtcDateTime } from "../time.js";
 
 
 const querySchema = z.object({
@@ -135,16 +136,28 @@ export const dashboardRoute = new Hono().get("/", async (c) => {
   const journalByDate = new Map(weekJournalRows.map((journal) => [journal.journalDate, journal]));
   const reviewByDate = new Map(weekReviewRows.map((review) => [review.reviewDate, review]));
   const sleepByDate = new Map(weekSleepRows.map((sleep) => [sleep.sleepDate, sleep]));
+  const timerSessionById = new Map(sessionRows.map((session) => [session.id, session]));
 
   return ok(c, {
     date: query.date,
     activeTimer,
     activeTimers,
     stockReviewRecord: reviewRows[0] ?? null,
-    schedules: scheduleRows.map((schedule) => ({
-      ...schedule,
-      color: schedule.categoryId ? categoryColorById.get(schedule.categoryId) ?? "#35C99A" : "#35C99A"
-    })),
+    schedules: scheduleRows.map((schedule) => {
+      const timerSession = schedule.timerSessionId ? timerSessionById.get(schedule.timerSessionId) : null;
+      const sessionEndedAt = timerSession?.endTime ? formatUtcDateTime(timerSession.endTime) : null;
+      const sessionNote = timerSession?.note?.trim() || null;
+      return {
+        ...schedule,
+        color: schedule.categoryId ? categoryColorById.get(schedule.categoryId) ?? "#35C99A" : "#35C99A",
+        timerSessionId: timerSession?.id ?? null,
+        sessionNote,
+        sessionNotePreview: sessionNote && sessionEndedAt === schedule.actualEndedAt ? sessionNote : null,
+        sessionStartedAt: timerSession?.startTime ? formatUtcDateTime(timerSession.startTime) : null,
+        sessionEndedAt,
+        sessionDurationSeconds: timerSession ? timerSession.durationMinutes * 60 : null
+      };
+    }),
     sleepRecord: sleepRows[0] ?? null,
     journalRecord: journalRows[0] ?? null,
     morningWritingRecord: morningRows[0] ?? null,

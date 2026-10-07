@@ -6,12 +6,19 @@ export type ActualTimeEntry = {
   source: "TIMER_SEGMENT" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   sourceId: number;
   taskId: number | null;
+  title: string;
   note: string | null;
   startedAt: string;
   endedAt: string;
   durationSeconds: number;
   businessDate: string;
   recordTimezone: string;
+  timerSessionId: number | null;
+  sessionNote: string | null;
+  sessionStartedAt: string | null;
+  sessionEndedAt: string | null;
+  sessionDurationSeconds: number | null;
+  isTerminalSlice: boolean;
 };
 
 export type TimelineViewItem = {
@@ -19,6 +26,13 @@ export type TimelineViewItem = {
   kind: "PLANNED" | "TIMER_ACTUAL" | "MANUAL_ACTUAL" | "LEGACY_ACTUAL";
   taskId: number | null;
   note: string | null;
+  hasNote: boolean;
+  sessionNote: string | null;
+  timerSessionId: number | null;
+  sessionStartedAt: string | null;
+  sessionEndedAt: string | null;
+  sessionDurationSeconds: number | null;
+  isTerminalSlice: boolean;
   title: string;
   startedAt: string;
   endedAt: string;
@@ -35,17 +49,31 @@ export function mapTimeline(plannedSchedules: PlannedSchedule[], actual: ActualT
     kind: "PLANNED" as const,
     taskId: item.taskId,
     note: null,
+    hasNote: false,
+    sessionNote: null,
+    timerSessionId: null,
+    sessionStartedAt: null,
+    sessionEndedAt: null,
+    sessionDurationSeconds: null,
+    isTerminalSlice: false,
     title: item.title,
     startedAt: `${item.scheduleDate ?? date}T${item.startTime}`,
     endedAt: `${item.scheduleDate ?? date}T${item.endTime}`,
     durationSeconds: Math.max(0, timeSeconds(item.endTime) - timeSeconds(item.startTime))
   }));
   const settled = actual.map((item) => ({
-    id: `${item.source}:${item.sourceId}`,
+    id: `${item.source}:${item.sourceId}:${item.businessDate}`,
     kind: item.source === "TIMER_SEGMENT" ? "TIMER_ACTUAL" as const : item.source,
     taskId: item.taskId,
-    note: item.note,
-    title: item.source === "TIMER_SEGMENT" ? "计时实际" : item.source === "MANUAL_ACTUAL" ? "手工实际" : "历史实际",
+    note: item.source === "TIMER_SEGMENT" && !item.isTerminalSlice ? null : item.note,
+    hasNote: Boolean(item.source === "TIMER_SEGMENT" ? item.sessionNote : item.note),
+    sessionNote: item.sessionNote,
+    timerSessionId: item.timerSessionId,
+    sessionStartedAt: item.sessionStartedAt,
+    sessionEndedAt: item.sessionEndedAt,
+    sessionDurationSeconds: item.sessionDurationSeconds,
+    isTerminalSlice: item.isTerminalSlice,
+    title: item.title,
     startedAt: item.startedAt,
     endedAt: item.endedAt,
     durationSeconds: item.durationSeconds

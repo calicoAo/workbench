@@ -76,6 +76,9 @@ test("finish records optional progress and note but leaves Task incomplete", asy
   assert.equal((await rows<{ note: string }>("SELECT note FROM timer_sessions WHERE id = ?", [started.id]))[0].note, "first pass");
   const daily = await readModel.dailyExecutionForUser(1, "2026-09-20", "Asia/Shanghai");
   assert.equal(daily.entries[0].note, "first pass");
+  assert.equal(daily.entries[0].sessionNote, "first pass");
+  assert.equal(daily.entries[0].timerSessionId, started.id);
+  assert.equal(daily.entries[0].isTerminalSlice, true);
   assert.equal(daily.summary.focusedSeconds, 1800);
   assert.equal(daily.summary.actualSeconds, 1800);
   assert.equal(daily.summary.completedAssignments, 0);
@@ -87,13 +90,45 @@ test("finish records optional progress and note but leaves Task incomplete", asy
 
 test("a 23:50 to 00:20 Session is attributed as 10m plus 20m in its timezone", async () => {
   const taskId = await insertTask("Cross-day execution");
-  const started = await workSession.acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-20", recordTimezone: "Asia/Shanghai", now: new Date("2026-09-20T15:50:00Z") });
-  await workSession.finishWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: 1, now: new Date("2026-09-20T16:20:00Z") });
+  const started = await workSession.acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-19", recordTimezone: "Asia/Shanghai", now: new Date("2026-09-20T15:50:00Z") });
+  await workSession.finishWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: 1, note: "scene remains", now: new Date("2026-09-20T16:20:00Z") });
   const dayA = await readModel.dailyExecutionForUser(1, "2026-09-20", "Asia/Shanghai");
   const dayB = await readModel.dailyExecutionForUser(1, "2026-09-21", "Asia/Shanghai");
   assert.equal(dayA.summary.focusedSeconds, 10 * 60);
   assert.equal(dayB.summary.focusedSeconds, 20 * 60);
+  assert.deepEqual(dayA.entries.map((entry) => ({ businessDate: entry.businessDate, durationSeconds: entry.durationSeconds })), [{ businessDate: "2026-09-20", durationSeconds: 10 * 60 }]);
+  assert.deepEqual(dayB.entries.map((entry) => ({ businessDate: entry.businessDate, durationSeconds: entry.durationSeconds })), [{ businessDate: "2026-09-21", durationSeconds: 20 * 60 }]);
   assert.equal(dayA.summary.actualSeconds + dayB.summary.actualSeconds, 30 * 60);
+  const detailResponse = await appModule.app.request(`/api/tasks/${taskId}`, { headers });
+  const detail = (await detailResponse.json()) as { data: { actualEntries: Array<{ businessDate: string; startedAt: string; endedAt: string; timerSessionId: number | null; isTerminalSlice: boolean }> } };
+  assert.deepEqual(detail.data.actualEntries.map((entry) => entry.businessDate), ["2026-09-21", "2026-09-20"]);
+  assert.equal(new Set(detail.data.actualEntries.map((entry) => entry.timerSessionId)).size, 1);
+  assert.equal(detail.data.actualEntries.filter((entry) => entry.isTerminalSlice).length, 1);
+});
+
+test("daily execution keeps notes attached to the correct Task and Session", async () => {
+  const firstTaskId = await insertTask("First noted execution");
+  const secondTaskId = await insertTask("Second noted execution");
+  const first = await workSession.acceptAndStartTask({ userId: 1, operationId: op(), taskId: firstTaskId, expectedTaskVersion: 1, taskDate: "2026-09-20", recordTimezone: "Asia/Shanghai", now: new Date("2026-09-20T01:00:00Z") });
+  await workSession.finishWorkSession({ userId: 1, operationId: op(), sessionId: first.id, expectedVersion: 1, note: "first note", now: new Date("2026-09-20T01:10:00Z") });
+  const second = await workSession.acceptAndStartTask({ userId: 1, operationId: op(), taskId: secondTaskId, expectedTaskVersion: 1, taskDate: "2026-09-20", recordTimezone: "Asia/Shanghai", now: new Date("2026-09-20T02:00:00Z") });
+  await workSession.finishWorkSession({ userId: 1, operationId: op(), sessionId: second.id, expectedVersion: 1, note: "second note", now: new Date("2026-09-20T02:20:00Z") });
+
+  const daily = await readModel.dailyExecutionForUser(1, "2026-09-20", "Asia/Shanghai");
+  assert.deepEqual(daily.entries.filter((entry) => entry.isTerminalSlice).map((entry) => ({ taskId: entry.taskId, title: entry.title, note: entry.sessionNote })), [
+    { taskId: firstTaskId, title: "First noted execution", note: "first note" },
+    { taskId: secondTaskId, title: "Second noted execution", note: "second note" }
+  ]);
+});
+
+test("Session note and Task completionNote remain separate facts", async () => {
+  const taskId = await insertTask("Completed with execution context");
+  const started = await workSession.acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-20", recordTimezone: "Asia/Shanghai", now: new Date("2026-09-20T03:00:00Z") });
+  await workSession.finishWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: 1, expectedTaskVersion: started.taskVersion, completeTask: true, note: "session context", completionNote: "Task outcome", now: new Date("2026-09-20T03:15:00Z") });
+  const detailResponse = await appModule.app.request(`/api/tasks/${taskId}`, { headers });
+  const detail = (await detailResponse.json()) as { data: { task: { completionNote: string | null }; actualEntries: Array<{ sessionNote: string | null }> } };
+  assert.equal(detail.data.task.completionNote, "Task outcome");
+  assert.equal(detail.data.actualEntries[0].sessionNote, "session context");
 });
 
 test("Planned schedules use explicit pending, rescheduled, and cancelled lifecycle", async () => {

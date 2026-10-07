@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronRight, Download, Eye, EyeOff, FileJson, LogOut, Plus, Save, Search, Trash2, Upload, Sparkles, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Download, Eye, EyeOff, FileJson, LogOut, Save, Trash2, Upload, Sparkles } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Request } from "../../app/api";
@@ -7,15 +7,8 @@ import { type Locale, useI18n } from "../../app/i18n";
 import { Badge, Button, IconButton } from "../../shared/ui";
 import { yuan } from "../finance";
 import { tx } from "../../app/i18n";
+import { CategorySettings, type CategoryEditorCategory } from "../categories";
 
-type Category = {
-  id: number;
-  name: string;
-  color: string;
-  dimensionKey: string | null;
-  targetMinutes: number;
-  enabled: number;
-};
 export type WritingSlot = {
   slotKey: "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW";
   enabled: boolean;
@@ -37,7 +30,7 @@ export type SettingsSnapshot = {
   };
   rewards: { show: boolean };
   continuation: { mode: "manual"; automaticAvailable: false };
-  categories: Category[];
+  categories: CategoryEditorCategory[];
   writingSlots: WritingSlot[];
 };
 type ExportFormat = "json" | "csv" | "markdown";
@@ -148,7 +141,7 @@ export function SettingsFeature({ request, userId, logout, onProfileChanged, onE
       <section className="settings-section">
         <h2>{tx("Hero Identity")}</h2>
         <p className="settings-note">{tx("英雄展示资料、出生日期与每日状态由 Hero Profile 独立管理。")}</p>
-        <Link className="settings-topic-link" to="/hero">
+        <Link className="settings-topic-link" to="/hero" state={{ returnTo: "/settings?topic=hero" }}>
           <span>
             <strong>{tx("打开 Hero Profile")}</strong>
             <small>{tx("编辑身份与查看 Earth Online")}</small>
@@ -555,189 +548,6 @@ function OnboardingSettings({ request, queryClient, userId, onError }: { request
   );
 }
 
-const PALETTE = ["#3B82F6", "#8B5CF6", "#EC4899", "#10B981", "#EF4444", "#F59E0B", "#64748B"];
-type CategoryDraft = {
-  id: number | null;
-  name: string;
-  color: string;
-  dimensionKey: string;
-  enabled: boolean;
-};
-function CategorySettings({ categories, request, onError, onChanged }: { categories: Category[]; request: Request; onError: (message: string, title?: string) => void; onChanged: () => Promise<void> }) {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "active" | "disabled" | "unmapped">("all");
-  const [draft, setDraft] = useState<CategoryDraft | null>(null);
-  const [pending, setPending] = useState(false);
-  const visible = categories.filter((category) => category.name.toLowerCase().includes(search.trim().toLowerCase()) && (filter === "all" || (filter === "active" && Boolean(category.enabled)) || (filter === "disabled" && !category.enabled) || (filter === "unmapped" && category.dimensionKey === null)));
-  function edit(category?: Category) {
-    setDraft(
-      category
-        ? {
-            id: category.id,
-            name: category.name,
-            color: category.color,
-            dimensionKey: category.dimensionKey ?? "",
-            enabled: Boolean(category.enabled),
-          }
-        : {
-            id: null,
-            name: "",
-            color: PALETTE[0],
-            dimensionKey: "",
-            enabled: true,
-          },
-    );
-  }
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!draft || !/^#[0-9a-fA-F]{6}$/.test(draft.color)) return;
-    setPending(true);
-    try {
-      const payload = {
-        name: draft.name.trim(),
-        color: draft.color.toUpperCase(),
-        dimensionKey: draft.dimensionKey || null,
-        targetMinutes: 6000,
-        ...(draft.id ? { enabled: draft.enabled } : {}),
-      };
-      await request(draft.id ? `/api/task-categories/${draft.id}` : "/api/task-categories", { method: draft.id ? "PUT" : "POST", body: JSON.stringify(payload) });
-      setDraft(null);
-      await onChanged();
-    } catch (error) {
-      onError(message(error), draft.id ? tx("分类没有更新") : tx("分类没有创建"));
-    } finally {
-      setPending(false);
-    }
-  }
-  return (
-    <section className="settings-section settings-categories">
-      <div className="settings-section-head">
-        <div>
-          <h2>{tx("任务分类")}</h2>
-          <p className="settings-note">{tx("颜色只用于展示；成长维度可暂不映射。")}</p>
-        </div>
-        <Button variant="primary" size="sm" onClick={() => edit()}>
-          <Plus size={14} />
-          {tx("新增分类")}
-        </Button>
-      </div>
-      <div className="settings-category-tools">
-        <label>
-          <Search size={15} />
-          <input aria-label={tx("搜索分类")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tx("搜索分类")} />
-        </label>
-        <select aria-label={tx("分类状态筛选")} className="field" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>
-          <option value="all">{tx("全部")}</option>
-          <option value="active">{tx("启用中")}</option>
-          <option value="disabled">{tx("已停用")}</option>
-          <option value="unmapped">{tx("未映射")}</option>
-        </select>
-      </div>
-      <div className="settings-category-list">
-        {visible.map((category) => (
-          <button type="button" aria-label={tx("编辑分类 {value0}", { value0: category.name })} className={!category.enabled ? "is-disabled" : ""} key={category.id} onClick={() => edit(category)}>
-            <i style={{ backgroundColor: category.color }} />
-            <span>
-              <strong>{category.name}</strong>
-              <small>
-                {category.enabled
-                  ? category.dimensionKey
-                    ? dimensionLabel(category.dimensionKey)
-                    : tx("未映射")
-                  : tx("{value0} · 已停用", {
-                      value0: category.dimensionKey ? dimensionLabel(category.dimensionKey) : tx("未映射"),
-                    })}
-              </small>
-            </span>
-            <ChevronRight size={16} />
-          </button>
-        ))}
-      </div>
-      {draft ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setDraft(null)}>
-          <div className="modal-shell settings-category-dialog" role="dialog" aria-modal="true" aria-labelledby="category-editor-title" onMouseDown={(event) => event.stopPropagation()}>
-            <form onSubmit={save}>
-              <header>
-                <h3 id="category-editor-title">{draft.id ? tx("编辑分类") : tx("新增分类")}</h3>
-                <button type="button" aria-label={tx("关闭")} onClick={() => setDraft(null)}>
-                  <X size={16} />
-                </button>
-              </header>
-              <label>
-                {tx("名称")}
-                <input aria-label={draft.id ? tx("分类名称") : tx("新分类名称")} className="field" required maxLength={64} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-              </label>
-              <label>
-                {tx("成长维度")}
-                <select aria-label={draft.id ? tx("分类成长维度") : tx("新分类成长维度")} className="field" value={draft.dimensionKey} onChange={(event) => setDraft({ ...draft, dimensionKey: event.target.value })}>
-                  <option value="">{tx("暂不映射")}</option>
-                  {dimensionOptions()}
-                </select>
-              </label>
-              <ColorControl color={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
-              {draft.id ? <Toggle checked={draft.enabled} label={draft.enabled ? tx("分类已启用") : tx("分类已停用")} onChange={(enabled) => setDraft({ ...draft, enabled })} /> : null}
-              <div className="category-form-actions">
-                <Button type="button" onClick={() => setDraft(null)}>
-                  {tx("取消")}
-                </Button>
-                <Button variant="primary" loading={pending} type="submit">
-                  {tx("保存分类")}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-function ColorControl({ color, onChange }: { color: string; onChange: (value: string) => void }) {
-  const [hex, setHex] = useState(color);
-  useEffect(() => setHex(color), [color]);
-  const applyHex = () => {
-    if (/^#[0-9a-fA-F]{6}$/.test(hex)) onChange(hex.toUpperCase());
-  };
-  return (
-    <fieldset className="category-color-control">
-      <legend>{tx("颜色")}</legend>
-      <div className="category-current-color">
-        <i style={{ background: color }} />
-        <strong>{color.toUpperCase()}</strong>
-      </div>
-      <div className="color-presets">
-        {PALETTE.map((value) => (
-          <button
-            aria-label={tx("使用颜色 {value0}", { value0: value })}
-            className={value === color ? "is-active" : ""}
-            key={value}
-            style={{ background: value }}
-            type="button"
-            onClick={() => {
-              setHex(value);
-              onChange(value);
-            }}
-          />
-        ))}
-        <label className="color-custom-trigger" title={tx("自定义颜色")}>
-          <Plus size={14} />
-          <input
-            aria-label={tx("自定义分类颜色")}
-            type="color"
-            value={color}
-            onChange={(event) => {
-              setHex(event.target.value.toUpperCase());
-              onChange(event.target.value.toUpperCase());
-            }}
-          />
-        </label>
-      </div>
-      <label>
-        {tx("HEX")}
-        <input aria-label={tx("分类 Hex 颜色")} className="field" value={hex} onChange={(event) => setHex(event.target.value)} onBlur={applyHex} />
-      </label>
-    </fieldset>
-  );
-}
 function WritingSettings({ slots = [], onSave }: { slots?: WritingSlot[]; onSave: (slots: WritingSlot[]) => Promise<void> }) {
   const source = slots.length
     ? slots
@@ -793,14 +603,6 @@ function WritingSettings({ slots = [], onSave }: { slots?: WritingSlot[]; onSave
 function slotLabel(key: WritingSlot["slotKey"]) {
   return tx(key === "MORNING_WRITING" ? "晨写" : key === "JOURNAL" ? "日记" : "股市复盘");
 }
-function dimensionOptions() {
-  return ["career", "creative", "learning", "life", "body", "social", "leisure", "foundation"].map((value) => (
-    <option key={value} value={value}>
-      {dimensionLabel(value)}
-    </option>
-  ));
-}
-
 function Toggle({ checked, label, icon, onChange }: { checked: boolean; label: string; icon?: React.ReactNode; onChange: (checked: boolean) => void }) {
   return (
     <label className="settings-toggle">
@@ -1160,24 +962,6 @@ function FinanceDataMaintenance({ request, timezone, onError }: { request: Reque
       ) : null}
     </div>
   );
-}
-function dimensionLabel(value: string | null) {
-  return value
-    ? tx(
-        (
-          {
-            career: "事业力",
-            creative: "创造力",
-            learning: "学习力",
-            life: "生活力",
-            body: "身体力",
-            social: "社交力",
-            leisure: "兴趣成长",
-            foundation: "基础状态",
-          } as Record<string, string>
-        )[value] ?? value,
-      )
-    : tx("暂不映射");
 }
 function importField(row: any, names: string[]) {
   const source =
