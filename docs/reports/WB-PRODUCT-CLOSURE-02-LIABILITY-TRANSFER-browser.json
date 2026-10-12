@@ -1,0 +1,239 @@
+{
+  "result": "PASS",
+  "screenshots": {
+    "accounts1440": {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    "borrow1440": {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    "repay375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "prepaid375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "privacy375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "history1440": {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    }
+  },
+  "flows": [
+    {
+      "intent": "borrow",
+      "bank": "550000",
+      "credit": "-370000",
+      "income": "0",
+      "expense": "0"
+    },
+    {
+      "intent": "partial-repay",
+      "bank": "500000",
+      "credit": "-320000",
+      "income": "0",
+      "expense": "0"
+    },
+    {
+      "intent": "exact-repay",
+      "bank": "180000",
+      "credit": "0",
+      "income": "0",
+      "expense": "0"
+    },
+    {
+      "intent": "overpay",
+      "bank": "170000",
+      "credit": "10000",
+      "income": "0",
+      "expense": "0"
+    },
+    {
+      "intent": "generic-prepaid-withdrawal",
+      "bank": "175000",
+      "credit": "5000",
+      "income": "0",
+      "expense": "0"
+    },
+    {
+      "intent": "generic-credit-to-credit",
+      "bank": "175000",
+      "credit": "2000",
+      "income": "0",
+      "expense": "0"
+    }
+  ],
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "inside": true,
+      "footerVisible": true,
+      "scrollWidth": 518,
+      "clientWidth": 518,
+      "overflow": false,
+      "controls": [
+        {
+          "left": 474,
+          "right": 966,
+          "width": 492,
+          "height": 29.25
+        },
+        {
+          "left": 474,
+          "right": 716.75,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 723.25,
+          "right": 966,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 493.5625,
+          "right": 955.25,
+          "width": 461.6875,
+          "height": 45.5
+        },
+        {
+          "left": 474,
+          "right": 716.75,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 723.25,
+          "right": 966,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 474,
+          "right": 716.75,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 723.25,
+          "right": 966,
+          "width": 242.75,
+          "height": 29.25
+        },
+        {
+          "left": 474,
+          "right": 966,
+          "width": 492,
+          "height": 29.25
+        },
+        {
+          "left": 474,
+          "right": 521.5,
+          "width": 47.5,
+          "height": 29.25
+        },
+        {
+          "left": 521.5,
+          "right": 588.5,
+          "width": 67,
+          "height": 29.25
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "inside": true,
+      "footerVisible": true,
+      "scrollWidth": 347,
+      "clientWidth": 347,
+      "overflow": false,
+      "controls": [
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 46.5625,
+          "right": 337.25,
+          "width": 290.6875,
+          "height": 45.5
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 348,
+          "width": 321,
+          "height": 29.25
+        },
+        {
+          "left": 27,
+          "right": 184.25,
+          "width": 157.25,
+          "height": 44
+        },
+        {
+          "left": 190.75,
+          "right": 348,
+          "width": 157.25,
+          "height": 44
+        }
+      ]
+    }
+  ],
+  "ledger": {
+    "transferHeaders": 6,
+    "twoBalancedEntriesEach": true
+  }
+}

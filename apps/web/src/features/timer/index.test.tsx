@@ -72,3 +72,18 @@ describe("R1C timer integration", () => {
     expect(body).toMatchObject({ expectedVersion: 3, completeTask: false });
   });
 });
+
+it("invalidates both user-scoped Growth overview and category details after execution mutation", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const overview = ["growth-overview", 7, 30, "2026-09-19"];
+  const detail = ["growth-overview", 7, "category", "category:1", 30, "2026-09-19", null, null];
+  const foreign = ["growth-overview", 8, "category", "category:1", 30, "2026-09-19", null, null];
+  for (const key of [overview, detail, foreign]) client.setQueryData(key, {});
+  const request = vi.fn(async () => ({ id: 5, status: 2, version: 4 })) as unknown as Request;
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const hook = renderHook(() => useTimerCommands({ request, userId: 7, date: "2026-09-19", timezone: "Asia/Shanghai", onError: vi.fn() }), { wrapper });
+  await act(async () => { await hook.result.current.finish(session); });
+  expect(client.getQueryState(overview)?.isInvalidated).toBe(true);
+  expect(client.getQueryState(detail)?.isInvalidated).toBe(true);
+  expect(client.getQueryState(foreign)?.isInvalidated).toBe(false);
+});

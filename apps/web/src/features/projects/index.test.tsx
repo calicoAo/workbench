@@ -14,11 +14,21 @@ function client() { return new QueryClient({ defaultOptions: { queries: { retry:
 
 describe("Projects", () => {
   it("renders list metrics and creates through the Project owner", async () => {
-    const request = vi.fn(async (_path: string, init?: RequestInit) => init?.method === "POST" ? { id: 10, version: 1 } : [project]) as Request;
+    const request = vi.fn(async (path: string, init?: RequestInit) => init?.method === "POST" ? { id: 10, version: 1 } : path === "/api/projects/10" ? { project: { ...project, id: 10, name: "新项目" }, tasks: [], plannedSchedules: [], actualEntries: [] } : [project]) as Request;
     render(<QueryClientProvider client={client()}><MemoryRouter><ProjectsPage request={request} userId={7} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
     expect(await screen.findByText("导游考试")).toBeTruthy(); expect(screen.getByText("60%")).toBeTruthy(); expect(screen.getByText("2h 0m")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "创建项目" })); fireEvent.change(screen.getByLabelText("项目名称"), { target: { value: "新项目" } }); fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/projects", expect.objectContaining({ method: "POST" })));
+    await waitFor(() => expect(screen.queryByLabelText("项目名称")).toBeNull());
+  });
+
+  it("edits through the same owner with a metadata-only versioned patch", async () => {
+    const request = vi.fn(async (_path: string, init?: RequestInit) => init?.method === "PUT" ? { id: 9, version: 3 } : { project, tasks: [], plannedSchedules: [], actualEntries: [] }) as Request;
+    render(<QueryClientProvider client={client()}><MemoryRouter><ProjectDetailPage request={request} userId={7} projectId={9} onError={vi.fn()} onCreateTask={vi.fn()} onEditTask={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    await screen.findByRole("heading", { name: "导游考试" }); fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByLabelText("项目名称"), { target: { value: "新名称" } }); fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/projects/9", { method: "PUT", body: JSON.stringify({ name: "新名称", expectedVersion: 2 }) }));
+    await waitFor(() => expect(screen.queryByLabelText("项目名称")).toBeNull());
   });
 
   it("keeps tabs in the URL and exposes existing Task actions", async () => {

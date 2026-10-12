@@ -1,0 +1,104 @@
+{
+  "result": "PASS",
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "left": 460,
+      "right": 980,
+      "top": 174.21875,
+      "bottom": 825.78125,
+      "scrollWidth": 520,
+      "clientWidth": 520,
+      "headerTop": 192.21875,
+      "headerBottom": 225.5625,
+      "footerBottom": 725.9375,
+      "portalCount": 1,
+      "activeDialogs": 1,
+      "parentInert": true,
+      "separateForms": true,
+      "buttonHeights": [
+        26,
+        29.25,
+        29.25
+      ]
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "left": 16,
+      "right": 359,
+      "top": 16,
+      "bottom": 758.96875,
+      "scrollWidth": 343,
+      "clientWidth": 343,
+      "headerTop": 32,
+      "headerBottom": 76,
+      "footerBottom": 591.125,
+      "portalCount": 1,
+      "activeDialogs": 1,
+      "parentInert": true,
+      "separateForms": true,
+      "buttonHeights": [
+        44,
+        44,
+        44
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "width": 1440,
+      "claim": false,
+      "taskId": 12,
+      "projectId": 30,
+      "categoryId": 36,
+      "canonicalIdentity": "PASS",
+      "categoryRegression": "PASS",
+      "metadataPreserved": "PASS",
+      "editOtherKeepsSelection": "PASS",
+      "keyboard": "PASS",
+      "draft": "PASS",
+      "detailPreselection": "PASS",
+      "projectPostCount": 1
+    },
+    {
+      "width": 375,
+      "claim": true,
+      "taskId": 13,
+      "projectId": 31,
+      "categoryId": 37,
+      "canonicalIdentity": "PASS",
+      "categoryRegression": "PASS",
+      "metadataPreserved": "PASS",
+      "editOtherKeepsSelection": "PASS",
+      "keyboard": "PASS",
+      "draft": "PASS",
+      "detailPreselection": "PASS",
+      "projectPostCount": 1
+    }
+  ],
+  "screenshots": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    }
+  ],
+  "userId": 935
+}

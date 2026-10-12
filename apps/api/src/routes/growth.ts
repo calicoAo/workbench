@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { createGrowthDimension, growthConfiguration, growthOverview, updateCategoryGrowthMapping, updateGrowthDimension } from "../growth.js";
+import { growthCategoryDetail } from "../growth-category-detail.js";
 import { ok } from "../http.js";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -13,6 +14,11 @@ const mappingBody = z.object({ dimensionKey: z.string().min(1).max(32).nullable(
 
 export const growthRoute = new Hono()
   .get("/overview", async (c) => { const query = overviewQuery.parse(c.req.query()); return ok(c, await growthOverview(getCurrentUserId(c), query.period, query.to)); })
+  .get("/categories/:ref", async (c) => {
+    const ref = z.string().regex(/^(category:[1-9]\d*|unassigned|unknown)$/).parse(c.req.param("ref"));
+    const query = overviewQuery.extend({ taskRef: z.string().regex(/^(task:[1-9]\d*|unassigned)$/).optional(), cursor: z.string().max(2048).optional(), limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(c.req.query());
+    return ok(c, await growthCategoryDetail(getCurrentUserId(c), ref, query.period, query.to, query));
+  })
   .get("/dimensions", async (c) => ok(c, await growthConfiguration(getCurrentUserId(c))))
   .post("/dimensions", async (c) => ok(c, await createGrowthDimension(getCurrentUserId(c), dimensionBody.parse(await c.req.json()))))
   .put("/dimensions/:id", async (c) => ok(c, await updateGrowthDimension(getCurrentUserId(c), z.coerce.number().int().positive().parse(c.req.param("id")), updateDimensionBody.parse(await c.req.json()))))

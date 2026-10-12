@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "baselineFiles": 98,
+  "intentionallyChangedBaselineFiles": [
+    "apps/web/src/styles.css",
+    "apps/web/src/features/tasks/create-task.tsx",
+    "apps/web/src/app/i18n/messages.ts",
+    "docs/ARCHITECTURE.md",
+    "apps/web/src/features/tasks/index.test.tsx",
+    "apps/web/src/app/architecture.test.ts"
+  ],
+  "unrelatedChangedFiles": []
+}

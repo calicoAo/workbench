@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Archive, CirclePause, CirclePlay, Clock3, Pencil, Play } from "lucide-react";
+import { ArrowLeft, Archive, CirclePause, CirclePlay, Pencil, Play } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { Request } from "../../app/api";
 import { queryKeys } from "../../app/query";
 import { Badge, Button } from "../../shared/ui";
+import { TaskExecutionHistory, type CurrentExecution } from "./execution-history";
 import { getActiveLocale, tx } from "../../app/i18n";
 
 export type TaskSnapshot = {
@@ -76,7 +77,7 @@ export function TasksIntegrationPage({ tasks, date, loading }: { tasks: TaskSnap
   );
 }
 
-export function TaskDetailPage({ detail, assigned, active, paused, date, pending, categoryName, onAccept, onStart, onPauseResume, finishAction, onComplete, onCompleteAndFinish, onEdit, onArchive }: {
+export function TaskDetailPage({ detail, assigned, active, paused, date, pending, categoryName, currentExecution, onAccept, onStart, onPauseResume, finishAction, onComplete, onCompleteAndFinish, onEdit, onArchive }: {
   detail: TaskDetailPayload | null | undefined;
   assigned: boolean;
   active: boolean;
@@ -84,6 +85,7 @@ export function TaskDetailPage({ detail, assigned, active, paused, date, pending
   date: string;
   pending: boolean;
   categoryName?: string;
+  currentExecution?: CurrentExecution;
   onAccept: () => void;
   onStart: (task: TaskSnapshot, assigned: boolean) => void;
   onPauseResume?: () => void;
@@ -96,12 +98,6 @@ export function TaskDetailPage({ detail, assigned, active, paused, date, pending
   if (detail === undefined) return <p role="status" className="route-state">{tx("正在加载任务...")}</p>;
   if (detail === null) return <section className="route-panel"><h1>{tx("任务不存在")}</h1><Link to={`/tasks?date=${date}`}>{tx("返回悬赏板")}</Link></section>;
   const task = detail.task;
-  const history = new Map<string, TaskDetailPayload["actualEntries"][number]>();
-  for (const item of detail.actualEntries) {
-    const identity = item.timerSessionId ? `session:${item.timerSessionId}` : `${item.source}:${item.sourceId}:${item.businessDate}`;
-    if (!history.has(identity) || item.isTerminalSlice) history.set(identity, item);
-  }
-  const actualHistory = [...history.values()];
   return (
     <article className="route-panel task-detail" aria-labelledby="task-detail-heading">
       <Link className="inline-command" to={`/tasks?date=${date}`}><ArrowLeft size={15} />{tx("返回悬赏板")}</Link>
@@ -113,10 +109,9 @@ export function TaskDetailPage({ detail, assigned, active, paused, date, pending
       <div className="task-detail-actions">{task.status < 2 && !assigned ? <Button onClick={onAccept}>{tx("接取到今天")}</Button> : null}{!active && task.status < 2 ? <Button variant="primary" disabled={pending} onClick={() => onStart(task, assigned)}><Play size={16} />{pending ? tx("正在开始...") : assigned ? tx("开始") : tx("接取并开始")}</Button> : null}{active && onPauseResume ? <Button disabled={pending} onClick={onPauseResume}>{paused ? <CirclePlay size={16} /> : <CirclePause size={16} />}{paused ? tx("继续") : tx("暂停")}</Button> : null}{active ? finishAction : null}{task.status < 2 && !active ? <Button disabled={pending} onClick={() => onComplete(task)}>{tx("直接完成")}</Button> : null}{active && onCompleteAndFinish ? <Button variant="primary" disabled={pending} onClick={() => onCompleteAndFinish(task)}>{tx("完成悬赏并结束")}</Button> : null}<Button onClick={() => onEdit(task)}><Pencil size={15} />{tx("编辑")}</Button>{task.status !== 3 ? <Button variant="danger" onClick={() => onArchive(task)}><Archive size={15} />{tx("归档")}</Button> : null}</div>
       {task.completionNote ? <section className="detail-section"><h2>{tx("完成结果")}</h2><p>{task.completionNote}</p></section> : null}
       <section className="detail-section"><h2>{tx("计划块")}</h2>{detail.plannedSchedules.length ? <div className="detail-history">{detail.plannedSchedules.map((item) => <div key={item.id}><span>{tx("计划")}</span><strong>{item.scheduleDate} · {item.startTime.slice(0, 5)}-{item.endTime.slice(0, 5)}</strong><small>{["PENDING", "EXECUTED", "CANCELLED", "RESCHEDULED"][item.lifecycleState]}</small></div>)}</div> : <p className="muted">{tx("暂无计划。")}</p>}</section>
-      <section className="detail-section"><h2>{tx("ActualTime 历史")}</h2>{actualHistory.length ? <div className="detail-history">{actualHistory.map((item) => { const note = item.timerSessionId ? item.sessionNote : item.note; const startedAt = item.timerSessionId ? item.sessionStartedAt : item.startedAt; const endedAt = item.timerSessionId ? item.sessionEndedAt : item.endedAt; return <div key={item.timerSessionId ? `session:${item.timerSessionId}` : `${item.source}:${item.sourceId}:${item.businessDate}`}><Clock3 size={15} /><strong>{item.businessDate} · {sourceLabel(item.source)}</strong><small>{startedAt ? formatDate(startedAt) : tx("未知开始")} - {endedAt ? formatDate(endedAt) : tx("未知结束")} · {item.recordTimezone}</small>{note ? <p className="detail-history-note">{note}</p> : null}</div>; })}</div> : <p className="muted">{tx("尚无真实投入，不会显示虚构时长。")}</p>}</section>
+      <TaskExecutionHistory entries={detail.actualEntries} currentExecution={currentExecution} />
     </article>
   );
 }
 
 function formatDate(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat(getActiveLocale(), { dateStyle: "medium", timeStyle: "short" }).format(parsed); }
-function sourceLabel(source: TaskDetailPayload["actualEntries"][number]["source"]) { return source === "TIMER_SEGMENT" ? "计时" : source === "MANUAL_ACTUAL" ? "补录" : "历史实际"; }

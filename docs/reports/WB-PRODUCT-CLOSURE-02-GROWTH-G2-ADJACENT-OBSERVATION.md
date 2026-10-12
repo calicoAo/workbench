@@ -1,0 +1,5 @@
+# Separate observation from Growth G2 QA fixture preparation
+
+Observed before the Growth browser journey: issuing start/pause/resume through authenticated APIs within the same UTC second can retain a CLOSED Segment with equal `started_at`/`ended_at`. Existing `GET /api/tasks/:id` then calls `splitActualTimeEntry` → `splitByBusinessDay`, which rejects that zero-length interval and returns 500. This is the established Task/Execution read path, not the new Growth detail timestamp normalization.
+
+No production change was made for this observation: the user explicitly closed Task/Execution/G1 slices and requested G2 only. QA lifecycle commands now wait over one second before close, then retime only disposable positive-duration fixture intervals. The completed G2 journey uses valid positive CLOSED facts, including multiple segments and pause gaps. Future owner-scoped work should reproduce rapid pause/finish and decide whether the existing close command or read eligibility must reject/omit zero-work intervals; do not turn this QA preparation note into a new attribution rule.

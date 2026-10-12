@@ -2,7 +2,7 @@ import { Pencil, Plus, WalletCards } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { Request } from "../../app/api";
 import { Badge, Button, IconButton } from "../../shared/ui";
-import { accountTypeLabel, yuan, type FinanceAccount, type FinanceCategory, type FinanceCategoryKind } from "./model";
+import { accountBalanceLabel, accountTypeLabel, type FinanceAccount, type FinanceCategory, type FinanceCategoryKind } from "./model";
 import { financeErrorMessage } from "./error";
 import { tx } from "../../app/i18n";
 
@@ -13,6 +13,7 @@ export function Accounts({
   request,
   onCreate,
   onEdit,
+  onTransfer,
   onChanged,
   onError,
 }: {
@@ -22,11 +23,16 @@ export function Accounts({
   request: Request;
   onCreate: () => void;
   onEdit: (account: FinanceAccount) => void;
+  onTransfer?: (intent: "borrow" | "repay", account: FinanceAccount) => void;
   onChanged: () => Promise<void>;
   onError: (message: string, title?: string) => void;
 }) {
   const [showArchived, setShowArchived] = useState(false);
-  const shown = accounts.filter((item) => showArchived || !item.archivedAt);
+  const groups = [
+    { title: tx("资产账户"), items: accounts.filter((item) => !item.archivedAt && item.type !== "CREDIT") },
+    { title: tx("负债账户"), items: accounts.filter((item) => !item.archivedAt && item.type === "CREDIT"), help: tx("信用卡、借款等统一作为负债账户管理。") },
+    ...(showArchived ? [{ title: tx("已归档账户"), items: accounts.filter((item) => item.archivedAt) }] : []),
+  ];
   return (
     <div className="finance-accounts-layout">
       <main className="finance-panel">
@@ -44,51 +50,61 @@ export function Accounts({
             checked={showArchived}
             onChange={(event) => setShowArchived(event.target.checked)}
           />{tx("显示已归档")}</label>
-        <div className="finance-account-list">
-          {shown.map((account) => (
-            <article
-              key={account.id}
-              className={account.archivedAt ? "is-archived" : ""}
-            >
-              <span className="finance-account-icon">
-                <WalletCards size={20} />
-              </span>
-              <div>
-                <strong>{account.name}</strong>
-                <small>
-                  {tx(accountTypeLabel[account.type])} {tx("· CNY · 期初")}{" "}
-                  {account.openingDate}
-                </small>
-              </div>
-              <div className="finance-account-balance">
-                <strong
-                  className={
-                    account.type === "CREDIT" &&
-                    BigInt(account.balanceCents) < 0n
-                      ? "is-debt"
-                      : ""
-                  }
+        {groups.map((group) => (
+          <section key={group.title} className="finance-account-group" aria-label={group.title}>
+            <h3>{group.title}</h3>
+            {group.help ? <p className="settings-note">{group.help}</p> : null}
+            <div className="finance-account-list">
+              {group.items.map((account) => (
+                <article
+                  key={account.id}
+                  className={account.archivedAt ? "is-archived" : ""}
                 >
-                  {account.type === "CREDIT" &&
-                  BigInt(account.balanceCents) < 0n
-                    ? tx("欠款 {value0}", { value0: yuan((-BigInt(account.balanceCents)).toString(), hidden) })
-                    : yuan(account.balanceCents, hidden)}
-                </strong>
-                <small>
-                  {account.includeInOverview ? tx("计入总览") : tx("不计入总览")}
-                  {account.archivedAt ? tx(" · 已归档") : ""}
-                </small>
-              </div>
-              <IconButton
-                label={tx("编辑 {value0}", { value0: account.name })}
-                onClick={() => onEdit(account)}
-              >
-                <Pencil size={16} />
-              </IconButton>
-            </article>
-          ))}
-        </div>
-        {!shown.length ? (
+                  <span className="finance-account-icon">
+                    <WalletCards size={20} />
+                  </span>
+                  <div>
+                    <strong>{account.name}</strong>
+                    <small>
+                      {tx(accountTypeLabel[account.type])} {tx("· CNY · 期初")}{" "}
+                      {account.openingDate}
+                    </small>
+                  </div>
+                  <div className="finance-account-balance">
+                    <strong
+                      className={
+                        account.type === "CREDIT" &&
+                        BigInt(account.balanceCents) < 0n
+                          ? "is-debt"
+                          : ""
+                      }
+                    >
+                      {accountBalanceLabel(account, hidden)}
+                    </strong>
+                    <small>
+                      {account.includeInOverview ? tx("计入总览") : tx("不计入总览")}
+                      {account.archivedAt ? tx(" · 已归档") : ""}
+                    </small>
+                  </div>
+                  <IconButton
+                    label={tx("编辑 {value0}", { value0: account.name })}
+                    onClick={() => onEdit(account)}
+                  >
+                    <Pencil size={16} />
+                  </IconButton>
+                  {!account.archivedAt && account.type === "CREDIT" && onTransfer ? (
+                    <div className="finance-account-transfer-actions">
+                      <Button onClick={() => onTransfer("borrow", account)}>{tx("借入")}</Button>
+                      <Button onClick={() => onTransfer("repay", account)}>{tx("还款")}</Button>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+            {!group.items.length ? <p className="finance-empty">{tx("暂无账户")}</p> : null}
+          </section>
+        ))}
+        {!accounts.length ? (
           <p className="finance-empty">{tx("还没有账户。创建账户时可以同时写入期初分录。")}</p>
         ) : null}
       </main>

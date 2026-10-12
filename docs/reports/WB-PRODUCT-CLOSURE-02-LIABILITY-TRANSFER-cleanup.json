@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "disposableDatabaseDropped": true,
+  "remainingSchemas": [
+    "information_schema",
+    "mysql",
+    "performance_schema",
+    "sys"
+  ],
+  "temporaryServicePortsClosed": {
+    "3010": true,
+    "5180": true,
+    "9338": true,
+    "33307": true
+  },
+  "datadirProfileAndTokenRemoved": true
+}

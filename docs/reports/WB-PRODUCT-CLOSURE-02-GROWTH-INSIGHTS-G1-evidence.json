@@ -1,0 +1,71 @@
+{
+  "result": "PASS",
+  "slice": "GROWTH-CATEGORY-READ-CONTRACT",
+  "date": "2026-10-12",
+  "mysqlVersion": "8.0.25",
+  "migrationHead": "V41",
+  "currentHeadMigrations": 42,
+  "growthIntegration": {
+    "tests": 19,
+    "pass": 19,
+    "fail": 0,
+    "skipped": 0,
+    "includesG1Tests": 12,
+    "legacyR2D1Tests": 7
+  },
+  "executionRegression": {
+    "tests": 46,
+    "pass": 46,
+    "fail": 0,
+    "skipped": 0
+  },
+  "focusedWeb": {
+    "tests": 7,
+    "pass": 7
+  },
+  "fullWeb": {
+    "files": 35,
+    "tests": 330,
+    "pass": 330
+  },
+  "apiWebTypecheck": "PASS",
+  "apiTestSourceTypecheck": "PASS",
+  "lintI18n": "PASS",
+  "i18nMissing": 0,
+  "productionBuild": "PASS",
+  "architectureChecker": {
+    "errors": 0,
+    "warnings": 0,
+    "configuration": "defaults only"
+  },
+  "openApiYamlParse": "PASS (Ruby stdlib YAML)",
+  "workspace": {
+    "preexistingFiles": 118,
+    "unchanged": 115,
+    "scopedOverlapFiles": [
+      "apps/api/src/task-completion.ts",
+      "apps/web/src/features/growth/index.tsx",
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  "fixtureCorrections": "OPEN endedAt and TIMER projection identity fixtures corrected to satisfy existing constraints; no guard/schema weakened.",
+  "cleanup": {
+    "databasesDropped": true,
+    "remainingDatabasesBeforeShutdown": [
+      "information_schema",
+      "mysql",
+      "performance_schema",
+      "sys"
+    ],
+    "mysqlStopped": true,
+    "port33307Closed": true,
+    "temporaryDatadirRemoved": true
+  },
+  "logsDirectory": "/var/folders/m0/37pdwrrs46zdw8mj8f49q4vc0000gn/T/workbench-growth-g1-b8d5bik9",
+  "notImplemented": [
+    "G2 detail/drilldown",
+    "G3 visual alignment",
+    "G4 mapping UI alignment"
+  ],
+  "remainingBlockers": []
+}

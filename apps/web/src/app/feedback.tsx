@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Coins, Gift, Sparkles, X } from "lucide-react";
 import type { RewardGrant } from "../features/rewards";
@@ -24,6 +24,10 @@ const TASK_ENCOURAGEMENTS = [
   "你没有只停在计划里，行动已经被记录下来了。",
   "很好，这种稳定的小完成会慢慢叠成很大的底气。"
 ] as const;
+
+const FeedbackPresentation = createContext(false);
+/** Derived presentation only; the popup still has one ApplicationFeedback owner. */
+export function useFeedbackPresentation() { return useContext(FeedbackPresentation); }
 
 export function ApplicationFeedback({ children }: { children: (actions: FeedbackActions) => ReactNode }) {
   const [popup, setPopup] = useState<Popup | null>(null);
@@ -51,13 +55,33 @@ export function ApplicationFeedback({ children }: { children: (actions: Feedback
     });
   }, []);
 
-  return <>
+  return <FeedbackPresentation.Provider value={popup !== null}>
     {children({ notice, confirm, taskReward, recordReward })}
     {popup && <FeedbackPopup popup={popup} onClose={() => setPopup(null)} />}
-  </>;
+  </FeedbackPresentation.Provider>;
 }
 
 function FeedbackPopup({ popup, onClose }: { popup: Popup; onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const buttons = () => [...(dialog?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+    buttons()[0]?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); closeRef.current(); }
+      if (event.key === "Tab") {
+        const items = buttons(), first = items[0], last = items[items.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", keydown, true);
+    return () => { document.removeEventListener("keydown", keydown, true); if (trigger?.isConnected && !trigger.closest("[inert], [hidden]")) trigger.focus(); };
+  }, [popup]);
   const totalXp = popup.kind === "reward" ? popup.rewards.reduce((sum, reward) => sum + reward.xp, 0) : 0;
   const totalCoins = popup.kind === "reward" ? popup.rewards.reduce((sum, reward) => sum + reward.coins, 0) : 0;
   const hasReward = popup.kind === "reward" && (totalXp > 0 || totalCoins > 0);
@@ -71,11 +95,11 @@ function FeedbackPopup({ popup, onClose }: { popup: Popup; onClose: () => void }
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
-        <article className={`feedback-modal ${popup.kind === "reward" ? "feedback-modal-reward" : ""}`}>
+        <article ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="feedback-popup-title" className={`feedback-modal ${popup.kind === "reward" ? "feedback-modal-reward" : ""}`}>
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="feedback-icon">{popup.kind === "reward" ? <Gift size={22} /> : <Sparkles size={22} />}</span>
-              <div><h3 className="text-base font-bold">{tx(popup.title)}</h3><p className="mt-1 text-xs leading-5 text-soft">{tx(popup.message)}</p></div>
+              <div><h3 id="feedback-popup-title" className="text-base font-bold">{tx(popup.title)}</h3><p className="mt-1 text-xs leading-5 text-soft">{tx(popup.message)}</p></div>
             </div>
             <button className="icon-button h-8 w-8 shrink-0" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button>
           </div>

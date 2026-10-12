@@ -8,7 +8,7 @@ import { getActiveLocale, useI18n } from "../i18n";
 import type { FeedbackActions } from "../feedback";
 import { queryKeys } from "../query";
 import { CalendarFeature, type Schedule, type TimelineItem } from "../../features/calendar";
-import { CategoriesFeature, type Category } from "../../features/categories";
+import { CategoryMappingEditor, CategoriesFeature, type Category } from "../../features/categories";
 import { DecisionToolsFeature } from "../../features/decision-tools";
 import { HistoryFeature, type SleepSeriesItem, type WeeklySeriesItem } from "../../features/history";
 import { QuickNoteCaptureButton, QuickNoteDetailPage, QuickNotesPage } from "../../features/quick-notes";
@@ -219,6 +219,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.today(session.user.id, date) }),
+      queryClient.invalidateQueries({ queryKey: ["growth-overview", session.user.id] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks(session.user.id) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.continuations(session.user.id, date) }),
@@ -248,6 +249,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
     onChanged={refresh}
   >
     <TasksFeature
+      userId={session.user.id}
       request={request}
       selectedDate={date}
       loading={appContext.loading}
@@ -259,6 +261,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
       focusTaskIds={appContext.assignmentRows.filter((item) => item.focusRank !== null).sort((a, b) => (a.focusRank ?? 9) - (b.focusRank ?? 9)).map((item) => item.taskId)}
       timezone={session.user.timezone}
       runningTimers={runningTimers}
+      onCompleteAndFinish={(task, note) => currentSession?.taskId === task.id ? timer.completeAndFinish(currentSession, task.version, note) : Promise.resolve(false)}
       taskRewardEvents={showRewardUi ? dashboard?.taskRewardEvents ?? [] : []}
       onError={feedback.notice}
       onConfirm={feedback.confirm}
@@ -329,11 +332,11 @@ function AppShell({ context }: { context: WorkspaceContext }) {
         <div className="app-top-actions">
           <QuickNoteCaptureButton compact iconOnly label={tx("随手记")} request={context.request} userId={context.session.user.id} selectedDate={context.date} onCreated={context.refresh} icon={<Feather size={17} />} />
           <Link className="topbar-search" aria-label={tx("全局搜索")} title={tx("全局搜索")} to={link("/search")}><Search size={17} /></Link>
-          <input aria-label={tx("工作日期")} type="date" value={context.date} onChange={(event) => navigate(`${location.pathname}?date=${event.target.value}`)} />
+          <input aria-label={tx("工作日期")} type="date" value={context.date} onChange={(event) => { const next = new URLSearchParams(location.pathname === "/growth" ? location.search : ""); next.set("date", event.target.value); next.delete("cursor"); navigate(`${location.pathname}?${next}${location.pathname === "/growth" ? location.hash : ""}`); }} />
         </div>
       </header>
       {moduleLinks.length ? <nav className="app-module-nav" aria-label={tx("主导航")}>{moduleLinks.map((item) => <NavLink key={item.path} end={item.path === "/today" || item.path === "/growth"} to={link(item.path)}>{tx(item.label)}</NavLink>)}</nav> : null}
-      <div className={`quick-add-wrap ${location.pathname.startsWith("/settings") ? "is-mobile-hidden" : ""}`} ref={quickMenuRef}>
+      <div className={`quick-add-wrap ${(location.pathname.startsWith("/settings") || (location.pathname === "/finance" && new URLSearchParams(location.search).get("tab") === "maintenance")) ? "is-mobile-hidden" : ""}`} ref={quickMenuRef}>
         <button data-guide-anchor="quick-action.task.publish.entry" type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label={tx("打开快捷操作")} onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>Quick Action</span></button>
         {quickOpen ? <div className={`quick-add-menu ${quickMoreOpen ? "is-more-open" : ""}`} id="quick-add-menu" role="menu">
           <strong>{quickMoreOpen ? tx("更多操作") : tx("快捷操作")}</strong>
@@ -409,8 +412,9 @@ function TaskRoute() {
   const id = Number(useParams().taskId);
   const taskQuery = useTask(value.request, value.session.user.id, id);
   const active = value.currentSession?.taskId === id;
+  const openSegment = active && value.currentSession?.status === 0 ? value.currentSession.segments.find((item) => item.status === 0) : undefined;
   const categoryName = value.dashboard?.categories.find((item) => item.id === taskQuery.data?.task.categoryId)?.name;
-  return <TaskDetailPage detail={taskQuery.data} assigned={value.assignments.includes(id)} active={active} paused={active && value.currentSession?.status === 1} date={value.date} pending={value.timer.pending !== null} categoryName={categoryName} onAccept={surfaces.openSelector} onStart={(task, assigned) => void value.timer.start(task, assigned)} onPauseResume={active ? () => void (value.currentSession!.status === 0 ? value.timer.pause(value.currentSession!) : value.timer.resume(value.currentSession!)) : undefined} finishAction={active && value.currentSession && taskQuery.data ? <FinishSessionButton session={value.currentSession} taskVersion={taskQuery.data.task.version} commands={value.timer}><Square size={15} />{tx("结束本次")}</FinishSessionButton> : undefined} onComplete={(task) => void surfaces.complete(task)} onCompleteAndFinish={active ? (task) => void value.timer.completeAndFinish(value.currentSession!, task.version) : undefined} onEdit={surfaces.openEditor} onArchive={surfaces.archive} />;
+  return <TaskDetailPage currentExecution={openSegment ? { startedAt: openSegment.startedAt, recordTimezone: value.currentSession!.recordTimezone } : undefined} detail={taskQuery.data} assigned={value.assignments.includes(id)} active={active} paused={active && value.currentSession?.status === 1} date={value.date} pending={value.timer.pending !== null} categoryName={categoryName} onAccept={surfaces.openSelector} onStart={(task, assigned) => void value.timer.start(task, assigned)} onPauseResume={active ? () => void (value.currentSession!.status === 0 ? value.timer.pause(value.currentSession!) : value.timer.resume(value.currentSession!)) : undefined} finishAction={active && value.currentSession && taskQuery.data ? <FinishSessionButton session={value.currentSession} taskVersion={taskQuery.data.task.version} commands={value.timer}><Square size={15} />{tx("结束本次")}</FinishSessionButton> : undefined} onComplete={(task) => void surfaces.complete(task)} onCompleteAndFinish={active ? (task) => void value.timer.completeAndFinish(value.currentSession!, task.version) : undefined} onEdit={surfaces.openEditor} onArchive={surfaces.archive} />;
 }
 function ProjectsRoute() { const value = useWorkspace(); return <ProjectsPage request={value.request} userId={value.session.user.id} onError={value.feedback.notice} />; }
 function ProjectRoute() { const value = useWorkspace(); const surfaces = useTaskSurfaces(); const projectId = Number(useParams().projectId); return <ProjectDetailPage request={value.request} userId={value.session.user.id} projectId={projectId} onError={value.feedback.notice} onCreateTask={surfaces.openCreate} onEditTask={surfaces.openEditor} />; }
@@ -475,9 +479,9 @@ function NotesRoute() { const value = useWorkspace(); return <WritingShell userI
 function InspirationsRoute() { const value = useWorkspace(); return <WritingShell userId={value.session.user.id} date={value.date} activeId="inspirations" enabledSlots={writingSlots(value)}><InspirationLibraryPage request={value.request} userId={value.session.user.id} selectedDate={value.date} projects={value.projects} onError={value.feedback.notice} /></WritingShell>; }
 function NoteDetailRoute() { const value = useWorkspace(); const noteId = Number(useParams().noteId); const journal = useJournalDraftBridge(); return <WritingShell userId={value.session.user.id} date={value.date} activeId="notes" enabledSlots={writingSlots(value)}><QuickNoteDetailPage request={value.request} userId={value.session.user.id} noteId={noteId} selectedDate={value.date} recordTimezone={value.session.user.timezone} categories={value.dashboard?.categories ?? []} projects={value.projects} onQuoteToJournal={journal.stageJournalReference} /></WritingShell>; }
 function RoutinesRoute() { const value = useWorkspace(); const [params] = useSearchParams(); const sleep = value.dashboard?.sleepRecord ?? null; return <RoutinesFeature request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} categories={value.dashboard?.categories ?? []} onError={value.feedback.notice} lifeContent={<><SleepFeature request={value.request} selectedDate={value.date} record={sleep} recordTimezone={value.session.user.timezone} snapshotReady={Boolean(value.dashboard)} initiallyOpen={params.get("action") === "sleep"} onError={value.feedback.notice} onChanged={value.refresh} /><WaterFeature request={value.request} selectedDate={value.date} record={value.dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /><section className="review-handoff"><div><p className="route-eyebrow">{tx("晨写")}</p><strong>{value.dashboard?.morningWritingRecord?.content?.trim() ? tx("今日正文已保存") : tx("今日尚未完成")}</strong></div><Link className="ui-button ui-button-primary ui-button-md" to={`/journal?date=${value.date}`}><span className="ui-button-visual">{tx("打开晨写")}</span></Link></section></>} />; }
-function FinanceRoute() { const value = useWorkspace(); const [params] = useSearchParams(); const action = params.get("action"); return <FinancePage key={params.get("nonce") ?? "finance"} request={value.request} userId={value.session.user.id} date={value.date} initialAction={action === "income" || action === "expense" || action === "transfer" ? action : undefined} onError={value.feedback.notice} />; }
+function FinanceRoute() { const value = useWorkspace(); const [params] = useSearchParams(); const action = params.get("action"); return <FinancePage key={params.get("nonce") ?? "finance"} request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} initialAction={action === "income" || action === "expense" || action === "transfer" ? action : undefined} onError={value.feedback.notice} />; }
 function RewardsRoute() { const value = useWorkspace(); return value.settings?.rewards?.show === false ? <section className="route-panel"><h1>{tx("奖励展示已隐藏")}</h1><p>{tx("奖励仍会照常结算，可在设置中恢复展示。")}</p><Link to={`/settings?date=${value.date}`}>{tx("打开设置")}</Link></section> : <RewardsFeature request={value.request} initialGrowth={value.dashboard?.growth ?? null} initialEvents={value.dashboard?.rewardEvents ?? []} onError={value.feedback.notice} onGrowthChanged={value.refresh} />; }
-function GrowthRoute() { const value = useWorkspace(); return <GrowthPage request={value.request} userId={value.session.user.id} date={value.date} onError={value.feedback.notice} />; }
+function GrowthRoute() { const value = useWorkspace(); return <GrowthPage categoryMapping={<CategoryMappingEditor request={value.request} userId={value.session.user.id} onNotice={value.feedback.notice} />} request={value.request} userId={value.session.user.id} date={value.date} onError={value.feedback.notice} />; }
 function HeroRoute() { const value = useWorkspace(); return <HeroProfilePage request={value.request} userId={value.session.user.id} date={value.date} onError={value.feedback.notice} />; }
 function AdventureLogRoute() { const value = useWorkspace(); return <AdventureLogPage request={value.request} userId={value.session.user.id} date={value.date} onError={value.feedback.notice} />; }
 function AdventureLogDayRoute() { const value = useWorkspace(); const businessDate = useParams().businessDate ?? null; return validDate(businessDate) ? <AdventureLogDayPage request={value.request} userId={value.session.user.id} businessDate={businessDate} onError={value.feedback.notice} /> : <NotFoundRoute />; }
@@ -488,7 +492,16 @@ function BackpackRoute() { const value = useWorkspace(); return <BackpackPage re
 function ToolsRoute() { const value = useWorkspace(); return <section className="route-panel"><div className="route-panel-heading"><div><p className="route-eyebrow">{tx("既有能力")}</p><h1>{tx("决策工具")}</h1></div><Sparkles size={18} /></div><DecisionToolsFeature request={value.request} selectedDate={value.date} onError={value.feedback.notice} onChanged={value.refresh} onReward={value.settings?.rewards?.show === false ? () => undefined : value.feedback.recordReward} /></section>; }
 function InsightsRoute() { const value = useWorkspace(); const navigate = useNavigate(); const d = value.dashboard; return <HistoryFeature request={value.request} selectedDate={value.date} refreshRevision={0} loading={value.loading} stats={d?.weeklyStats} sleep={d?.sleepRecord ?? null} categories={d?.categoryTotals ?? d?.categories ?? []} schedules={d?.schedules ?? []} weeklySeries={d?.weeklySeries ?? []} monthlySleepSeries={d?.monthlySleepSeries ?? []} onError={value.feedback.notice} onBack={() => navigate(`/today?date=${value.date}`)} />; }
 function SearchRoute() { const value = useWorkspace(); return <SearchFeature request={value.request} userId={value.session.user.id} />; }
-function SettingsRoute() { const { session, request, feedback } = useWorkspace(); return <SettingsFeature request={request} userId={session.user.id} logout={session.logout} onProfileChanged={(profile) => session.updateUser?.(profile)} onError={feedback.notice} />; }
+function SettingsRoute() {
+  const { session, request, feedback } = useWorkspace();
+  const [params] = useSearchParams();
+  if (params.get("topic") === "wallet") {
+    const date = params.get("date");
+    const dateIsValid = validDate(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
+    return <Navigate replace to={dateIsValid ? `/finance?date=${date}` : "/finance"} />;
+  }
+  return <SettingsFeature request={request} userId={session.user.id} logout={session.logout} onProfileChanged={(profile) => session.updateUser?.(profile)} onError={feedback.notice} />;
+}
 function TrashRoute() { const { session, request } = useWorkspace(); return <TrashPage request={request} userId={session.user.id} />; }
 function NotFoundRoute() { const { date } = useWorkspace(); return <section className="route-panel"><h1>{tx("页面不存在")}</h1><Link to={`/today?date=${date}`}>{tx("返回今日")}</Link></section>; }
 

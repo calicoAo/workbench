@@ -419,3 +419,136 @@ test("legacy PAUSED sessions remain frozen, unlinked, and once-counted", async (
     (error: unknown) => (error as { status?: number }).status === 409
   );
 });
+
+async function executionSnapshot(taskId: number, sessionId: number) {
+  return {
+    slot: await rows("SELECT * FROM user_execution_slots WHERE user_id = 1"),
+    task: await rows("SELECT * FROM tasks WHERE id = ?", [taskId]),
+    session: await rows("SELECT * FROM timer_sessions WHERE id = ?", [sessionId]),
+    segments: await rows("SELECT * FROM timer_segments WHERE timer_session_id = ? ORDER BY id", [sessionId]),
+    projections: await rows("SELECT * FROM schedules WHERE timer_session_id = ? ORDER BY id", [sessionId]),
+    rewards: await rows("SELECT * FROM reward_events WHERE source_type = 'timer' ORDER BY id")
+  };
+}
+
+async function occupyingTask(paused: boolean) {
+  const taskId = await insertTask("occupying A");
+  const started = await acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-18", now: at("2026-09-18T05:20:00Z") });
+  const session = paused ? await pauseWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: 1, now: at("2026-09-18T05:47:00Z") }) : started;
+  return { taskId, sessionId: started.id, sessionVersion: session.version, taskVersion: started.taskVersion };
+}
+
+for (const paused of [false, true]) {
+  const state = paused ? "PAUSED" : "RUNNING";
+  test(`${state} A allows standalone B completion/replay without changing execution`, async () => {
+    const active = await occupyingTask(paused);
+    const taskId = await insertTask("unrelated B");
+    const before = await executionSnapshot(active.taskId, active.sessionId);
+    const command = { userId: 1, operationId: op(), taskId, expectedVersion: 1 };
+    const result = await completeTask(command);
+    assert.equal(result.status, TaskStatus.DONE);
+    assert.deepEqual(await completeTask(command), result);
+    assert.deepEqual(await executionSnapshot(active.taskId, active.sessionId), before);
+    assert.equal(await scalar("SELECT COUNT(*) FROM task_completion_events WHERE task_id = ?", [taskId]), 1);
+    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE event_key = ?", [`task_done:1:${taskId}`]), 1);
+    await assert.rejects(() => completeTask({ ...command, operationId: op() }), /task version conflict/);
+  });
+
+  test(`${state} same-task direct completion explicitly requires atomic Timer finish`, async () => {
+    const active = await occupyingTask(paused);
+    const before = await executionSnapshot(active.taskId, active.sessionId);
+    const operationId = op();
+    const response = await app.request(`/api/tasks/${active.taskId}/complete`, { method: "PUT", headers: { Authorization: `Bearer ${signToken({ id: 1, username: "owner", displayName: "Owner" })}`, "Content-Type": "application/json" }, body: JSON.stringify({ operationId, expectedVersion: active.taskVersion }) });
+    assert.equal(response.status, 409);
+    assert.match(await response.text(), /atomic Timer finish.*completeTask:true/);
+    assert.deepEqual(await executionSnapshot(active.taskId, active.sessionId), before);
+    assert.equal(await scalar("SELECT COUNT(*) FROM mutation_receipts WHERE operation_id = ?", [operationId]), 0);
+  });
+
+  test(`${state} combined completion is versioned, atomic and replayed exactly once`, async () => {
+    const active = await occupyingTask(paused);
+    const before = await executionSnapshot(active.taskId, active.sessionId);
+    const command = { userId: 1, operationId: op(), sessionId: active.sessionId, expectedVersion: active.sessionVersion, expectedTaskVersion: active.taskVersion, completeTask: true, now: at("2026-09-18T06:00:00Z") };
+    await assert.rejects(() => finishWorkSession({ ...command, expectedVersion: active.sessionVersion + 1 }), /session version conflict/);
+    await assert.rejects(() => finishWorkSession({ ...command, expectedTaskVersion: active.taskVersion + 1 }), /task version conflict/);
+    assert.deepEqual(await executionSnapshot(active.taskId, active.sessionId), before);
+    const result = await finishWorkSession(command);
+    assert.deepEqual(await finishWorkSession(command), result);
+    assert.equal(result.status, TimerStatus.FINISHED);
+    assert.equal(result.taskCompleted, true);
+    assert.equal(await scalar("SELECT COUNT(*) FROM user_execution_slots WHERE active_session_id IS NULL AND user_id = 1"), 1);
+    assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [active.taskId]), TaskStatus.DONE);
+    assert.equal(await scalar("SELECT COUNT(*) FROM task_completion_events WHERE task_id = ?", [active.taskId]), 1);
+    assert.equal(await scalar("SELECT COUNT(*) FROM reward_events"), 2);
+  });
+
+  test(`${state} manual actual completes unrelated B but preserves interval and same-task guards`, async () => {
+    const active = await occupyingTask(paused);
+    const taskId = await insertTask("manual B");
+    const before = await executionSnapshot(active.taskId, active.sessionId);
+    const command = { userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, completeTask: true, startedAt: at("2026-09-18T04:00:00Z"), endedAt: at("2026-09-18T04:30:00Z"), recordTimezone: "Asia/Shanghai", includeInActualTime: true };
+    await assert.rejects(() => recordManualActual({ ...command, expectedTaskVersion: 2 }), /task version conflict/);
+    await assert.rejects(() => recordManualActual({ ...command, endedAt: command.startedAt }), /actual end must be after start/);
+    await assert.rejects(() => recordManualActual({ ...command, startedAt: at("2026-09-18T05:30:00Z"), endedAt: at("2026-09-18T05:40:00Z") }), /overlaps an existing included interval/);
+    await assert.rejects(() => recordManualActual({ ...command, taskId: active.taskId, expectedTaskVersion: active.taskVersion }), /atomic Timer finish/);
+    assert.equal(await scalar("SELECT COUNT(*) FROM schedules WHERE source = 0"), 0);
+    const result = await recordManualActual(command);
+    assert.equal(result.taskCompleted, true);
+    assert.deepEqual(await recordManualActual(command), result);
+    assert.deepEqual(await executionSnapshot(active.taskId, active.sessionId), before);
+  });
+}
+
+for (const corrupt of ["empty slot with orphan", "finished owner", "wrong task status", "deleted owner", "legacy owner"] as const) {
+  test(`completion rejects ${corrupt} as repair-required without healing`, async () => {
+    const active = await occupyingTask(false);
+    const target = await insertTask("B");
+    if (corrupt === "empty slot with orphan") await pool.query("UPDATE user_execution_slots SET active_session_id = NULL WHERE user_id = 1");
+    if (corrupt === "finished owner") await pool.query("UPDATE timer_sessions SET status = 2 WHERE id = ?", [active.sessionId]);
+    if (corrupt === "wrong task status") await pool.query("UPDATE tasks SET status = 2 WHERE id = ?", [active.taskId]);
+    if (corrupt === "deleted owner") await pool.query("UPDATE timer_sessions SET deleted_at = NOW() WHERE id = ?", [active.sessionId]);
+    if (corrupt === "legacy owner") await pool.query("UPDATE timer_sessions SET session_model = 0 WHERE id = ?", [active.sessionId]);
+    const before = await executionSnapshot(active.taskId, active.sessionId);
+    await assert.rejects(() => completeTask({ userId: 1, operationId: op(), taskId: target, expectedVersion: 1 }), /repair required/);
+    assert.deepEqual(await executionSnapshot(active.taskId, active.sessionId), before);
+    assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [target]), TaskStatus.TODO);
+  });
+}
+
+for (const sameTask of [false, true]) {
+  test(`concurrent start/complete ${sameTask ? "same" : "unrelated"} Task respects slot serialization`, async () => {
+    const taskId = await insertTask("start A");
+    const targetId = sameTask ? taskId : await insertTask("complete B");
+    const results = await Promise.allSettled([
+      acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-18", now: at("2026-09-18T01:00:00Z") }),
+      completeTask({ userId: 1, operationId: op(), taskId: targetId, expectedVersion: 1 })
+    ]);
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, sameTask ? 1 : 2);
+    const current = await currentSessionForUser(1);
+    if (current) {
+      assert.equal(current.taskId, taskId);
+      assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [taskId]), TaskStatus.IN_PROGRESS);
+      assert.equal(await scalar("SELECT COUNT(*) FROM timer_segments WHERE status = 0"), 1);
+    } else assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [taskId]), TaskStatus.DONE);
+    if (!sameTask) assert.equal(await scalar("SELECT status FROM tasks WHERE id = ?", [targetId]), TaskStatus.DONE);
+  });
+}
+
+test("paused history exposes both closed Segments, 53 minutes, while resumed OPEN remains current", async () => {
+  const active = await occupyingTask(true);
+  const resumed = await resumeWorkSession({ userId: 1, operationId: op(), sessionId: active.sessionId, expectedVersion: active.sessionVersion, now: at("2026-09-18T06:05:00Z") });
+  const paused = await pauseWorkSession({ userId: 1, operationId: op(), sessionId: active.sessionId, expectedVersion: resumed.version, now: at("2026-09-18T06:31:00Z") });
+  const headers = { Authorization: `Bearer ${signToken({ id: 1, username: "owner", displayName: "Owner" })}` };
+  const response = await app.request(`/api/tasks/${active.taskId}`, { headers });
+  assert.equal(response.status, 200);
+  const { data } = await response.json() as { data: { task: { status: number }; actualEntries: { sourceId: number; startedAt: string; endedAt: string; timerSessionId: number }[] } };
+  assert.equal(data.task.status, TaskStatus.IN_PROGRESS);
+  assert.equal(data.actualEntries.length, 2);
+  assert.equal(new Set(data.actualEntries.map((item) => item.sourceId)).size, 2);
+  assert.ok(data.actualEntries.every((item) => item.timerSessionId === active.sessionId && item.endedAt));
+  assert.equal(await scalar("SELECT SUM(TIMESTAMPDIFF(MINUTE, started_at, ended_at)) FROM timer_segments"), 53);
+  await resumeWorkSession({ userId: 1, operationId: op(), sessionId: active.sessionId, expectedVersion: paused.version, now: at("2026-09-18T07:00:00Z") });
+  assert.equal((await currentSessionForUser(1))?.segments.filter((item) => item.status === 0).length, 1);
+  const subsequent = await app.request(`/api/tasks/${active.taskId}`, { headers });
+  assert.equal((await subsequent.json() as { data: { actualEntries: unknown[] } }).data.actualEntries.length, 2);
+});

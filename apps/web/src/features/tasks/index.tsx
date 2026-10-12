@@ -29,6 +29,7 @@ const TasksContext = createContext<ContextValue | null>(null);
 export function TasksFeature({
   children,
   request,
+  userId,
   selectedDate,
   loading,
   tasks,
@@ -44,10 +45,12 @@ export function TasksFeature({
   onConfirm,
   onChanged,
   onReward,
-  onStartTimer
+  onStartTimer,
+  onCompleteAndFinish
 }: {
   children: ReactNode;
   request: Request;
+  userId: number;
   selectedDate: string;
   loading: boolean;
   tasks: Task[];
@@ -64,6 +67,7 @@ export function TasksFeature({
   onChanged: () => void | Promise<void>;
   onReward: (task: Pick<Task, "id" | "title">, reward: RewardGrant | null) => void;
   onStartTimer: (taskId: number) => void | Promise<void>;
+  onCompleteAndFinish?: (task: Task, completionNote?: string) => Promise<boolean>;
 }) {
   const [completedOpen, setCompletedOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<TaskCategoryFilter>("all");
@@ -87,7 +91,7 @@ export function TasksFeature({
   }, [activeFilter, dailyOrderedTasks, categoryById]);
   const pendingOrderedTasks = useMemo(() => dailyOrderedTasks.filter((task) => task.status !== 2), [dailyOrderedTasks]);
   const dimensionTaskCounts = useMemo(() => {
-    const counts = new Map<DimensionKey, number>();
+    const counts = new Map<string, number>();
     for (const task of pendingOrderedTasks) {
       if (!task.categoryId) continue;
       const key = categoryById.get(task.categoryId)?.dimensionKey;
@@ -260,13 +264,13 @@ export function TasksFeature({
   }
 
   return (
-    <CreateTaskWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} projects={projects} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
+    <CreateTaskWorkflow key={userId} userId={userId} request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} projects={projects} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
       {(openCreate) => (
         <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} focusTaskIds={focusTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
           {(openSelector) => (
-            <EditTaskWorkflow request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
+            <EditTaskWorkflow key={userId} userId={userId} request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
               {(openEditor) => (
-                <CompleteTaskWorkflow request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
+                <CompleteTaskWorkflow activeTaskId={runningTimers[0]?.taskId} onCompleteAndFinish={onCompleteAndFinish} request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
                     <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
                       {children}
@@ -322,7 +326,7 @@ function CompletedTasksModal({ tasks, categories, rewardsByTaskId, onClose }: {
 
 function TaskDimensionTabs({ dimensions, active, allCount, uncategorizedCount, dimensionCounts, onChange }: {
   dimensions: ReadonlyArray<(typeof DIMENSIONS)[number]>; active: TaskCategoryFilter; allCount: number;
-  uncategorizedCount: number; dimensionCounts: Map<DimensionKey, number>; onChange: (value: TaskCategoryFilter) => void;
+  uncategorizedCount: number; dimensionCounts: Map<string, number>; onChange: (value: TaskCategoryFilter) => void;
 }) {
   return (
     <div className="task-tabs" aria-label={tx("能力维度筛选")}>
@@ -364,7 +368,7 @@ function TaskRow(props: {
         <span className="task-row-leading">
           <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title={tx("拖拽排序")}><GripVertical size={16} /></span>
           <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label={tx("重要标记")} onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
-          <label className="task-check-target"><input aria-label={tx("完成{value0}", { value0: props.task.title })} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
+          <label className="task-check-target"><input aria-label={props.activeTimer ? tx("完成悬赏并结束：{value0}", { value0: props.task.title }) : tx("完成{value0}", { value0: props.task.title })} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
         </span>
         <span className="task-row-copy">
           <span className="task-row-heading"><span className={`task-title ${props.task.status === 2 ? "text-soft line-through" : ""}`}>{props.task.title}</span><span className="task-row-desktop-meta"><span className="task-created-inline">{tx("创建")} {formatDateTime(props.task.createdAt)}</span>{props.category ? <CategoryTag category={props.category} /> : null}<Badge tone="warning">{difficultyLabel(props.task.difficulty)}</Badge></span></span>

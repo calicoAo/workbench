@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { db, type DatabaseClient } from "./db/index.js";
-import { growthDimensions, habitOccurrences, rewardEvents, taskCategories, taskCompletionEvents, tasks, userGrowth, users } from "./db/schema.js";
+import { growthDimensions, habitOccurrences, rewardEvents, taskCategories, userGrowth, users } from "./db/schema.js";
 import { HabitOccurrenceStatus } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 import { actualTimeForRange } from "./execution-read-model.js";
 import { growthSummary } from "./rewards.js";
 import { businessDateAt } from "./time.js";
+import { completionEventsForRange } from "./task-completion.js";
+import { growthContributions } from "./growth-contributions.js";
+export type { GrowthCategoryContribution, GrowthContributionMetrics, GrowthContributionTrend } from "./growth-contributions.js";
 
 export const DEFAULT_GROWTH_DIMENSIONS = [
   { dimensionKey: "career", name: "事业", iconKey: "briefcase", color: "#5B8DEF", sortOrder: 10 },
@@ -54,27 +57,22 @@ function periodStart(to: string, days: number) {
   return new Date(Date.UTC(year, month - 1, day - days + 1, 12)).toISOString().slice(0, 10);
 }
 
-export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, requestedTo?: string) {
+export async function growthPeriod(userId: number, days: 7 | 30 | 90, requestedTo?: string) {
   const [user] = await db.select({ timezone: users.timezone }).from(users).where(eq(users.id, userId));
   if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
   const to = requestedTo ?? businessDateAt(new Date(), user.timezone);
   const from = periodStart(to, days);
+  return { days, from, to, timezone: user.timezone };
+}
+
+export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, requestedTo?: string) {
+  const { from, to, timezone } = await growthPeriod(userId, days, requestedTo);
+  const user = { timezone };
   const [entries, config, growthRows, completionRows, habits, rewards] = await Promise.all([
     actualTimeForRange(userId, from, to, user.timezone),
     growthConfiguration(userId),
     db.select().from(userGrowth).where(eq(userGrowth.userId, userId)),
-    db.select({
-      id: taskCompletionEvents.id,
-      taskId: taskCompletionEvents.taskId,
-      categoryIdAtOccurrence: taskCompletionEvents.categoryIdAtOccurrence,
-      businessDate: taskCompletionEvents.businessDate,
-      lifecycleVersion: taskCompletionEvents.lifecycleVersion,
-      occurredAt: taskCompletionEvents.occurredAt,
-      title: tasks.title
-    }).from(taskCompletionEvents)
-      .innerJoin(tasks, and(eq(taskCompletionEvents.taskId, tasks.id), eq(taskCompletionEvents.userId, tasks.userId)))
-      .where(and(eq(taskCompletionEvents.userId, userId), gte(taskCompletionEvents.businessDate, from), lte(taskCompletionEvents.businessDate, to)))
-      .orderBy(desc(taskCompletionEvents.occurredAt)),
+    completionEventsForRange(userId, from, to),
     db.select({ id: habitOccurrences.id, occurrenceDate: habitOccurrences.occurrenceDate }).from(habitOccurrences).where(and(
       eq(habitOccurrences.userId, userId),
       eq(habitOccurrences.status, HabitOccurrenceStatus.COMPLETED),
@@ -86,31 +84,10 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
 
   const dimensionsByKey = new Map(config.dimensions.map((dimension) => [dimension.dimensionKey, dimension]));
   const categoriesById = new Map(config.categories.map((category) => [category.id, category]));
-  const totals = new Map<string, { seconds: number; completedTaskCount: number; lastActivityDate: string | null }>();
-  const unmapped = { seconds: 0, completedTaskCount: 0, lastActivityDate: null as string | null };
-  const bucket = (categoryId: number | null) => {
-    const category = categoryId ? categoriesById.get(categoryId) : undefined;
-    const key = category?.dimensionKey;
-    const dimension = key ? dimensionsByKey.get(key) : undefined;
-    return dimension?.enabled && key ? { key, value: totals.get(key) ?? { seconds: 0, completedTaskCount: 0, lastActivityDate: null } } : { key: null, value: unmapped };
-  };
-  for (const entry of entries) {
-    const target = bucket(entry.categoryIdAtOccurrence);
-    target.value.seconds += entry.durationSeconds;
-    target.value.lastActivityDate = !target.value.lastActivityDate || entry.businessDate > target.value.lastActivityDate ? entry.businessDate : target.value.lastActivityDate;
-    if (target.key) totals.set(target.key, target.value);
-  }
-  for (const event of completionRows) {
-    const target = bucket(event.categoryIdAtOccurrence);
-    target.value.completedTaskCount += 1;
-    target.value.lastActivityDate = !target.value.lastActivityDate || event.businessDate > target.value.lastActivityDate ? event.businessDate : target.value.lastActivityDate;
-    if (target.key) totals.set(target.key, target.value);
-  }
-  const mappedSeconds = [...totals.values()].reduce((sum, value) => sum + value.seconds, 0);
+  const contributions = growthContributions(entries, completionRows, config.categories, config.dimensions, { days, from, timezone: user.timezone });
   const rewardByTaskId = new Map(rewards.filter((reward) => reward.sourceType === "task").map((reward) => [reward.sourceId, reward]));
   const dimensions = config.dimensions.filter((dimension) => dimension.enabled).map((dimension) => {
-    const total = totals.get(dimension.dimensionKey) ?? { seconds: 0, completedTaskCount: 0, lastActivityDate: null };
-    const actualMinutes = Math.floor(total.seconds / 60);
+    const total = contributions.dimensions.get(dimension.dimensionKey)!;
     return {
       id: dimension.id,
       dimensionKey: dimension.dimensionKey,
@@ -118,40 +95,27 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       iconKey: dimension.iconKey,
       color: dimension.color,
       sortOrder: dimension.sortOrder,
-      actualMinutes,
-      share: mappedSeconds ? total.seconds / mappedSeconds : 0,
-      completedTaskCount: total.completedTaskCount,
-      lastActivityDate: total.lastActivityDate
-    };
-  });
-  const bucketDays = days === 7 ? 1 : days === 30 ? 5 : 10;
-  const trend = Array.from({ length: Math.ceil(days / bucketDays) }, (_, index) => {
-    const bucketFrom = addDate(from, index * bucketDays);
-    const bucketTo = addDate(from, Math.min(days - 1, (index + 1) * bucketDays - 1));
-    return {
-      from: bucketFrom,
-      to: bucketTo,
-      actualMinutes: Math.floor(entries.filter((entry) => entry.businessDate >= bucketFrom && entry.businessDate <= bucketTo).reduce((sum, entry) => sum + entry.durationSeconds, 0) / 60),
-      completedTaskCount: completionRows.filter((entry) => entry.businessDate >= bucketFrom && entry.businessDate <= bucketTo).length,
-      habitCompletedCount: habits.filter((entry) => String(entry.occurrenceDate).slice(0, 10) >= bucketFrom && String(entry.occurrenceDate).slice(0, 10) <= bucketTo).length
+      ...total,
+      completedTaskCount: total.completionEventCount,
+      share: contributions.summary.mappedActualSeconds ? total.actualSeconds / contributions.summary.mappedActualSeconds : 0
     };
   });
   return {
     period: { days, from, to, timezone: user.timezone },
     hero: growthSummary(growthRows[0] ?? { level: 1, xpTotal: 0, coins: 0 }),
     summary: {
-      actualMinutes: Math.floor((mappedSeconds + unmapped.seconds) / 60),
-      mappedActualMinutes: Math.floor(mappedSeconds / 60),
-      completedTaskCount: completionRows.length,
+      ...contributions.summary,
+      completedTaskCount: contributions.summary.completionEventCount,
       habitCompletedCount: habits.length
     },
     dimensions,
-    trend,
-    unmapped: {
-      actualMinutes: Math.floor(unmapped.seconds / 60),
-      completedTaskCount: unmapped.completedTaskCount,
-      lastActivityDate: unmapped.lastActivityDate
-    },
+    categoryBreakdown: contributions.categoryBreakdown,
+    trend: contributions.trend.map((bucket) => ({
+      ...bucket,
+      completedTaskCount: bucket.completionEventCount,
+      habitCompletedCount: habits.filter((entry) => String(entry.occurrenceDate).slice(0, 10) >= bucket.from && String(entry.occurrenceDate).slice(0, 10) <= bucket.to).length
+    })),
+    unmapped: { ...contributions.unmapped, completedTaskCount: contributions.unmapped.completionEventCount },
     recent: completionRows.slice(0, 8).map((event) => {
       const category = event.categoryIdAtOccurrence ? categoriesById.get(event.categoryIdAtOccurrence) : undefined;
       const dimension = category?.dimensionKey ? dimensionsByKey.get(category.dimensionKey) : undefined;
@@ -166,11 +130,6 @@ export async function growthOverview(userId: number, days: 7 | 30 | 90 = 30, req
       };
     })
   };
-}
-
-function addDate(date: string, days: number) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + days, 12)).toISOString().slice(0, 10);
 }
 
 export async function createGrowthDimension(userId: number, input: { name: string; iconKey?: string | null; color: string; sortOrder: number }) {
@@ -207,4 +166,10 @@ export async function updateCategoryGrowthMapping(userId: number, categoryId: nu
   if (!category) throw new BusinessError(ErrorCode.NOT_FOUND, "category not found", 404);
   await db.update(taskCategories).set({ dimensionKey, updatedAt: new Date() }).where(and(eq(taskCategories.id, categoryId), eq(taskCategories.userId, userId)));
   return { id: categoryId, dimensionKey };
+}
+
+/** Validate a stored Category identity without disclosing foreign metadata. Missing historic IDs are attested by own facts. */
+export async function rejectForeignGrowthCategory(userId: number, categoryId: number) {
+  const [row] = await db.select({ userId: taskCategories.userId }).from(taskCategories).where(eq(taskCategories.id, categoryId));
+  if (row && row.userId !== userId) throw new BusinessError(ErrorCode.NOT_FOUND, "category contribution not found", 404);
 }

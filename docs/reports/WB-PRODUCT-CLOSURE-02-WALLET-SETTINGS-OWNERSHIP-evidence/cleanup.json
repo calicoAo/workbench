@@ -1,0 +1,18 @@
+{
+  "result": "PASS",
+  "droppedDatabase": "workbench_wallet_settings_1791715785061_test",
+  "remainingDatabases": [
+    "information_schema",
+    "mysql",
+    "performance_schema",
+    "sys"
+  ],
+  "developmentProductionDataTouched": false,
+  "qaPortsClosed": {
+    "3014": true,
+    "5184": true,
+    "9334": true,
+    "33307": true
+  },
+  "temporaryDatabaseFilesBrowserProfileAndUploadPayloadsRemoved": true
+}

@@ -1,0 +1,46 @@
+{
+  "entrypoints": [
+    {
+      "path": "apps/web/src/features/finance/index.tsx",
+      "warnLines": 400
+    },
+    {
+      "path": "apps/web/src/features/settings/index.tsx",
+      "warnLines": 800
+    }
+  ],
+  "boundaryRules": [
+    {
+      "name": "settings-does-not-own-finance-presentation",
+      "from": [
+        "apps/web/src/features/settings/**"
+      ],
+      "denyImports": [
+        "apps/web/src/features/finance",
+        "apps/web/src/features/finance/**"
+      ],
+      "severity": "error"
+    },
+    {
+      "name": "shell-uses-finance-public-surface",
+      "from": [
+        "apps/web/src/app/shell/**"
+      ],
+      "denyImports": [
+        "apps/web/src/features/finance/**"
+      ],
+      "severity": "error"
+    },
+    {
+      "name": "finance-maintenance-has-no-settings-owner-dependency",
+      "from": [
+        "apps/web/src/features/finance/**"
+      ],
+      "denyImports": [
+        "apps/web/src/features/settings",
+        "apps/web/src/features/settings/**"
+      ],
+      "severity": "error"
+    }
+  ]
+}

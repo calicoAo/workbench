@@ -190,3 +190,17 @@ function timeSeconds(value: string) {
   const [hours, minutes, seconds = 0] = value.split(":").map(Number);
   return hours * 3600 + minutes * 60 + seconds;
 }
+
+/** Full source intervals for bounded analytical detail pages; projections never replace these bounds. */
+export async function actualTimeSourceBounds(userId: number, references: { source: ActualTimeEntry["source"]; sourceId: number }[]) {
+  const segmentIds = references.filter((r) => r.source === "TIMER_SEGMENT").map((r) => r.sourceId);
+  const scheduleIds = references.filter((r) => r.source !== "TIMER_SEGMENT").map((r) => r.sourceId);
+  const [segments, actuals] = await Promise.all([
+    segmentIds.length ? db.select({ id: timerSegments.id, startedAt: timerSegments.startedAt, endedAt: timerSegments.endedAt }).from(timerSegments).where(and(eq(timerSegments.userId, userId), inArray(timerSegments.id, segmentIds), eq(timerSegments.status, TimerSegmentStatus.CLOSED), isNull(timerSegments.deletedAt))) : [],
+    scheduleIds.length ? db.select({ id: schedules.id, startedAt: schedules.actualStartedAt, endedAt: schedules.actualEndedAt }).from(schedules).where(and(eq(schedules.userId, userId), inArray(schedules.id, scheduleIds), isNull(schedules.deletedAt))) : []
+  ]);
+  return new Map(references.flatMap((reference) => {
+    const row = (reference.source === "TIMER_SEGMENT" ? segments : actuals).find((r) => r.id === reference.sourceId);
+    return row?.startedAt && row.endedAt ? [[`${reference.source}:${reference.sourceId}`, { startedAt: parseUtcDateTime(row.startedAt), endedAt: parseUtcDateTime(row.endedAt) }] as const] : [];
+  }));
+}

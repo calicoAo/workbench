@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type ReactNode } from "react";
-import { MemoryRouter, useNavigate } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../api";
 import type { FeedbackActions } from "../feedback";
@@ -49,7 +49,8 @@ function renderShell(path: string, request = requestFor(), currentSession = sess
 
 function HistoryDriver() {
   const navigate = useNavigate();
-  return <><button type="button" onClick={() => navigate(-1)}>test-back</button><button type="button" onClick={() => navigate(1)}>test-forward</button></>;
+  const location = useLocation();
+  return <><output data-testid="test-location">{location.pathname}{location.search}</output><button type="button" onClick={() => navigate(-1)}>test-back</button><button type="button" onClick={() => navigate(1)}>test-forward</button></>;
 }
 
 function renderHistoryShell(request = requestFor()) {
@@ -295,6 +296,53 @@ describe("R1C router and AppShell", () => {
     expect(screen.getByRole("button", { name: "打开快捷操作" })).toBeTruthy();
   });
 
+  it("hides the mobile FAB only on Wallet maintenance and supplies the session timezone", async () => {
+    const fallback = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/finance/imports/external/preview") return { id: 1, rows: [] };
+      if (path.includes("/finance/accounts") || path.includes("/finance/categories")) return [];
+      if (path.includes("/finance/overview")) return { currency: "CNY", month: "2026-09", totalAssetsCents: "0", totalLiabilitiesCents: "0", netWorthCents: "0", monthlyIncomeCents: "0", monthlyExpenseCents: "0", accountCount: 0, accounts: [], recentTransactions: [], categoryExpenses: [] };
+      return fallback(path, init);
+    }) as Request;
+    const maintenance = renderShell("/finance?tab=maintenance&date=2026-09-19", request, { ...session, user: { ...session.user, timezone: "Asia/Tokyo" } });
+    const input = await screen.findByLabelText("导入外部流水 CSV");
+    expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(true);
+    fireEvent.change(input, { target: { files: [{ name: "timezone.csv", text: async () => "date,amount" }] } });
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/imports/external/preview", expect.objectContaining({ body: expect.stringContaining('"timezone":"Asia/Tokyo"') })));
+    maintenance.unmount();
+    renderShell("/finance?tab=accounts&date=2026-09-19", request);
+    await screen.findByRole("heading", { name: "资产账户" });
+    expect(document.querySelector(".quick-add-wrap")?.classList.contains("is-mobile-hidden")).toBe(false);
+  });
+
+
+  it.each([
+    ["/settings?topic=wallet&date=2026-09-19&format=csv&tab=maintenance", "/finance?date=2026-09-19"],
+    ["/settings?topic=wallet&date=invalid&format=csv", "/finance"],
+    ["/settings?topic=wallet&date=2026-02-30&format=csv", "/finance"],
+    ["/settings?topic=wallet&date=2026-99-99&format=csv", "/finance"],
+    ["/settings?topic=wallet", "/finance"],
+  ])("replaces legacy Wallet link %s without leaking Settings parameters", async (legacy, target) => {
+    vi.useFakeTimers({ now: new Date("2026-10-11T10:00:00Z"), shouldAdvanceTime: true });
+    const fallback = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path.includes("/finance/accounts") || path.includes("/finance/categories")) return [];
+      if (path.includes("/finance/overview")) return { currency: "CNY", month: "2026-09", totalAssetsCents: "0", totalLiabilitiesCents: "0", netWorthCents: "0", monthlyIncomeCents: "0", monthlyExpenseCents: "0", accountCount: 0, accounts: [], recentTransactions: [], categoryExpenses: [] };
+      return fallback(path, init);
+    }) as Request;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data&date=2026-09-18", legacy]} initialIndex={1}><HistoryDriver /><WorkspaceRouter request={request} session={session} feedback={feedback} /></MemoryRouter></QueryClientProvider>);
+    await waitFor(() => expect(screen.getByTestId("test-location").textContent).toBe(target === "/finance" ? "/finance?date=2026-10-11" : target));
+    await screen.findByRole("heading", { name: "最近流水" });
+    fireEvent.click(screen.getByRole("button", { name: "test-back" }));
+    await screen.findByRole("heading", { name: "工作台数据导出" });
+    expect(screen.getByTestId("test-location").textContent).toBe("/settings?topic=data&date=2026-09-18");
+    fireEvent.click(screen.getByRole("button", { name: "test-forward" }));
+    await waitFor(() => expect(screen.getByTestId("test-location").textContent).toBe(target === "/finance" ? "/finance?date=2026-10-11" : target));
+    await screen.findByRole("heading", { name: "最近流水" });
+    expect(screen.queryByRole("button", { name: "打开钱包" })).toBeNull();
+  });
+
   it("uses major modules in desktop and mobile navigation", async () => {
     renderShell("/growth?date=2026-09-19");
     expect(await screen.findByRole("heading", { name: "我的成长" })).toBeTruthy();
@@ -425,4 +473,64 @@ describe("R1C router and AppShell", () => {
     fireEvent.change(screen.getByLabelText("工作日期"), { target: { value: "2026-09-20" } });
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   });
+});
+
+for (const status of [0, 1]) {
+  for (const surface of ["today", "tasks", "tasks/11"]) {
+    it(`${surface} completes the ${status === 0 ? "RUNNING" : "PAUSED"} current Task through the single Timer command`, async () => {
+      const fallback = requestFor(true);
+      const request = vi.fn(async (path: string, init?: RequestInit) => {
+        if (path === "/api/tasks") return [{ ...task, status: 1, version: 2 }];
+        if (path === "/api/timer-sessions/current") return { ...current, status, segments: [{ ...current.segments[0], status: status === 0 ? 0 : 1, endedAt: status === 0 ? null : "2026-09-19 09:27:00" }] };
+        return fallback(path, init);
+      }) as unknown as Request;
+      renderShell(`/${surface}?date=2026-09-19`, request);
+      if (surface === "today") fireEvent.click(await screen.findByRole("checkbox", { name: "完成悬赏并结束：R1C integration" }));
+      else if (surface === "tasks") {
+        await screen.findByRole("heading", { name: "任务", level: 1 });
+        fireEvent.click(await screen.findByLabelText(`更多操作：${task.title}`));
+        fireEvent.click(screen.getByRole("button", { name: "完成悬赏并结束" }));
+      } else {
+        await screen.findByRole("heading", { name: task.title });
+        fireEvent.click(within(document.querySelector(".task-detail-actions") as HTMLElement).getByRole("button", { name: "完成悬赏并结束" }));
+      }
+      if (surface !== "tasks/11") {
+        fireEvent.change(screen.getByLabelText("完成感想"), { target: { value: "completion outcome" } });
+        expect(screen.queryByText("同时补录实际投入")).toBeNull();
+        fireEvent.submit(document.querySelector(".time-modal")!);
+      }
+      await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path, init]) => path === "/api/timer-sessions/5/finish" && init?.method === "PUT")).toBe(true));
+      const mutations = (request as ReturnType<typeof vi.fn>).mock.calls.filter(([, init]) => init?.method === "PUT");
+      expect(mutations).toHaveLength(1);
+      expect(JSON.parse(String(mutations[0][1].body))).toMatchObject({ completeTask: true, expectedVersion: 1, expectedTaskVersion: 2 });
+      if (surface !== "tasks/11") expect(JSON.parse(String(mutations[0][1].body)).completionNote).toBe("completion outcome");
+      expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/tasks/11/complete")).toBe(false);
+    });
+  }
+}
+
+it("while A is active, unrelated B keeps the standalone completion interaction", async () => {
+  const fallback = requestFor(true);
+  const request = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === "/api/tasks") return [{ ...task, status: 1, version: 2 }, { ...task, id: 12, title: "unrelated B" }];
+    if (path.startsWith("/api/task-days?")) return { taskDate: "2026-09-19", taskIds: [11, 12] };
+    return fallback(path, init);
+  }) as unknown as Request;
+  renderShell("/today?date=2026-09-19", request);
+  fireEvent.click(await screen.findByRole("checkbox", { name: "完成unrelated B" }));
+  expect(screen.getByText("同时补录实际投入")).toBeTruthy();
+  fireEvent.submit(document.querySelector(".time-modal")!);
+  await waitFor(() => expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/tasks/12/complete")).toBe(true));
+  expect((request as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path === "/api/timer-sessions/5/finish")).toBe(false);
+});
+
+it("Growth date picker preserves section, period, dimension, Category and Task URL context", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/growth?date=2026-09-19&view=categories&period=7&dimension=career&category=category%3A1&task=task%3A11&cursor=old"]}><HistoryDriver /><WorkspaceRouter request={requestFor()} session={session} feedback={feedback} /></MemoryRouter></QueryClientProvider>);
+  await screen.findByRole("heading", { name: "我的成长" });
+  fireEvent.change(screen.getByLabelText("工作日期"), { target: { value: "2026-09-20" } });
+  await waitFor(() => expect(screen.getByTestId("test-location").textContent).toContain("date=2026-09-20"));
+  const url = screen.getByTestId("test-location").textContent!;
+  for (const expected of ["view=categories", "period=7", "dimension=career", "category=category%3A1", "task=task%3A11"]) expect(url).toContain(expected);
+  expect(url).not.toContain("cursor=");
 });

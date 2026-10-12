@@ -1,0 +1,38 @@
+{
+  "result": "PASS",
+  "task": "BOUNTY-PROJECT-QUICK-MANAGER",
+  "databasesBefore": [
+    "information_schema",
+    "mysql",
+    "performance_schema",
+    "sys",
+    "workbench_bounty_project_browser_test"
+  ],
+  "databasesAfter": [
+    "information_schema",
+    "mysql",
+    "performance_schema",
+    "sys"
+  ],
+  "dropped": [
+    "workbench_bounty_project_browser_test"
+  ],
+  "temporaryServicesStopped": [
+    "api",
+    "web",
+    "chrome",
+    "mysql"
+  ],
+  "portsClosed": {
+    "3015": true,
+    "5185": true,
+    "9335": true,
+    "33307": true
+  },
+  "removedTaskDirectories": [
+    "data",
+    "chrome-profile"
+  ],
+  "developmentAndProductionUntouched": true,
+  "logsRetained": "/var/folders/m0/37pdwrrs46zdw8mj8f49q4vc0000gn/T/workbench-bounty-project-a0zbu5ee"
+}

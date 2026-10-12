@@ -1,0 +1,37 @@
+{
+  "result": "PASS",
+  "mysqlVersion": "8.0.25",
+  "port": 33307,
+  "migrations": 42,
+  "migrationHead": "V41",
+  "apiTests": {
+    "pass": 14,
+    "fail": 0,
+    "skip": 0
+  },
+  "webTests": {
+    "files": 6,
+    "pass": 49
+  },
+  "testSourceTypecheck": "PASS",
+  "webTypecheckAndLint": "PASS",
+  "architectureChecker": {
+    "errors": 0,
+    "warnings": 0,
+    "configuration": "defaults only"
+  },
+  "reuseBrowserEvidence": true,
+  "newBrowserRun": false,
+  "databaseSetupRetry": "Legacy R2A requires a pre-migrated source schema; created and migrated dedicated _test database, reran all 14 tests successfully.",
+  "remainingDatabasesBeforeShutdown": [
+    "information_schema",
+    "mysql",
+    "performance_schema",
+    "sys"
+  ],
+  "disposableSchemasDropped": true,
+  "temporaryMysqlStopped": true,
+  "portClosed": true,
+  "datadirRemoved": true,
+  "logsDirectory": "/var/folders/m0/37pdwrrs46zdw8mj8f49q4vc0000gn/T/workbench-bounty-final-r1ysqgqi"
+}

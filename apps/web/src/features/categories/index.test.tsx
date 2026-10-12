@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -76,7 +77,7 @@ describe("CategorySettings workflow ownership", () => {
     { id: 8, name: "写作", dimensionKey: "creative", color: "#FF8FA3", targetMinutes: 6000, enabled: 1 },
   ];
   function settings(overrides: Partial<ComponentProps<typeof CategorySettings>> = {}) {
-    return <CategorySettings request={overrides.request ?? (vi.fn(async () => ({})) as Props["request"])} categories={overrides.categories ?? settingsCategories} onError={overrides.onError ?? vi.fn()} onChanged={overrides.onChanged ?? vi.fn()} />;
+    return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><CategorySettings userId={1} request={async (path, init) => path === "/api/growth/dimensions" ? { dimensions: [], categories: [] } as never : (overrides.request ?? (vi.fn(async () => ({})) as Props["request"]))(path, init)} categories={overrides.categories ?? settingsCategories} onError={overrides.onError ?? vi.fn()} onChanged={overrides.onChanged ?? vi.fn()} /></QueryClientProvider>;
   }
 
   it("resets the draft when switching categories", () => {
@@ -104,8 +105,8 @@ describe("CategorySettings workflow ownership", () => {
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
 
     expect(requestMock.mock.calls.map(([path, init]) => [path, JSON.parse(String(init?.body))])).toEqual([
-      ["/api/task-categories/7", { name: "工程", color: "#5B8DEF", dimensionKey: "career", targetMinutes: 6000, enabled: true }],
-      ["/api/task-categories/8", { name: "创作", color: "#FF8FA3", dimensionKey: "creative", targetMinutes: 6000, enabled: true }],
+      ["/api/task-categories/7", { name: "工程", color: "#5B8DEF", dimensionKey: "career", enabled: true }],
+      ["/api/task-categories/8", { name: "创作", color: "#FF8FA3", dimensionKey: "creative", enabled: true }],
     ]);
   });
 
@@ -119,5 +120,25 @@ describe("CategorySettings workflow ownership", () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith("保存失败", "分类没有更新"));
     expect((screen.getByLabelText("分类名称") as HTMLInputElement).value).toBe("未保存");
     expect(screen.getByRole("heading", { name: "编辑分类" })).toBeTruthy();
+  });
+
+  it("preserves backdrop dismissal while preventing dismissal during a save", async () => {
+    let rejectSave: ((error: Error) => void) | undefined;
+    const request = vi.fn(() => new Promise((_, reject) => { rejectSave = reject; })) as Props["request"];
+    render(settings({ request }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑分类 编程" }));
+    fireEvent.mouseDown(screen.getByLabelText("分类名称"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.mouseDown(document.querySelector(".modal-backdrop")!);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑分类 编程" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存分类" }));
+    fireEvent.mouseDown(document.querySelector(".modal-backdrop")!);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    rejectSave?.(new Error("保存失败"));
+    await screen.findByRole("alert");
+    fireEvent.mouseDown(document.querySelector(".modal-backdrop")!);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

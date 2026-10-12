@@ -387,7 +387,7 @@ export async function financeOverviewForUser(userId: number, month?: string) {
   const allAccounts = await financeAccountsForUser(userId, "all");
   let totalAssets = 0n, totalLiabilities = 0n, netWorth = 0n;
   for (const account of allAccounts) {
-    if (!account.includeInOverview) continue;
+    if (account.archivedAt !== null || !account.includeInOverview) continue;
     const balance = BigInt(account.balanceCents);
     netWorth += balance;
     if (account.type === "CREDIT") {
@@ -406,7 +406,7 @@ export async function financeOverviewForUser(userId: number, month?: string) {
     accountCount: allAccounts.filter((account) => !account.archivedAt).length, accounts: allAccounts, recentTransactions: recent.items,
     budgetSummary: budgetRows.length ? { limitCents: budgetRows.reduce((sum, row) => sum + BigInt(row.limitCents), 0n).toString(), spentCents: monthly.expense.toString(), remainingCents: (budgetRows.reduce((sum, row) => sum + BigInt(row.limitCents), 0n) - monthly.expense).toString() } : null,
     pendingRecurringSummary: { count: pendingRows.length },
-    rules: { assets: "CASH/BANK/PAYMENT signed balances plus positive CREDIT balances", liabilities: "absolute value of negative CREDIT balances", netWorth: "sum of all included signed account balances" }
+    rules: { assets: "included active CASH/BANK/PAYMENT signed balances plus positive CREDIT balances", liabilities: "absolute value of negative CREDIT balances on included active accounts", netWorth: "sum of signed balances on unarchived accounts included in overview" }
   };
 }
 

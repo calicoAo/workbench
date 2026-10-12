@@ -4,6 +4,7 @@ import type { Request } from "../../app/api";
 import { Button, IconButton } from "../../shared/ui";
 import {
   accountTypeLabel,
+  accountBalanceLabel,
   decimalToCents,
   type FinanceAccount,
   type FinanceAccountType,
@@ -17,6 +18,7 @@ export function AccountDialog({
   onClose,
   onSaved,
   onError,
+  hidden,
 }: {
   account: FinanceAccount | null;
   date: string;
@@ -24,6 +26,7 @@ export function AccountDialog({
   onClose: () => void;
   onSaved: () => Promise<void>;
   onError: (message: string, title?: string) => void;
+  hidden: boolean;
 }) {
   const [draft, setDraft] = useState({
     name: "",
@@ -47,6 +50,14 @@ export function AccountDialog({
     event.preventDefault();
     setPending(true);
     try {
+      let openingBalanceCents = "0";
+      if (!account) {
+        openingBalanceCents = decimalToCents(draft.openingBalance);
+        if (draft.type === "CREDIT") {
+          if (BigInt(openingBalanceCents) < 0n) throw new Error(tx("请输入非负的欠款金额"));
+          openingBalanceCents = (-BigInt(openingBalanceCents)).toString();
+        }
+      }
       await request(
         account
           ? `/api/finance/accounts/${account.id}`
@@ -66,7 +77,7 @@ export function AccountDialog({
                   type: draft.type,
                   currency: "CNY",
                   openingDate: draft.openingDate,
-                  openingBalanceCents: decimalToCents(draft.openingBalance),
+                  openingBalanceCents,
                   includeInOverview: draft.includeInOverview,
                 },
           ),
@@ -122,6 +133,7 @@ export function AccountDialog({
             required
             className="field"
             maxLength={120}
+            placeholder={draft.type === "CREDIT" ? tx("例如：信用卡、个人借款") : undefined}
             value={draft.name}
             onChange={(event) =>
               setDraft({ ...draft, name: event.target.value })
@@ -137,6 +149,7 @@ export function AccountDialog({
                 setDraft({
                   ...draft,
                   type: event.target.value as FinanceAccountType,
+                  openingBalance: "0.00",
                 })
               }
             >
@@ -162,20 +175,21 @@ export function AccountDialog({
                 }
               />
             </label>
-            <label>{tx("期初余额（元）")}<input
+            <label>{draft.type === "CREDIT" ? tx("当前欠款（元）") : tx("期初余额（元）")}<input
                 required
                 className="field"
                 inputMode="decimal"
-                aria-label={tx("期初余额")}
+                aria-label={draft.type === "CREDIT" ? tx("当前欠款") : tx("期初余额")}
                 value={draft.openingBalance}
                 onChange={(event) =>
                   setDraft({ ...draft, openingBalance: event.target.value })
                 }
               />
-              <small>{tx("期初只在创建时写入；后续更正将在下一阶段提供。")}</small>
+              <small>{draft.type === "CREDIT" ? tx("输入当前欠款金额即可，无需填写负数。") : tx("期初只在创建时写入；后续更正将在下一阶段提供。")}</small>
             </label>
           </div>
         ) : null}
+        {account ? <p className="finance-account-current-balance">{tx("当前余额")}：<strong>{accountBalanceLabel(account, hidden)}</strong></p> : null}
         <label className="finance-check">
           <input
             type="checkbox"
@@ -184,6 +198,9 @@ export function AccountDialog({
               setDraft({ ...draft, includeInOverview: event.target.checked })
             }
           />{tx("计入总览净值")}</label>
+        {account ? (
+          <p className="settings-note">{tx("归档后，该账户余额不再计入当前概览统计，但历史记录仍会保留。")}</p>
+        ) : null}
         <footer>
           {account ? (
             <Button

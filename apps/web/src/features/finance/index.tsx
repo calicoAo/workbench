@@ -1,3 +1,4 @@
+import { FinanceDataMaintenance } from "./maintenance";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownCircle, ArrowLeftRight, ArrowUpCircle, Eye, EyeOff, Landmark } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,12 +23,11 @@ import {
 } from "./model";
 import { RecordDialog } from "./record-dialog";
 import { Reports } from "./reports";
-import { TransferDialog } from "./transfer-dialog";
+import { TransferDialog, type TransferIntent } from "./transfer-dialog";
 import { Transactions } from "./transactions";
 import { financeErrorMessage } from "./error";
 import { tx } from "../../app/i18n";
 
-export { yuan } from "./model";
 
 type Tab =
   | "overview"
@@ -35,18 +35,21 @@ type Tab =
   | "transactions"
   | "budgets"
   | "recurring"
-  | "reports";
+  | "reports"
+  | "maintenance";
 
 export function FinancePage({
   request,
   userId,
   date,
+  timezone,
   initialAction,
   onError,
 }: {
   request: Request;
   userId: number;
   date: string;
+  timezone: string;
   initialAction?: "income" | "expense" | "transfer";
   onError: (message: string, title?: string) => void;
 }) {
@@ -60,6 +63,7 @@ export function FinancePage({
       "budgets",
       "recurring",
       "reports",
+      "maintenance",
     ].includes(params.get("tab") ?? "")
       ? params.get("tab")
       : "overview"
@@ -110,8 +114,8 @@ export function FinancePage({
   const [accountEditor, setAccountEditor] = useState<
     FinanceAccount | "new" | null
   >(null);
-  const [transferOpen, setTransferOpen] = useState(
-    initialAction === "transfer",
+  const [transferAction, setTransferAction] = useState<{ intent: TransferIntent; accountId?: number } | null>(
+    initialAction === "transfer" ? { intent: "transfer" } : null,
   );
   const [recordKind, setRecordKind] = useState<FinanceCategoryKind | null>(
     initialAction === "expense"
@@ -131,7 +135,7 @@ export function FinancePage({
           ? "INCOME"
           : null,
     );
-    setTransferOpen(initialAction === "transfer");
+    setTransferAction(initialAction === "transfer" ? { intent: "transfer" } : null);
   }, [initialAction]);
   function chooseTab(next: Tab) {
     const values = new URLSearchParams(params);
@@ -152,7 +156,10 @@ export function FinancePage({
       }),
       queryClient.invalidateQueries({ queryKey: ["finance-budgets", userId] }),
       queryClient.invalidateQueries({
-        queryKey: ["finance-recurring", userId],
+        queryKey: ["finance-recurring-templates", userId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["finance-recurring-occurrences", userId],
       }),
       queryClient.invalidateQueries({ queryKey: ["finance-reports", userId] }),
     ]);
@@ -193,7 +200,7 @@ export function FinancePage({
           </IconButton>
           <Button onClick={() => setRecordKind("INCOME")}>
             <ArrowUpCircle size={16} />{tx("记收入")}</Button>
-          <Button onClick={() => setTransferOpen(true)}>
+          <Button onClick={() => setTransferAction({ intent: "transfer" })}>
             <ArrowLeftRight size={16} />{tx("转账")}</Button>
           <Button variant="primary" onClick={() => setRecordKind("EXPENSE")}>
             <ArrowDownCircle size={16} />{tx("记支出")}</Button>
@@ -224,9 +231,10 @@ export function FinancePage({
           className={tab === "reports" ? "is-active" : ""}
           onClick={() => chooseTab("reports")}
         >{tx("报表")}</button>
+        <button className={tab === "maintenance" ? "is-active" : ""} onClick={() => chooseTab("maintenance")}>{tx("数据维护")}</button>
       </nav>
       {loading ? <p className="route-state">{tx("正在读取账本...")}</p> : null}
-      {!loading && !categories.data?.length ? (
+      {tab !== "maintenance" && !loading && !categories.data?.length ? (
         <section className="finance-onboarding">
           <Landmark size={30} />
           <div>
@@ -236,6 +244,11 @@ export function FinancePage({
           <Button variant="primary" onClick={() => void initialize()}>{tx("初始化财务分类")}</Button>
         </section>
       ) : null}
+      {tab === "maintenance" ? <section aria-label={tx("数据维护")}>
+        <h2>{tx("数据维护")}</h2>
+        <p className="settings-note">{tx("财务导出包含敏感数据，只在你主动确认后生成。")}</p>
+        <FinanceDataMaintenance key={userId} request={request} timezone={timezone} onChanged={refresh} onError={onError} />
+      </section> : null}
       {tab === "overview" && overview.data ? (
         <Overview
           data={overview.data}
@@ -251,6 +264,7 @@ export function FinancePage({
           request={request}
           onCreate={() => setAccountEditor("new")}
           onEdit={setAccountEditor}
+          onTransfer={(intent, account) => setTransferAction({ intent, accountId: account.id })}
           onChanged={refresh}
           onError={onError}
         />
@@ -297,6 +311,7 @@ export function FinancePage({
         <AccountDialog
           account={accountEditor === "new" ? null : accountEditor}
           date={date}
+          hidden={hidden}
           request={request}
           onClose={() => setAccountEditor(null)}
           onSaved={refresh}
@@ -315,13 +330,16 @@ export function FinancePage({
           onError={onError}
         />
       ) : null}
-      {transferOpen && !loading ? (
+      {transferAction && !loading ? (
         <TransferDialog
+          initialIntent={transferAction.intent}
+          initialAccountId={transferAction.accountId}
+          hidden={hidden}
           date={date}
           request={request}
           accounts={accounts.data ?? []}
           categories={categories.data ?? []}
-          onClose={() => setTransferOpen(false)}
+          onClose={() => setTransferAction(null)}
           onSaved={refresh}
           onError={onError}
         />

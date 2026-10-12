@@ -2,6 +2,7 @@
 
 import { type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TaskDetailPage, TasksFeature, TasksPanel, type TaskDetailPayload } from ".";
@@ -41,7 +42,8 @@ const taskB = { ...task, id: 2, title: "任务 B", sortOrder: 2 };
 
 function feature(overrides: Partial<Props> = {}) {
   return (
-    <TasksFeature
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><TasksFeature
+      userId={1}
       request={overrides.request ?? (vi.fn(async () => ({})) as Props["request"])}
       selectedDate={overrides.selectedDate ?? "2026-09-18"}
       loading={overrides.loading ?? false}
@@ -56,9 +58,10 @@ function feature(overrides: Partial<Props> = {}) {
       onChanged={overrides.onChanged ?? vi.fn()}
       onReward={overrides.onReward ?? vi.fn()}
       onStartTimer={overrides.onStartTimer ?? vi.fn()}
+      onCompleteAndFinish={overrides.onCompleteAndFinish}
     >
       <TasksPanel />
-    </TasksFeature>
+    </TasksFeature></QueryClientProvider>
   );
 }
 
@@ -120,8 +123,8 @@ describe("TasksFeature ownership", () => {
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(screen.queryByLabelText("任务标题")).toBeNull();
-    expect(requestMock.mock.calls[0][0]).toBe("/api/tasks");
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({ title: "新任务", categoryId: category.id });
+    const publishCall = requestMock.mock.calls.find(([path]) => path === "/api/tasks")!;
+    expect(JSON.parse(String(publishCall[1]?.body))).toMatchObject({ title: "新任务", categoryId: category.id });
   });
 
   it("initializes daily selection when opened and does not overwrite the active selection on refresh", () => {

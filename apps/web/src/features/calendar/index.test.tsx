@@ -38,6 +38,31 @@ function openEditor() {
 }
 
 describe("CalendarFeature workflow ownership", () => {
+  it("uses current Category colors when a Schedule color snapshot is stale", () => {
+    const view = render(feature());
+    const block = () => screen.getByText("实际投入").closest<HTMLElement>(".timeline-block")!;
+    expect(block().style.borderColor).toBe("rgb(91, 141, 239)");
+
+    view.rerender(feature({ categories: [{ ...categories[0], color: "#EC4899" }] }));
+    expect(block().style.borderColor).toBe("rgb(236, 72, 153)");
+    expect(screen.getByText("后续安排").closest<HTMLElement>(".timeline-block")!.style.borderColor).toBe("rgb(236, 72, 153)");
+  });
+
+  it("resolves each block by its own category and preserves marker/unavailable-category colors", () => {
+    const sample = [
+      { ...items[0], source: 1, title: "计时分类", timerSessionId: 45 },
+      { ...items[1], categoryId: 8, title: "另一分类" },
+      { ...items[0], id: 3, categoryId: 99, title: "不可用分类", startTime: "13:00:00", endTime: "14:00:00", color: "#64748B" },
+      { ...items[0], id: -2, title: "睡眠标记", marker: "sleep" as const, startTime: "01:00:00", endTime: "02:00:00", color: "#7EC8E3" },
+      items[2]
+    ];
+    render(feature({ items: sample, categories: [...categories, { ...categories[0], id: 8, color: "#F59E0B" }] }));
+    for (const [title, color] of [["计时分类", "rgb(91, 141, 239)"], ["另一分类", "rgb(245, 158, 11)"], ["不可用分类", "rgb(100, 116, 139)"], ["睡眠标记", "rgb(126, 200, 227)"]]) {
+      expect(screen.getByText(title).closest<HTMLElement>(".timeline-block")!.style.borderColor).toBe(color);
+    }
+    expect(document.querySelectorAll(".timeline-point-water")).toHaveLength(1);
+  });
+
   it("does not expose Timer projections as Calendar-owned deletes", () => {
     render(feature({ items: [{ ...items[0], source: 1, actualTimeClass: 3, timerSessionId: 45, sessionNote: null }] }));
     expect(screen.queryByRole("button", { name: "删除时间记录" })).toBeNull();

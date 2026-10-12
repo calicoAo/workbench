@@ -1,0 +1,989 @@
+{
+  "result": "PASS",
+  "fixtures": {
+    "x": {
+      "id": 14,
+      "dimensionKey": "custom_b4ec43fd27344ed9ac",
+      "version": 1
+    },
+    "y": {
+      "id": 15,
+      "dimensionKey": "custom_c0c5eeca494a4640a9",
+      "version": 1
+    },
+    "a": {
+      "id": 11,
+      "userId": 2,
+      "name": "Agent Engineering A",
+      "color": "#5B8DEF",
+      "icon": "original-icon",
+      "dimensionKey": "custom_b4ec43fd27344ed9ac",
+      "targetMinutes": 12345,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-12T04:55:13.000Z",
+      "updatedAt": "2026-10-12T04:55:13.000Z",
+      "deletedAt": null
+    },
+    "b": {
+      "id": 12,
+      "userId": 2,
+      "name": "Guide Study B",
+      "color": "#B28DFF",
+      "icon": null,
+      "dimensionKey": "custom_b4ec43fd27344ed9ac",
+      "targetMinutes": 6000,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-12T04:55:13.000Z",
+      "updatedAt": "2026-10-12T04:55:13.000Z",
+      "deletedAt": null
+    },
+    "c": {
+      "id": 13,
+      "userId": 2,
+      "name": "Unmapped C",
+      "color": "#64748B",
+      "icon": null,
+      "dimensionKey": null,
+      "targetMinutes": 6000,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-12T04:55:13.000Z",
+      "updatedAt": "2026-10-12T04:55:13.000Z",
+      "deletedAt": null
+    },
+    "aWork": {
+      "taskId": 1,
+      "sessionId": 1,
+      "segmentIds": [
+        1,
+        2
+      ]
+    },
+    "bWork": {
+      "taskId": 2,
+      "sessionId": 2,
+      "segmentIds": [
+        3
+      ]
+    },
+    "cWork": {
+      "taskId": 3,
+      "sessionId": 3,
+      "segmentIds": [
+        4
+      ]
+    },
+    "preparation": "Authenticated commands; SQL retimes disposable positive elapsed-time fixtures only."
+  },
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 1031.90625,
+          "right": 1097.8125,
+          "height": 29.25
+        },
+        {
+          "label": "30 天",
+          "left": 1101.0625,
+          "right": 1174.484375,
+          "height": 29.25
+        },
+        {
+          "label": "90 天",
+          "left": 1177.734375,
+          "right": 1251,
+          "height": 29.25
+        },
+        {
+          "label": "总览",
+          "left": 326.75,
+          "right": 393.75,
+          "height": 29.25
+        },
+        {
+          "label": "全部分类",
+          "left": 397,
+          "right": 483.5,
+          "height": 29.25
+        },
+        {
+          "label": "配置",
+          "left": 486.75,
+          "right": 553.75,
+          "height": 29.25
+        },
+        {
+          "label": "返回分类",
+          "left": 322.5,
+          "right": 407.875,
+          "height": 26
+        },
+        {
+          "label": "首页",
+          "left": 322.5,
+          "right": 370,
+          "height": 29.25
+        },
+        {
+          "label": "下一页",
+          "left": 376.5,
+          "right": 433.75,
+          "height": 29.25
+        }
+      ],
+      "footerBottom": 999.9375,
+      "bottomNavTop": 1000,
+      "focus": "成长内容"
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 15.625,
+          "right": 128.03125,
+          "height": 44
+        },
+        {
+          "label": "30 天",
+          "left": 131.28125,
+          "right": 243.703125,
+          "height": 44
+        },
+        {
+          "label": "90 天",
+          "left": 246.953125,
+          "right": 359.375,
+          "height": 44
+        },
+        {
+          "label": "总览",
+          "left": 12.375,
+          "right": 79.375,
+          "height": 44
+        },
+        {
+          "label": "全部分类",
+          "left": 82.625,
+          "right": 169.125,
+          "height": 44
+        },
+        {
+          "label": "配置",
+          "left": 172.375,
+          "right": 239.375,
+          "height": 44
+        },
+        {
+          "label": "返回分类",
+          "left": 8.125,
+          "right": 93.5,
+          "height": 44
+        },
+        {
+          "label": "首页",
+          "left": 8.125,
+          "right": 55.625,
+          "height": 44
+        },
+        {
+          "label": "下一页",
+          "left": 62.125,
+          "right": 119.375,
+          "height": 44
+        }
+      ],
+      "footerBottom": 691.90625,
+      "bottomNavTop": 748,
+      "focus": "成长内容"
+    }
+  ],
+  "journeys": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "mappingSave": "PASS",
+      "customRenamedDimension": "PASS",
+      "explicitSaveOnly": "PASS",
+      "feedback": "PASS",
+      "overviewGrouping": {
+        "sourceSeconds": 780,
+        "targetSeconds": 900
+      },
+      "categoryMetrics": {
+        "categoryId": 11,
+        "seconds": 900,
+        "events": 1,
+        "segments": 2,
+        "displayed": [
+          "0h 15m 0s",
+          "1",
+          "2"
+        ]
+      },
+      "taskSegmentIdentity": "PASS",
+      "clearMapping": "PASS",
+      "directUrlRefresh": "PASS",
+      "backForward": "PASS",
+      "keyboard": "PASS",
+      "fixedUiClearance": "PASS",
+      "metadataAndFactsUnchanged": "PASS",
+      "xpUnchanged": "PASS"
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "mappingSave": "PASS",
+      "customRenamedDimension": "PASS",
+      "explicitSaveOnly": "PASS",
+      "feedback": "PASS",
+      "overviewGrouping": {
+        "sourceSeconds": 780,
+        "targetSeconds": 900
+      },
+      "categoryMetrics": {
+        "categoryId": 11,
+        "seconds": 900,
+        "events": 1,
+        "segments": 2,
+        "displayed": [
+          "0h 15m 0s",
+          "1",
+          "2"
+        ]
+      },
+      "taskSegmentIdentity": "PASS",
+      "clearMapping": "PASS",
+      "directUrlRefresh": "PASS",
+      "backForward": "PASS",
+      "keyboard": "PASS",
+      "fixedUiClearance": "PASS",
+      "metadataAndFactsUnchanged": "PASS",
+      "xpUnchanged": "PASS"
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "mapping-before",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 326.75,
+          "right": 413.25
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 416.5,
+          "right": 503
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "工作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "学习成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "创作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "生活成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "健康成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "社交成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "其他成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        }
+      ]
+    },
+    {
+      "name": "mapping-saved",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 326.75,
+          "right": 413.25
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 416.5,
+          "right": 503
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "工作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "学习成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "创作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "生活成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "健康成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "社交成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "其他成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        }
+      ]
+    },
+    {
+      "name": "mapped-dimension",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "目标自定义维度 · 工程实践与持续学习（已重命名）",
+          "width": 272.1875,
+          "height": 35.4375,
+          "left": 336.5,
+          "right": 608.6875
+        },
+        {
+          "label": "查看分类：Agent Engineering A",
+          "width": 133.015625,
+          "height": 26,
+          "left": 350.25,
+          "right": 483.265625
+        }
+      ]
+    },
+    {
+      "name": "category",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440,
+      "controls": [
+        {
+          "label": "返回成长",
+          "width": 85.375,
+          "height": 26,
+          "left": 328,
+          "right": 413.375
+        },
+        {
+          "label": "查看任务贡献：Agent Core 多段执行与分类贡献来源 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称",
+          "width": 612.765625,
+          "height": 26,
+          "left": 342,
+          "right": 954.765625
+        }
+      ]
+    },
+    {
+      "name": "history",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "打开任务详情",
+          "width": 87.5,
+          "height": 26,
+          "left": 322.5,
+          "right": 410
+        },
+        {
+          "label": "业务日期切片",
+          "width": 886.5,
+          "height": 26,
+          "left": 347.25,
+          "right": 1233.75
+        },
+        {
+          "label": "业务日期切片",
+          "width": 886.5,
+          "height": 26,
+          "left": 347.25,
+          "right": 1233.75
+        }
+      ]
+    },
+    {
+      "name": "mapping-cleared",
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 326.75,
+          "right": 413.25
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 29.25,
+          "left": 416.5,
+          "right": 503
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "工作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "学习成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "创作成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "生活成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "健康成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "社交成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        },
+        {
+          "label": "其他成长维度",
+          "width": 328,
+          "height": 29.25,
+          "left": 844.5,
+          "right": 1172.5
+        }
+      ]
+    },
+    {
+      "name": "mapping-before",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 44,
+          "left": 12.375,
+          "right": 98.875
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 44,
+          "left": 102.125,
+          "right": 188.625
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "工作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "学习成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "创作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "生活成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "健康成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "社交成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "其他成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        }
+      ]
+    },
+    {
+      "name": "mapping-saved",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 44,
+          "left": 12.375,
+          "right": 98.875
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 44,
+          "left": 102.125,
+          "right": 188.625
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "工作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "学习成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "创作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "生活成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "健康成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "社交成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "其他成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        }
+      ]
+    },
+    {
+      "name": "mapped-dimension",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "目标自定义维度 · 工程实践与持续学习（已重命名）",
+          "width": 272.1875,
+          "height": 44,
+          "left": 22.125,
+          "right": 294.3125
+        },
+        {
+          "label": "查看分类：Agent Engineering A",
+          "width": 133.015625,
+          "height": 44,
+          "left": 35.875,
+          "right": 168.890625
+        }
+      ]
+    },
+    {
+      "name": "category",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "返回成长",
+          "width": 85.375,
+          "height": 44,
+          "left": 8.125,
+          "right": 93.5
+        },
+        {
+          "label": "查看任务贡献：Agent Core 多段执行与分类贡献来源 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称 长任务名称",
+          "width": 330.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 352.875
+        }
+      ]
+    },
+    {
+      "name": "history",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "打开任务详情",
+          "width": 87.5,
+          "height": 44,
+          "left": 8.125,
+          "right": 95.625
+        },
+        {
+          "label": "业务日期切片",
+          "width": 309.25,
+          "height": 44,
+          "left": 32.875,
+          "right": 342.125
+        },
+        {
+          "label": "业务日期切片",
+          "width": 309.25,
+          "height": 44,
+          "left": 32.875,
+          "right": 342.125
+        }
+      ]
+    },
+    {
+      "name": "mapping-cleared",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "成长维度",
+          "width": 86.5,
+          "height": 44,
+          "left": 12.375,
+          "right": 98.875
+        },
+        {
+          "label": "分类映射",
+          "width": 86.5,
+          "height": 44,
+          "left": 102.125,
+          "right": 188.625
+        },
+        {
+          "label": "Agent Engineering A成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Guide Study B成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "Unmapped C成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "工作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "学习成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "创作成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "生活成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "健康成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "社交成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        },
+        {
+          "label": "其他成长维度",
+          "width": 258.75,
+          "height": 44,
+          "left": 22.125,
+          "right": 280.875
+        }
+      ]
+    }
+  ],
+  "checks": [
+    "Categories canonical partial PUT via actual mapping form",
+    "Explicit Save and feedback",
+    "Configured custom/renamed Dimension",
+    "Current historical grouping reconciles",
+    "Category metadata and source facts unchanged",
+    "Clear null mapping",
+    "1440/375 CSS viewport and 44px controls",
+    "Keyboard Enter save and drilldown",
+    "URL direct/reload/Back/Forward",
+    "No horizontal overflow; fixed UI clearance"
+  ],
+  "userId": 2,
+  "timezone": "Asia/Shanghai",
+  "date": "2026-10-12"
+}

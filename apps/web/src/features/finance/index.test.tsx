@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "../../app/api";
@@ -29,9 +29,36 @@ function requestFor(options: { accounts?: FinanceAccount[]; categories?: Finance
     throw new Error(`unexpected ${path}`);
   }) as Request;
 }
-function renderPage(request: Request, entry = "/finance?date=2026-09-21", initialAction?: "income" | "expense" | "transfer", onError = vi.fn()) { return render(<QueryClientProvider client={client()}><MemoryRouter initialEntries={[entry]}><FinancePage request={request} userId={7} date="2026-09-21" initialAction={initialAction} onError={onError} /></MemoryRouter></QueryClientProvider>); }
+function renderPage(request: Request, entry = "/finance?date=2026-09-21", initialAction?: "income" | "expense" | "transfer", onError = vi.fn()) { return render(<QueryClientProvider client={client()}><MemoryRouter initialEntries={[entry]}><FinancePage request={request} userId={7} date="2026-09-21" timezone="Asia/Shanghai" initialAction={initialAction} onError={onError} /></MemoryRouter></QueryClientProvider>); }
 
 describe("FIN-01 Finance", () => {
+  it.each([
+    { type: "CREDIT" as const, group: "负债账户", balanceCents: "12500" },
+    { type: "BANK" as const, group: "资产账户", balanceCents: "-1000" },
+  ])("moves $type into Archived and restores its group without changing inclusion/balance", async ({ type, group, balanceCents }) => {
+    const accounts = [{ ...bank, type, balanceCents, includeInOverview: false }];
+    const request = requestFor({ accounts, mutate: (path) => {
+      accounts[0] = { ...accounts[0], archivedAt: path.endsWith("/archive") ? "2026-09-21T12:00:00Z" : null, version: accounts[0].version + 1 };
+      return { id: bank.id, version: accounts[0].version };
+    } });
+    renderPage(request); fireEvent.click(await screen.findByRole("button", { name: "账户" }));
+    expect(within(await screen.findByRole("region", { name: group })).getByText(bank.name)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 工资卡" }));
+    fireEvent.click(screen.getByRole("button", { name: "归档账户" }));
+    await waitFor(() => expect(screen.queryByLabelText("账户名称")).toBeNull());
+    expect(within(screen.getByRole("region", { name: group })).queryByText(bank.name)).toBeNull();
+    fireEvent.click(screen.getByLabelText("显示已归档"));
+    expect(within(screen.getByRole("region", { name: "已归档账户" })).getByText(bank.name)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 工资卡" }));
+    expect((screen.getByLabelText("计入总览净值") as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "恢复账户" }));
+    await waitFor(() => expect(screen.queryByLabelText("账户名称")).toBeNull());
+    expect(within(screen.getByRole("region", { name: group })).getByText(bank.name)).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "已归档账户" })).queryByText(bank.name)).toBeNull();
+    expect(accounts[0]).toMatchObject({ type, balanceCents, includeInOverview: false, archivedAt: null });
+    expect(request).toHaveBeenCalledWith("/api/finance/accounts/10/unarchive", expect.objectContaining({ method: "POST", body: expect.stringContaining('"expectedVersion":2') }));
+  });
+
   it("renders the reachable overview with API-owned totals", async () => {
     renderPage(requestFor()); expect(await screen.findByRole("heading", { name: "财务" })).toBeTruthy(); expect((await screen.findAllByText("¥1,000.00")).length).toBeGreaterThan(0); expect(screen.getByText("余额来自已入账分录，和工作台金币完全分开。")).toBeTruthy();
   });
@@ -51,6 +78,61 @@ describe("FIN-01 Finance", () => {
     renderPage(requestFor()); fireEvent.click(await screen.findByRole("button", { name: "账户" })); expect(await screen.findByText("¥1,000.00")).toBeTruthy(); expect(screen.getByText(/期初 2026-09-01/)).toBeTruthy();
   });
 
+  it("archives and restores through the account editor and refreshes API-owned totals while keeping the balance and monthly expense", async () => {
+    const accounts = [{ ...bank, balanceCents: "70000" }];
+    const request = requestFor({
+      accounts,
+      overview: () => overview({
+        accounts: [...accounts], accountCount: accounts[0].archivedAt ? 0 : 1,
+        totalAssetsCents: accounts[0].archivedAt ? "0" : "70000",
+        netWorthCents: accounts[0].archivedAt ? "0" : "70000", monthlyExpenseCents: "30000"
+      }),
+      mutate: (path) => {
+        accounts[0] = { ...accounts[0], archivedAt: path.endsWith("/archive") ? "2026-09-21T12:00:00.000Z" : null, version: accounts[0].version + 1 };
+        return { id: bank.id, version: accounts[0].version };
+      }
+    });
+    const { container } = renderPage(request);
+    await screen.findByText("仅统计未归档且计入总览的账户。");
+    expect(within(container.querySelector(".finance-worth")!).getAllByText("¥700.00")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "账户" }));
+    fireEvent.click(await screen.findByRole("button", { name: "编辑 工资卡" }));
+    expect(screen.getByText("归档后，该账户余额不再计入当前概览统计，但历史记录仍会保留。")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "归档账户" }));
+    await waitFor(() => expect(screen.queryByLabelText("账户名称")).toBeNull());
+    expect(request).toHaveBeenCalledWith("/api/finance/accounts/10/archive", expect.objectContaining({ method: "POST", body: expect.stringContaining('"expectedVersion":1') }));
+    fireEvent.click(screen.getByRole("button", { name: "概览" }));
+    expect(within(container.querySelector(".finance-worth")!).getAllByText("¥0.00")).toHaveLength(3);
+    expect(screen.getByText("¥300.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "账户" }));
+    fireEvent.click(screen.getByLabelText("显示已归档"));
+    expect(await screen.findByText("¥700.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 工资卡" }));
+    expect((screen.getByLabelText("计入总览净值") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "恢复账户" }));
+    await waitFor(() => expect(screen.queryByLabelText("账户名称")).toBeNull());
+    expect(request).toHaveBeenCalledWith("/api/finance/accounts/10/unarchive", expect.objectContaining({ method: "POST", body: expect.stringContaining('"expectedVersion":2') }));
+    fireEvent.click(screen.getByRole("button", { name: "概览" }));
+    expect(within(container.querySelector(".finance-worth")!).getAllByText("¥700.00")).toHaveLength(2);
+    expect(screen.getByText("¥300.00")).toBeTruthy();
+  });
+
+  it.each(["income", "expense"] as const)("excludes archived accounts from new %s selection while retaining active excluded accounts", async (action) => {
+    renderPage(requestFor({ accounts: [{ ...bank, includeInOverview: false }, { ...credit, archivedAt: "2026-09-21T12:00:00.000Z" }] }), undefined, action);
+    const selector = await screen.findByLabelText("财务账户");
+    expect(within(selector).getByRole("option", { name: /工资卡/ })).toBeTruthy();
+    expect(within(selector).queryByRole("option", { name: /信用卡/ })).toBeNull();
+  });
+
+  it("excludes archived accounts from both transfer selectors", async () => {
+    renderPage(requestFor({ accounts: [bank, { ...bank, id: 12, name: "储蓄卡", includeInOverview: false }, { ...credit, archivedAt: "2026-09-21T12:00:00.000Z" }] }), undefined, "transfer");
+    for (const label of ["转出账户", "转入账户"]) {
+      const selector = await screen.findByLabelText(label);
+      expect(within(selector).getAllByRole("option").filter((option) => !(option as HTMLOptionElement).disabled)).toHaveLength(2);
+      expect(within(selector).queryByRole("option", { name: /信用卡/ })).toBeNull();
+    }
+  });
+
   it("adds an expense and refreshes account and monthly summaries", async () => {
     let posted = false; const request = requestFor({ overview: () => overview(posted ? { monthlyExpenseCents: "3000", totalAssetsCents: "97000", netWorthCents: "97000" } : {}), mutate: (path) => { if (path === "/api/finance/expenses") posted = true; return { transactionId: 31 }; } });
     renderPage(request); fireEvent.click(await screen.findByRole("button", { name: "记支出" })); fireEvent.change(screen.getByLabelText("金额"), { target: { value: "30.00" } }); fireEvent.click(screen.getByRole("button", { name: "保存支出" }));
@@ -62,6 +144,21 @@ describe("FIN-01 Finance", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/income", expect.objectContaining({ body: expect.stringContaining('"amountCents":"50000"') })));
   });
 
+  it.each([{ action: "借入", confirm: "确认借入", source: 11, target: 10 }, { action: "还款", confirm: "确认还款", source: 10, target: 11 }])("opens $action from its liability account and refreshes canonical queries after saving", async ({ action, confirm, source, target }) => {
+    const accounts = [bank, credit];
+    const request = requestFor({ accounts, mutate: () => { accounts[1] = { ...credit, balanceCents: "0" }; return { transactionId: 42 }; } });
+    renderPage(request, "/finance?date=2026-09-21&tab=accounts");
+    fireEvent.click(await screen.findByRole("button", { name: action }));
+    expect((screen.getByLabelText("转出账户") as HTMLSelectElement).value).toBe(String(source));
+    expect((screen.getByLabelText("转入账户") as HTMLSelectElement).value).toBe(String(target));
+    fireEvent.change(screen.getByLabelText("转账金额"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: confirm }));
+    await waitFor(() => expect(screen.queryByLabelText("转账金额")).toBeNull());
+    expect(await screen.findByText("已结清")).toBeTruthy();
+    expect(vi.mocked(request).mock.calls.filter(([path]) => path === "/api/finance/accounts?view=all").length).toBeGreaterThan(1);
+    expect(vi.mocked(request).mock.calls.filter(([path]) => path.startsWith("/api/finance/overview")).length).toBeGreaterThan(1);
+  });
+
   it("posts a transfer without routing through income or expense", async () => {
     const request = requestFor({ accounts: [bank, { ...bank, id: 12, name: "储蓄卡" }] }); renderPage(request, "/finance?date=2026-09-21", "transfer"); fireEvent.change(await screen.findByLabelText("转账金额"), { target: { value: "12.00" } }); fireEvent.click(screen.getByRole("button", { name: "保存转账" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/transfers", expect.objectContaining({ method: "POST", body: expect.stringContaining('"amountCents":"1200"') })));
@@ -71,21 +168,32 @@ describe("FIN-01 Finance", () => {
     const request = requestFor({ transactions: [transfer] }); renderPage(request, "/finance?date=2026-09-21&tab=transactions"); const row = await screen.findByRole("button", { name: /转账.*工资卡.*储蓄卡/ }); expect(row.textContent).toContain("¥200.00"); fireEvent.click(row); expect(await screen.findByText("转出：工资卡")).toBeTruthy(); expect(screen.getByText("转入：储蓄卡")).toBeTruthy();
   });
 
+  it.each([
+    { source: "信用卡", target: "另一信用卡", note: "余额转移" },
+    { source: "预存信用卡", target: "工资卡", note: "预存提取" },
+  ])("retains neutral transfer history and execution context for $source → $target", async ({ source, target, note }) => {
+    const item = { ...transfer, sourceAccountName: source, targetAccountName: target, note, transfer: { ...transfer.transfer!, sourceAccountName: source, targetAccountName: target } };
+    renderPage(requestFor({ accounts: [bank, credit], transactions: [item] }), "/finance?date=2026-09-21&tab=transactions");
+    const row = await screen.findByRole("button", { name: new RegExp(`转账.*${source}.*${target}`) });
+    expect(row.textContent).toContain(note); expect(row.textContent).not.toContain("还款"); expect(row.textContent).not.toContain("借入");
+    fireEvent.click(row); expect(await screen.findByText(`转出：${source}`)).toBeTruthy(); expect(screen.getByText(`转入：${target}`)).toBeTruthy();
+  });
+
   it("shows refund summary and disables refund after full refund", async () => {
     const refundSource: FinanceTransaction = { ...transaction, refund: { originalAmountCents: "10000", refundedAmountCents: "10000", remainingRefundableCents: "0", canRefund: false, refunds: [{ id: 41, amountCents: "10000", businessDate: "2026-09-21", occurredAt: "2026-09-21T03:00:00.000Z", accountName: "工资卡", note: null }] } }; const request = requestFor({ transactions: [refundSource] }); renderPage(request, "/finance?date=2026-09-21&tab=transactions"); fireEvent.click(await screen.findByRole("button", { name: /餐饮.*晚餐/ })); expect(await screen.findByText("原支出：¥100.00")).toBeTruthy(); expect(screen.getByText("已退款：¥100.00")).toBeTruthy(); expect(screen.getByText("剩余可退款：¥0.00")).toBeTruthy(); expect((screen.getByRole("button", { name: "退款" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("previews credit repayment before and after using the same transfer form", async () => {
-    const request = requestFor({ accounts: [bank, credit] }); renderPage(request, "/finance?date=2026-09-21", "transfer"); fireEvent.change(await screen.findByLabelText("转入账户"), { target: { value: "11" } }); fireEvent.change(screen.getByLabelText("转账金额"), { target: { value: "80.00" } }); expect(await screen.findByText("当前欠款：¥100.00")).toBeTruthy(); expect(screen.getByText("还款后欠款：¥20.00")).toBeTruthy(); expect(screen.getByRole("button", { name: "确认还款" })).toBeTruthy();
+    const request = requestFor({ accounts: [bank, credit] }); renderPage(request, "/finance?date=2026-09-21", "transfer"); fireEvent.change(await screen.findByLabelText("操作意图"), { target: { value: "repay" } }); fireEvent.change(screen.getByLabelText("转入账户"), { target: { value: "11" } }); fireEvent.change(screen.getByLabelText("转账金额"), { target: { value: "80.00" } }); expect(await screen.findByText("当前：欠款 ¥100.00")).toBeTruthy(); expect(screen.getByText("还款后：欠款 ¥20.00")).toBeTruthy(); expect(screen.getByRole("button", { name: "确认还款" })).toBeTruthy();
   });
 
   it.each([
-    { balanceCents: "-10000", amount: "80.00", expected: "还款后欠款：¥20.00" },
-    { balanceCents: "-10000", amount: "100.00", expected: "还款后欠款：¥0.00" },
-    { balanceCents: "0", amount: "80.00", expected: "还款后余额：¥80.00" },
-    { balanceCents: "-10000", amount: "120.00", expected: "还款后余额：¥20.00" }
+    { balanceCents: "-10000", amount: "80.00", expected: "还款后：欠款 ¥20.00" },
+    { balanceCents: "-10000", amount: "100.00", expected: "还款后：已结清" },
+    { balanceCents: "0", amount: "80.00", expected: "还款后：预存 ¥80.00" },
+    { balanceCents: "-10000", amount: "120.00", expected: "还款后：预存 ¥20.00" }
   ])("uses the projected signed CREDIT balance for repayment label ($balanceCents + $amount)", async ({ balanceCents, amount, expected }) => {
-    const target = { ...credit, balanceCents }; const request = requestFor({ accounts: [bank, target] }); renderPage(request, "/finance?date=2026-09-21", "transfer"); fireEvent.change(await screen.findByLabelText("转入账户"), { target: { value: "11" } }); fireEvent.change(screen.getByLabelText("转账金额"), { target: { value: amount } }); expect(await screen.findByText(expected)).toBeTruthy();
+    const target = { ...credit, balanceCents }; const request = requestFor({ accounts: [bank, target] }); renderPage(request, "/finance?date=2026-09-21", "transfer"); fireEvent.change(await screen.findByLabelText("操作意图"), { target: { value: "repay" } }); fireEvent.change(screen.getByLabelText("转入账户"), { target: { value: "11" } }); fireEvent.change(screen.getByLabelText("转账金额"), { target: { value: amount } }); expect(await screen.findByText(expected)).toBeTruthy();
   });
 
   it("labels a negative CREDIT balance as debt", async () => {

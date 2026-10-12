@@ -160,7 +160,7 @@ export function CalendarFeature({
 
         {loading && <EmptyText text={tx("加载中...")} />}
         {!loading && !items.length && <EmptyText text={tx("这一天还没有时间记录。")} />}
-        {!!items.length && <TimelineBoard items={items} onDelete={deleteSchedule} onEdit={editSchedule} onViewExecution={setViewingExecution} />}
+        {!!items.length && <TimelineBoard items={items} categories={categories} onDelete={deleteSchedule} onEdit={editSchedule} onViewExecution={setViewingExecution} />}
       </section>
 
       {currentState.editorOpen && (

@@ -1,9 +1,9 @@
-import { and, eq, isNull } from "drizzle-orm";
-import { type DatabaseClient } from "./db/index.js";
+import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { db, type DatabaseClient } from "./db/index.js";
 import { taskCompletionEvents, tasks, users } from "./db/schema.js";
 import { CompletionEventSource, TaskStatus, canTransitTaskStatus, type TaskStatusValue } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
-import { lockExecutionSlot, requireEmptySlot } from "./execution-slot.js";
+import { lockExecutionSlot, requireEmptySlot, requireTaskCompletionRelation } from "./execution-slot.js";
 import { runMutation } from "./mutation-receipt.js";
 import { grantTaskDoneRewardInClient } from "./rewards.js";
 import { closePendingContinuationsInClient } from "./task-assignments.js";
@@ -18,6 +18,22 @@ export type CompleteTaskCommand = {
   completionNote?: string;
   completedAt?: Date;
 };
+
+/** Immutable occurrences, including reopened/deleted Tasks; current metadata supplies only the title. */
+export function completionEventsForRange(userId: number, from: string, to: string, client: DatabaseClient = db) {
+  return client.select({
+    id: taskCompletionEvents.id,
+    taskId: taskCompletionEvents.taskId,
+    categoryIdAtOccurrence: taskCompletionEvents.categoryIdAtOccurrence,
+    businessDate: taskCompletionEvents.businessDate,
+    lifecycleVersion: taskCompletionEvents.lifecycleVersion,
+    occurredAt: taskCompletionEvents.occurredAt,
+    title: tasks.title
+  }).from(taskCompletionEvents)
+    .innerJoin(tasks, and(eq(taskCompletionEvents.taskId, tasks.id), eq(taskCompletionEvents.userId, tasks.userId)))
+    .where(and(eq(taskCompletionEvents.userId, userId), gte(taskCompletionEvents.businessDate, from), lte(taskCompletionEvents.businessDate, to)))
+    .orderBy(desc(taskCompletionEvents.occurredAt), desc(taskCompletionEvents.id));
+}
 
 export async function lockTaskInClient(client: DatabaseClient, userId: number, taskId: number) {
   const [task] = await client
@@ -83,9 +99,9 @@ export function completeTask(command: CompleteTaskCommand) {
     }
   }, async (tx) => {
     const slot = await lockExecutionSlot(tx, command.userId);
-    requireEmptySlot(slot);
     const task = await lockTaskInClient(tx, command.userId, command.taskId);
     if (task.version !== command.expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
+    await requireTaskCompletionRelation(tx, command.userId, slot, task.id);
     const [user] = await tx.select({ timezone: users.timezone }).from(users).where(eq(users.id, command.userId));
     if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
     return completeLockedTaskInClient(tx, { ...command, completedAt, recordTimezone: user.timezone }, task);
@@ -144,4 +160,9 @@ export async function completeTaskInClient(client: DatabaseClient, command: {
   completionNote?: string;
 }, lockedTask?: Awaited<ReturnType<typeof lockTaskInClient>>) {
   return completeLockedTaskInClient(client, command, lockedTask ?? await lockTaskInClient(client, command.userId, command.taskId));
+}
+
+/** Current Task display metadata, including retained historical identities. No lifecycle inference. */
+export function taskContributionMetadata(userId: number, ids: number[]) {
+  return ids.length ? db.select({ id: tasks.id, title: tasks.title, completionNote: tasks.completionNote, deletedAt: tasks.deletedAt }).from(tasks).where(and(eq(tasks.userId, userId), inArray(tasks.id, ids))) : Promise.resolve([]);
 }

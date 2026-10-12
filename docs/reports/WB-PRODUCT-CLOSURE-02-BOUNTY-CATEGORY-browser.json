@@ -1,0 +1,97 @@
+{
+  "result": "PASS",
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "left": 460,
+      "right": 980,
+      "top": 162.828125,
+      "bottom": 837.171875,
+      "scrollWidth": 520,
+      "clientWidth": 520,
+      "footerTop": 504.078125,
+      "footerBottom": 533.328125,
+      "portalCount": 1,
+      "activeDialogs": 1,
+      "parentInert": true,
+      "separateForms": true,
+      "headerVisible": true,
+      "buttonHeights": [
+        22.75,
+        29.25,
+        29.25
+      ]
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "left": 16,
+      "right": 359,
+      "top": 16,
+      "bottom": 796,
+      "scrollWidth": 343,
+      "clientWidth": 343,
+      "footerTop": 272.5,
+      "footerBottom": 316.5,
+      "portalCount": 1,
+      "activeDialogs": 1,
+      "parentInert": true,
+      "separateForms": true,
+      "headerVisible": true,
+      "buttonHeights": [
+        44,
+        44,
+        44
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "width": 1440,
+      "taskId": 3,
+      "categoryId": 49,
+      "claim": false,
+      "mappingInitially": "custom_3b29454c5e3745e1a5",
+      "mappingAfterEdit": null,
+      "hiddenTarget": 12345,
+      "keyboard": "PASS",
+      "draft": "PASS"
+    },
+    {
+      "width": 375,
+      "taskId": 4,
+      "categoryId": 50,
+      "claim": true,
+      "mappingInitially": "custom_3b29454c5e3745e1a5",
+      "mappingAfterEdit": null,
+      "hiddenTarget": 12345,
+      "keyboard": "PASS",
+      "draft": "PASS"
+    }
+  ],
+  "screenshots": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    }
+  ],
+  "userId": 7,
+  "customDimension": "custom_3b29454c5e3745e1a5"
+}

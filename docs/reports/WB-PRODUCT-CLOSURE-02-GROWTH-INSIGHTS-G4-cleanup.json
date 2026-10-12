@@ -1,0 +1,13 @@
+{
+  "database": "workbench_growth_g4_qa_test",
+  "databaseDropped": true,
+  "temporaryProcessesStopped": true,
+  "temporaryProfileAndDatadirRemoved": true,
+  "portsReleased": [
+    33307,
+    3000,
+    5185,
+    9335
+  ],
+  "productionAndDevelopmentDatabasesUntouched": true
+}

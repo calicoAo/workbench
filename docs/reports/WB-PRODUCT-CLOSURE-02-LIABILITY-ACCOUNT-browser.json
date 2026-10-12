@@ -1,0 +1,54 @@
+{
+  "result": "PASS",
+  "screenshots": {
+    "accounts1440": {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    "accounts375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "liabilities375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "create375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    },
+    "create1440": {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1440
+    },
+    "archived375": {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375
+    }
+  },
+  "opening": [
+    {
+      "type": 0,
+      "cents": "-320000"
+    }
+  ],
+  "overview": {
+    "assets": "113500",
+    "liabilities": "340000",
+    "netWorth": "-226500",
+    "income": "0",
+    "expense": "0"
+  },
+  "metadataLedgerUnchanged": true,
+  "archiveRestoreLedgerUnchanged": true,
+  "restored": {
+    "balanceCents": "-320000",
+    "includeInOverview": true
+  }
+}

@@ -1,11 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronRight, Download, Eye, EyeOff, FileJson, LogOut, Save, Trash2, Upload, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Download, Eye, EyeOff, LogOut, Save, Trash2, Sparkles } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Request } from "../../app/api";
 import { type Locale, useI18n } from "../../app/i18n";
 import { Badge, Button, IconButton } from "../../shared/ui";
-import { yuan } from "../finance";
 import { tx } from "../../app/i18n";
 import { CategorySettings, type CategoryEditorCategory } from "../categories";
 
@@ -40,16 +39,7 @@ type ExportPayload = {
   recordCount: number;
   content: string;
 };
-const financeImportStatuses = {
-  READY: { label: "可导入", tone: "success" },
-  NEEDS_MAPPING: { label: "需要映射", tone: "warning" },
-  INVALID: { label: "需要修正", tone: "danger" },
-  EXACT_DUPLICATE: { label: "完全重复", tone: "danger" },
-  POSSIBLE_DUPLICATE: { label: "可能重复", tone: "warning" },
-  IMPORTED: { label: "已导入", tone: "success" },
-  FAILED: { label: "导入失败", tone: "danger" },
-} as const;
-const SETTINGS_TOPICS = ["hero", "general", "appearance", "adventure", "notebook", "growth", "wallet", "ai", "data", "help", "account"] as const;
+const SETTINGS_TOPICS = ["hero", "general", "appearance", "adventure", "notebook", "growth", "ai", "data", "help", "account"] as const;
 type SettingsTopic = (typeof SETTINGS_TOPICS)[number];
 const TOPIC_LABELS: Record<SettingsTopic, string> = {
   hero: "Hero",
@@ -58,7 +48,6 @@ const TOPIC_LABELS: Record<SettingsTopic, string> = {
   adventure: "冒险",
   notebook: "笔记本",
   growth: "成长",
-  wallet: "钱包",
   ai: "AI",
   data: "数据",
   help: "帮助",
@@ -237,7 +226,7 @@ export function SettingsFeature({ request, userId, logout, onProfileChanged, onE
   else if (topic === "adventure")
     content = (
       <>
-        <CategorySettings categories={data.categories} request={request} onError={onError} onChanged={refreshCategories} />
+        <CategorySettings userId={userId} categories={data.categories} request={request} onError={onError} onChanged={refreshCategories} />
         <section className="settings-section">
           <h2>{tx("续接与时间线")}</h2>
           <div className="settings-line">
@@ -290,20 +279,6 @@ export function SettingsFeature({ request, userId, logout, onProfileChanged, onE
         <p className="settings-note">{tx("隐藏只改变界面展示，不会停止奖励结算。")}</p>
       </section>
     );
-  else if (topic === "wallet")
-    content = (
-      <section className="settings-section">
-        <h2>{tx("钱包")}</h2>
-        <p className="settings-note">{tx("完整账户、预算与交易仍由 Wallet 管理；这里不复制财务业务。")}</p>
-        <Link className="settings-topic-link" to="/finance">
-          <span>
-            <strong>{tx("打开钱包")}</strong>
-            <small>{tx("账户、交易、预算与报表")}</small>
-          </span>
-          <ChevronRight size={16} />
-        </Link>
-      </section>
-    );
   else if (topic === "ai") content = <AiSettings request={request} userId={userId} onError={onError} />;
   else if (topic === "data")
     content = (
@@ -325,9 +300,8 @@ export function SettingsFeature({ request, userId, logout, onProfileChanged, onE
             <ChevronRight size={16} />
           </Link>
         </div>
-        <h3>{tx("备份、恢复与导出")}</h3>
-        <p className="settings-note">{tx("财务导出包含敏感数据，只在你主动确认后生成。")}</p>
-        <FinanceDataMaintenance request={request} timezone={data.profile.timezone} onError={onError} />
+        <h3>{tx("工作台数据导出")}</h3>
+        <Link className="settings-topic-link" to="/finance?tab=maintenance">{tx("钱包数据维护")}<ChevronRight size={16} /></Link>
         <ExportRows request={request} onError={onError} />
       </section>
     );
@@ -717,271 +691,6 @@ function ExportRow({ domain, label, formats, includeTrash, request, onError }: {
         {tx("导出")}
       </Button>
     </div>
-  );
-}
-function FinanceDataMaintenance({ request, timezone, onError }: { request: Request; timezone: string; onError: (message: string, title?: string) => void }) {
-  const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [importPreview, setImportPreview] = useState<any>(null);
-  const [restorePreview, setRestorePreview] = useState<any>(null);
-  const [restorePayload, setRestorePayload] = useState<any>(null);
-  function download(payload: ExportPayload) {
-    const url = URL.createObjectURL(
-      new Blob([payload.content], {
-        type: `${payload.contentType};charset=utf-8`,
-      }),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = payload.fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-  async function exportFinance(path: string) {
-    if (!window.confirm(tx("财务数据属于敏感信息，确认主动导出吗？"))) return;
-    setPending(true);
-    try {
-      download(
-        await request<ExportPayload>(path, {
-          method: "POST",
-          body: JSON.stringify({ operationId: crypto.randomUUID() }),
-        }),
-      );
-      setNotice(tx("财务数据已生成并下载"));
-    } catch (error) {
-      onError(message(error), tx("财务导出失败"));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function previewCsv(file: File) {
-    setPending(true);
-    try {
-      const csv = await file.text();
-      const headers = csv
-        .split(/\r?\n/, 1)[0]
-        .split(",")
-        .map((item) => item.trim());
-      const find = (names: string[]) => headers.find((header) => names.some((name) => header === name || header.toLowerCase() === name.toLowerCase())) ?? "";
-      setImportPreview(
-        await request("/api/finance/imports/external/preview", {
-          method: "POST",
-          body: JSON.stringify({
-            operationId: crypto.randomUUID(),
-            sourceName: file.name,
-            csv,
-            timezone,
-            mapping: {
-              date: find(["日期", "发生日期", "date"]),
-              time: find(["时间", "发生时间", "time"]),
-              amount: find(["金额", "amount"]),
-              direction: find(["方向", "收支", "direction"]),
-              account: find(["账户", "account"]),
-              category: find(["分类", "category"]),
-              note: find(["备注", "note"]),
-              externalId: find(["流水号", "外部流水ID", "id"]),
-            },
-          }),
-        }),
-      );
-    } catch (error) {
-      onError(message(error), tx("流水预览失败"));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function confirmImport() {
-    if (!importPreview || !window.confirm(tx("预览中的可导入行将写入真实账本，确认继续吗？"))) return;
-    setPending(true);
-    try {
-      const result = await request<any>(`/api/finance/imports/${importPreview.id}/confirm`, {
-        method: "POST",
-        body: JSON.stringify({
-          operationId: crypto.randomUUID(),
-          allowPossibleDuplicates: true,
-        }),
-      });
-      setImportPreview({ ...importPreview, result });
-    } catch (error) {
-      onError(message(error), tx("流水导入失败"));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function previewRestore(file: File) {
-    setPending(true);
-    try {
-      const payload = JSON.parse(await file.text());
-      setRestorePayload(payload);
-      setRestorePreview(
-        await request("/api/finance/maintenance/restore/preview", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        }),
-      );
-    } catch (error) {
-      onError(message(error), tx("备份预览失败"));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function confirmRestore() {
-    if (!restorePayload || !restorePreview?.valid || !window.confirm(tx("完整恢复只允许写入空账本，确认恢复吗？"))) return;
-    setPending(true);
-    try {
-      setRestorePreview({
-        ...restorePreview,
-        result: await request("/api/finance/maintenance/restore/confirm", {
-          method: "POST",
-          body: JSON.stringify({
-            operationId: crypto.randomUUID(),
-            backup: restorePayload,
-          }),
-        }),
-      });
-    } catch (error) {
-      onError(message(error), tx("备份恢复失败"));
-    } finally {
-      setPending(false);
-    }
-  }
-  return (
-    <div className="finance-data-maintenance">
-      <div className="finance-data-actions">
-        <Button size="sm" loading={pending} onClick={() => void exportFinance("/api/finance/maintenance/export/json")}>
-          <FileJson size={14} />
-          {tx("导出财务备份 JSON")}
-        </Button>
-        <Button size="sm" loading={pending} onClick={() => void exportFinance("/api/finance/maintenance/export/csv")}>
-          <Download size={14} />
-          {tx("导出财务 CSV")}
-        </Button>
-        <Button
-          size="sm"
-          loading={pending}
-          onClick={async () => {
-            try {
-              const result = await request<any>("/api/finance/maintenance/reconciliation", {
-                method: "POST",
-                body: JSON.stringify({ operationId: crypto.randomUUID() }),
-              });
-              setNotice(
-                result.status === "ALL_CLEAR"
-                  ? tx("账本核对：全部正常")
-                  : tx("账本核对：发现 {value0} 个问题", {
-                      value0: result.anomalyCount,
-                    }),
-              );
-            } catch (error) {
-              onError(message(error), tx("账本核对失败"));
-            }
-          }}
-        >
-          <span>{tx("账本核对")}</span>
-        </Button>
-      </div>
-      <p className="settings-note">{tx("JSON 用于 Workbench Finance 备份/恢复；CSV 用于人工查看和外部分析，不保证完整关系恢复。")}</p>
-      <label className="finance-data-upload">
-        <Upload size={15} />
-        <span>{tx("导入外部 CSV")}</span>
-        <input
-          aria-label={tx("导入外部流水 CSV")}
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void previewCsv(file);
-          }}
-        />
-      </label>
-      {importPreview ? (
-        <div className="finance-import-preview">
-          <strong>{tx("导入预览 · 尚未入账")}</strong>
-          <small>
-            {importPreview.rows?.length ?? 0} {tx("行 ·")} {importPreview.sourceName}
-          </small>
-          {(importPreview.rows ?? []).slice(0, 8).map((row: any) => {
-            const status = financeImportStatus(row.status);
-            return (
-              <div key={row.id}>
-                <span>
-                  <strong>
-                    {row.date ?? tx("日期无效")} · {row.amountCents === null || row.amountCents === undefined ? tx("金额无效") : yuan(row.amountCents)}
-                  </strong>
-                  <small>
-                    {row.kind === "INCOME" ? tx("收入") : row.kind === "EXPENSE" ? tx("支出") : tx("方向无效")} · {importField(row, [tx("账户"), "account"]) ?? row.accountId ?? tx("账户待映射")} · {importField(row, [tx("分类"), "category"]) ?? row.categoryId ?? tx("分类待映射")}
-                  </small>
-                </span>
-                <Badge tone={status.tone}>{tx(status.label)}</Badge>
-              </div>
-            );
-          })}
-          {!importPreview.result ? (
-            <Button size="sm" variant="primary" loading={pending} onClick={() => void confirmImport()}>
-              {tx("确认导入可用行")}
-            </Button>
-          ) : (
-            <small>
-              {tx("结果：成功")} {importPreview.result.summary?.imported ?? 0} {tx("行；跳过重复")} {importPreview.result.summary?.exactDuplicate ?? 0} {tx("行；确认可能重复")} {importPreview.rows?.filter((row: any) => row.status === "POSSIBLE_DUPLICATE").length ?? 0} {tx("行；失败或待修正")} {importPreview.rows?.filter((row: any) => ["INVALID", "NEEDS_MAPPING", "FAILED"].includes(row.status)).length ?? 0} {tx("行")}
-            </small>
-          )}
-        </div>
-      ) : null}
-      <label className="finance-data-upload">
-        <Upload size={15} />
-        <span>{tx("预览 Workbench Finance JSON 恢复")}</span>
-        <input
-          aria-label={tx("恢复 Finance JSON")}
-          type="file"
-          accept=".json,application/json"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void previewRestore(file);
-          }}
-        />
-      </label>
-      {restorePreview ? (
-        <div className="finance-import-preview">
-          <strong>{tx("备份恢复预览")}</strong>
-          <small>
-            {tx("备份版本")} {restorePreview.schemaVersion ?? tx("未知")} · {Object.values(restorePreview.counts ?? {}).reduce((total: number, value) => total + Number(value), 0)} {tx("个对象")}
-          </small>
-          <small>{restorePreview.valid ? tx("可以在空账本中恢复") : restorePreview.errors?.join("；")}</small>
-          {restorePreview.valid && !restorePreview.result ? (
-            <Button size="sm" variant="primary" loading={pending} onClick={() => void confirmRestore()}>
-              {tx("确认恢复")}
-            </Button>
-          ) : null}
-          {restorePreview.result ? <small>{tx("恢复完成")}</small> : null}
-        </div>
-      ) : null}
-      {notice ? (
-        <p className="settings-note" role="status">
-          {notice}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-function importField(row: any, names: string[]) {
-  const source =
-    typeof row.source === "string"
-      ? (() => {
-          try {
-            return JSON.parse(row.source);
-          } catch {
-            return {};
-          }
-        })()
-      : (row.source ?? {});
-  return Object.entries(source).find(([key]) => names.some((name) => key.toLowerCase() === name.toLowerCase()))?.[1] as string | undefined;
-}
-function financeImportStatus(status: string) {
-  return (
-    financeImportStatuses[status as keyof typeof financeImportStatuses] ?? {
-      label: "未知状态",
-      tone: "warning" as const,
-    }
   );
 }
 function message(error: unknown) {

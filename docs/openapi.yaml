@@ -133,10 +133,52 @@ paths:
       summary: Idempotently add an existing QuickNote to the Writing inspiration library
       parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
       responses: { "200": { description: Inspiration metadata and explicit tags } }
+  /growth/categories/{ref}:
+    get:
+      summary: Read period-aware Category contributions and bounded Task or execution details
+      description: |
+        Authenticated Growth read using exactly the G1 eligible facts and aggregation rules.
+        Historical occurrence Category IDs are interpreted through current mapping metadata.
+        Existing empty Categories return 200; foreign/missing identities without own history return 404.
+        Without taskRef returns a page of Task contributions; with taskRef returns a page of canonical execution/completion references.
+        Metrics cover the whole period, independently of paging. Keys order source identities stably; cursors bind user, Category, period/timezone, Task and limit.
+        Full Segment bounds/duration are separate from period-attributed seconds and clipped business-date slices.
+        Session notes appear once in sessions per page, referenced by timerSessionId; current Task completionNote is separate.
+        No writes, new statistics persistence, mapping snapshots or XP calculations occur.
+      parameters:
+        - { in: path, name: ref, required: true, schema: { type: string, pattern: '^(category:[1-9]\d*|unassigned|unknown)$' } }
+        - { in: query, name: period, schema: { type: integer, enum: [7, 30, 90], default: 30 } }
+        - { in: query, name: to, schema: { type: string, format: date }, description: Inclusive business date; defaults from user timezone }
+        - { in: query, name: taskRef, schema: { type: string, pattern: '^(task:[1-9]\d*|unassigned)$' } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { in: query, name: cursor, schema: { type: string, maxLength: 2048 }, description: Opaque scoped source-key cursor from nextCursor }
+      responses:
+        "200":
+          description: Canonical Category metrics with one bounded progressive detail page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/GrowthCategoryDetail" }
+        "400": { description: Invalid ref/filter/cursor or page size }
+        "401": { description: Authentication required }
+        "404": { description: Category or Task contribution unavailable for this user/period }
   /growth/overview:
     get:
       summary: Read the authenticated user's derived Hero Growth overview
-      description: XP and level come from the Rewards owner; investment comes only from the canonical ActualTime read model; completed tasks come from immutable CompletionEvent history. Finance never contributes. Category history is interpreted through the current category mapping.
+      description: |
+        XP and level come from the Rewards owner; investment comes only from the canonical ActualTime read model;
+        completionEventCount counts immutable CompletionEvent occurrences, with completedTaskCount retained as its compatibility alias.
+        Category identity comes from historical facts and is interpreted through current Category mappings; disabled Categories retain history.
+        ActualTime is clipped to the inclusive period's UTC bounds in the user's configured timezone, then re-split only for Growth reporting in that timezone.
+        Persisted execution dates/timestamps are untouched. CompletionEvents and Habits retain stored business/occurrence-date eligibility.
+        exact actualSeconds reconcile across categoryBreakdown, dimensions plus unmapped, and trend; floor-after-sum minutes may not be additive.
+        closedSegmentCount counts distinct CLOSED source Segment IDs with eligible positive duration; it is not additive across daily buckets.
+        Manual/Legacy Actual contributes duration but no Segment count. Finance, Session notes and Category XP totals are excluded.
+        The existing recent reward preview is limited and must not be interpreted as complete historical XP attribution.
       parameters:
         - in: query
           name: period
@@ -146,7 +188,16 @@ paths:
           description: Inclusive product business date; defaults from the user's configured timezone.
           schema: { type: string, format: date }
       responses:
-        "200": { description: Rewards progression, period summary, dimension distribution, unmapped attribution, recent sources, and derived ActualTime/task/Habit trend buckets }
+        "200":
+          description: Backward-compatible overview plus exact metrics and Category contributions; no Task/Session detail history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/GrowthOverview" }
   /growth/dimensions:
     get:
       summary: Read GrowthDimension configuration and current TaskCategory mappings
@@ -2376,6 +2427,215 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    GrowthTaskContribution:
+      allOf:
+        - $ref: "#/components/schemas/GrowthContributionMetrics"
+        - type: object
+          required: [taskRef, taskId, title, available]
+          properties:
+            taskRef: { type: string, description: 'task:{id} or unassigned' }
+            taskId: { type: integer, format: int64, nullable: true }
+            title: { type: string, nullable: true }
+            available: { type: boolean, description: Canonical Task detail is currently available; historical identity survives removal }
+            completionNote: { type: string, nullable: true, description: Only present for selected Task; current Task reflection, not event snapshot or Session note }
+    GrowthCategoryDetail:
+      type: object
+      required: [period, category, dimension, tasks, task, executions, completions, sessions, nextCursor]
+      properties:
+        period: { $ref: "#/components/schemas/GrowthOverview/properties/period" }
+        category: { $ref: "#/components/schemas/GrowthCategoryContribution" }
+        dimension:
+          type: object
+          nullable: true
+          description: Current configured Dimension metadata, including enabled/version; resolvedDimensionKey determines effective grouping
+          properties:
+            id: { type: integer, format: int64 }
+            dimensionKey: { type: string }
+            name: { type: string }
+            iconKey: { type: string, nullable: true }
+            color: { type: string }
+            sortOrder: { type: integer }
+            enabled: { type: integer, enum: [0, 1] }
+            version: { type: integer }
+        tasks:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/GrowthTaskContribution" }
+        task:
+          allOf: [{ $ref: "#/components/schemas/GrowthTaskContribution" }]
+          nullable: true
+        nextCursor: { type: string, nullable: true }
+        executions:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [source, sourceId, timerSessionId, startedAt, endedAt, fullDurationSeconds, attributedSeconds, recordTimezone, slices]
+            properties:
+              source: { type: string, enum: [TIMER_SEGMENT, MANUAL_ACTUAL, LEGACY_ACTUAL] }
+              sourceId: { type: integer, format: int64 }
+              timerSessionId: { type: integer, format: int64, nullable: true }
+              startedAt: { type: string, format: date-time, nullable: true, description: Full source UTC start; null after concurrent removal }
+              endedAt: { type: string, format: date-time, nullable: true, description: Full source UTC end; not period clipped }
+              fullDurationSeconds: { type: integer, nullable: true, minimum: 0 }
+              attributedSeconds: { type: integer, minimum: 0, description: Eligible clipped duration for this Category/period }
+              recordTimezone: { type: string }
+              slices:
+                type: array
+                items:
+                  type: object
+                  required: [businessDate, startedAt, endedAt, durationSeconds]
+                  properties:
+                    businessDate: { type: string, format: date, description: Execution projection date in original recordTimezone }
+                    startedAt: { type: string, format: date-time }
+                    endedAt: { type: string, format: date-time }
+                    durationSeconds: { type: integer, minimum: 0 }
+        sessions:
+          type: array
+          maxItems: 50
+          description: Unique canonical Session contexts referenced on this page; never independent notes per Segment/slice
+          items:
+            type: object
+            required: [id, note, startedAt, endedAt]
+            properties:
+              id: { type: integer, format: int64 }
+              note: { type: string, nullable: true }
+              startedAt: { type: string, format: date-time, nullable: true }
+              endedAt: { type: string, format: date-time, nullable: true }
+        completions:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [id, occurredAt, businessDate, lifecycleVersion]
+            properties:
+              id: { type: integer, format: int64 }
+              occurredAt: { type: string, format: date-time }
+              businessDate: { type: string, format: date }
+              lifecycleVersion: { type: integer }
+    GrowthContributionMetrics:
+      type: object
+      required: [actualSeconds, actualMinutes, completionEventCount, closedSegmentCount]
+      properties:
+        actualSeconds: { type: integer, minimum: 0, description: Exact eligible duration; no early rounding }
+        actualMinutes: { type: integer, minimum: 0, description: floor(actualSeconds / 60); display compatibility }
+        completionEventCount: { type: integer, minimum: 0, description: Immutable completion occurrences, not currently DONE Tasks }
+        closedSegmentCount: { type: integer, minimum: 0, description: Distinct CLOSED Segment IDs with positive overlap; not additive across dates }
+    GrowthContributionTrend:
+      allOf:
+        - $ref: "#/components/schemas/GrowthContributionMetrics"
+        - type: object
+          required: [from, to]
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+    GrowthCategoryContribution:
+      allOf:
+        - $ref: "#/components/schemas/GrowthContributionMetrics"
+        - type: object
+          required: [categoryRef, categoryId, attribution, availability, name, color, icon, enabled, dimensionKey, resolvedDimensionKey, unmappedReason, lastActivityDate, trend]
+          properties:
+            categoryRef: { type: string, description: 'Stable category:{id}, unassigned, or unknown identity', example: 'category:7' }
+            categoryId: { type: integer, format: int64, nullable: true }
+            attribution: { type: string, enum: [CATEGORY, UNASSIGNED, UNKNOWN] }
+            availability: { type: string, enum: [AVAILABLE, UNAVAILABLE, NOT_APPLICABLE] }
+            name: { type: string, nullable: true, description: Current user-owned metadata; null when unavailable }
+            color: { type: string, nullable: true }
+            icon: { type: string, nullable: true }
+            enabled: { type: integer, enum: [0, 1], nullable: true }
+            dimensionKey: { type: string, nullable: true, description: Current Category mapping key, even if disabled or missing }
+            resolvedDimensionKey: { type: string, nullable: true, description: Enabled current Dimension; null contributes to unmapped }
+            unmappedReason: { type: string, enum: [NO_CATEGORY, UNKNOWN_ATTRIBUTION, CATEGORY_UNAVAILABLE, NO_MAPPING, DIMENSION_DISABLED, DIMENSION_UNAVAILABLE], nullable: true }
+            lastActivityDate: { type: string, format: date, nullable: true }
+            trend:
+              type: array
+              description: Same ordered 1/5/10-day ranges as overview; no Habit attribution or XP
+              items: { $ref: "#/components/schemas/GrowthContributionTrend" }
+      description: Includes disabled and zero-activity definitions; unavailable historical IDs retain identity with null metadata. ActualTime UNKNOWN is separate; CompletionEvent null lacks provenance and uses unassigned without inferring legacy status.
+    GrowthOverview:
+      type: object
+      required: [period, hero, summary, dimensions, categoryBreakdown, trend, unmapped, recent]
+      properties:
+        period:
+          type: object
+          required: [days, from, to, timezone]
+          properties:
+            days: { type: integer, enum: [7, 30, 90] }
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+            timezone: { type: string }
+        hero:
+          type: object
+          description: Current cumulative Rewards progression, independent of selected period
+          required: [level, xpTotal, coins, xpInLevel, xpForNextLevel]
+          properties:
+            level: { type: integer }
+            xpTotal: { type: integer }
+            coins: { type: integer }
+            xpInLevel: { type: integer }
+            xpForNextLevel: { type: integer }
+        summary:
+          allOf:
+            - $ref: "#/components/schemas/GrowthContributionMetrics"
+            - type: object
+              required: [mappedActualSeconds, mappedActualMinutes, completedTaskCount, habitCompletedCount]
+              properties:
+                mappedActualSeconds: { type: integer, minimum: 0 }
+                mappedActualMinutes: { type: integer, minimum: 0 }
+                completedTaskCount: { type: integer, description: Compatibility alias of completionEventCount }
+                habitCompletedCount: { type: integer, minimum: 0 }
+        dimensions:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/GrowthContributionMetrics"
+              - type: object
+                required: [id, dimensionKey, name, iconKey, color, sortOrder, share, completedTaskCount, lastActivityDate]
+                properties:
+                  id: { type: integer, format: int64 }
+                  dimensionKey: { type: string }
+                  name: { type: string }
+                  iconKey: { type: string, nullable: true }
+                  color: { type: string }
+                  sortOrder: { type: integer }
+                  share: { type: number, minimum: 0, maximum: 1, description: Dimension seconds / mappedActualSeconds, or zero }
+                  completedTaskCount: { type: integer }
+                  lastActivityDate: { type: string, format: date, nullable: true }
+        categoryBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/GrowthCategoryContribution" }
+        trend:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/GrowthContributionTrend"
+              - type: object
+                required: [completedTaskCount, habitCompletedCount]
+                properties:
+                  completedTaskCount: { type: integer }
+                  habitCompletedCount: { type: integer }
+        unmapped:
+          allOf:
+            - $ref: "#/components/schemas/GrowthContributionMetrics"
+            - type: object
+              required: [completedTaskCount, lastActivityDate]
+              properties:
+                completedTaskCount: { type: integer }
+                lastActivityDate: { type: string, format: date, nullable: true }
+        recent:
+          type: array
+          maxItems: 8
+          description: Existing bounded completion/reward preview; not Category XP totals
+          items:
+            type: object
+            required: [id, kind, businessDate, title, dimensionName, xpDelta]
+            properties:
+              id: { type: integer, format: int64 }
+              kind: { type: string, enum: [TASK_COMPLETION] }
+              businessDate: { type: string, format: date }
+              title: { type: string }
+              dimensionName: { type: string, nullable: true }
+              xpDelta: { type: integer }
     LibraryItemInput:
       type: object
       required: [type, title, status]

@@ -1,6 +1,7 @@
 import { Droplets, FileText, Moon, Pencil, Trash2 } from "lucide-react";
 import { IconButton } from "../../shared/ui";
 import { tx } from "../../app/i18n";
+import type { Category } from "../categories";
 
 export type Schedule = {
   id: number;
@@ -60,7 +61,7 @@ export function scheduleDurationMinutes(item: Pick<Schedule, "startTime" | "endT
   return seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
 }
 
-export function TimelineBoard({ items, onDelete, onEdit, onViewExecution }: { items: TimelineItem[]; onDelete: (id: number) => void; onEdit?: (item: TimelineItem) => void; onViewExecution?: (item: TimelineItem) => void }) {
+export function TimelineBoard({ items, categories, onDelete, onEdit, onViewExecution }: { items: TimelineItem[]; categories: Pick<Category, "id" | "color">[]; onDelete: (id: number) => void; onEdit?: (item: TimelineItem) => void; onViewExecution?: (item: TimelineItem) => void }) {
   const dayStart = HOUR_START * 60;
   const dayEnd = HOUR_END * 60;
   const blockLayouts = layoutTimelineBlocks(items, dayStart, dayEnd);
@@ -100,7 +101,7 @@ export function TimelineBoard({ items, onDelete, onEdit, onViewExecution }: { it
             style={{
               top: `${top}%`,
               height: `max(${height}%, ${short ? 28 : 34}px)`,
-              borderColor: item.color,
+              borderColor: (!item.marker && categories.find((category) => category.id === item.categoryId)?.color) || item.color,
               left: `${23 + lane * laneWidth}%`,
               width: `calc(${laneWidth}% - ${laneCount > 1 ? 4 : 0}px)`
             }}

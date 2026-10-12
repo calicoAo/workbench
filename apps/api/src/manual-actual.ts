@@ -3,7 +3,7 @@ import { type DatabaseClient } from "./db/index.js";
 import { schedules, tasks, timerSegments, users } from "./db/schema.js";
 import { ActualTimeClass, AttributionStatus, ScheduleKind, ScheduleLifecycle, ScheduleSource, TaskStatus, TimerSegmentStatus } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
-import { lockExecutionSlot, requireEmptySlot } from "./execution-slot.js";
+import { lockExecutionSlot, requireTaskCompletionRelation } from "./execution-slot.js";
 import { runMutation } from "./mutation-receipt.js";
 import { grantRewardInClient } from "./rewards.js";
 import { completeLockedTaskInClient, lockTaskInClient } from "./task-completion.js";
@@ -67,13 +67,16 @@ export function recordManualActual(command: {
     }
   }, async (tx) => {
     const slot = await lockExecutionSlot(tx, command.userId);
-    if (command.completeTask) requireEmptySlot(slot);
     let task: typeof tasks.$inferSelect | undefined;
     if (command.taskId) {
       task = await lockTaskInClient(tx, command.userId, command.taskId);
       if (command.expectedTaskVersion !== undefined && task.version !== command.expectedTaskVersion) throw new BusinessError(ErrorCode.CONFLICT, "task version conflict", 409);
     }
     if (!task && !command.title?.trim()) throw new BusinessError(ErrorCode.PARAM_ERROR, "title is required without a task");
+    if (command.completeTask) {
+      if (!task || command.expectedTaskVersion === undefined) throw new BusinessError(ErrorCode.PARAM_ERROR, "task and expectedTaskVersion are required for completion");
+      await requireTaskCompletionRelation(tx, command.userId, slot, task.id);
+    }
     if (command.completeTask && task?.status === TaskStatus.DONE) throw new BusinessError(ErrorCode.CONFLICT, "task is already complete", 409);
     await validateManualInterval(tx, command.userId, command);
     const projectIdAtOccurrence = command.projectIdAtOccurrence === undefined ? task?.projectId ?? null : command.projectIdAtOccurrence;

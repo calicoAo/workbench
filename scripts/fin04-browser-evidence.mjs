@@ -9,7 +9,7 @@ const apiOrigin = process.env.FIN04_BROWSER_API_ORIGIN ?? "http://127.0.0.1:3014
 const databaseUrl = process.env.FIN04_BROWSER_DATABASE_URL;
 const artifactDir = process.env.FIN04_BROWSER_ARTIFACT_DIR ?? path.resolve("docs/reports");
 const fixtureDir = process.env.FIN04_BROWSER_FIXTURE_DIR ?? path.resolve("/tmp/fin04-browser-fixtures");
-if (!databaseUrl) throw new Error("FIN04_BROWSER_DATABASE_URL is required");
+if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith("_test")) throw new Error("FIN04_BROWSER_DATABASE_URL must identify an isolated _test database");
 await fs.mkdir(artifactDir, { recursive: true });
 await fs.mkdir(fixtureDir, { recursive: true });
 
@@ -55,9 +55,9 @@ async function evaluate(expression) { const result = await send("Runtime.evaluat
 async function waitFor(expression, timeout = 20000) { const started = Date.now(); while (Date.now() - started < timeout) { if (await evaluate(expression)) return; await sleep(120); } throw new Error(`Timed out: ${expression}`); }
 async function api(pathname, body, token, method = body === undefined ? "GET" : "POST") { const response = await fetch(`${apiOrigin}/api${pathname}`, { method, headers: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }); const payload = await response.json(); if (!response.ok) throw new Error(`${pathname}: ${response.status} ${JSON.stringify(payload)}`); return payload.data; }
 async function setToken(token) { await evaluate(`localStorage.setItem("personal_workbench_token", ${JSON.stringify(token)})`); await send("Page.reload", { ignoreCache: true }); await waitFor("document.querySelector('.app-shell') !== null"); }
-async function navigate(pathname, selector = ".app-shell") { await send("Page.navigate", { url: `${webOrigin}${pathname}` }); await waitFor("document.readyState === 'complete'"); await waitFor(`document.querySelector(${JSON.stringify(selector)}) !== null`); await sleep(350); }
+async function navigate(pathname, selector = ".app-shell") { await send("Page.navigate", { url: `${webOrigin}${pathname}` }); await waitFor("document.readyState === 'complete'"); await waitFor(`document.querySelector(${JSON.stringify(selector)}) !== null`); await sleep(350); if (await evaluate("document.querySelector('.onboarding-welcome') !== null")) { await clickText("直接进入"); await waitFor("document.querySelector('.onboarding-welcome') === null"); } await sleep(500); if (await evaluate("document.querySelector('.earth-entry-close') !== null")) { await evaluate("document.querySelector('.earth-entry-close').click()"); await waitFor("document.querySelector('.earth-entry-backdrop') === null"); } }
 async function viewport(width, height) { await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width === 375 }); await waitFor(`innerWidth === ${width} && innerHeight === ${height}`); const value = await evaluate("({ innerWidth, innerHeight, scrollWidth: document.documentElement.scrollWidth })"); assert.equal(value.innerWidth, width); assert.equal(value.innerHeight, height); if (width === 375) assert.equal(value.scrollWidth, 375); else assert.ok(value.scrollWidth <= width); return value; }
-async function screenshot(name) { const dimensions = await evaluate("({ innerWidth, innerHeight, scrollWidth: document.documentElement.scrollWidth })"); assert.ok(dimensions.scrollWidth <= dimensions.innerWidth, `${name} has horizontal overflow`); if (dimensions.innerWidth === 375) assert.deepEqual(dimensions, { innerWidth: 375, innerHeight: 812, scrollWidth: 375 }); const capture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false, fromSurface: true }); const file = path.join(artifactDir, name); await fs.writeFile(file, Buffer.from(capture.data, "base64")); return { file, ...dimensions }; }
+async function screenshot(name) { const dimensions = await evaluate("({ innerWidth, innerHeight, scrollWidth: document.documentElement.scrollWidth })"); assert.ok(dimensions.scrollWidth <= dimensions.innerWidth, `${name} has horizontal overflow`); if (dimensions.innerWidth === 375) assert.deepEqual(dimensions, { innerWidth: 375, innerHeight: 812, scrollWidth: 375 }); assert.equal(await evaluate("document.querySelector('.onboarding-backdrop, .earth-entry-backdrop') !== null"), false, `${name} obstructed by unrelated welcome`); const capture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false, fromSurface: true }); const file = path.join(artifactDir, name); await fs.writeFile(file, Buffer.from(capture.data, "base64")); return { file, ...dimensions }; }
 async function clickText(text) { const clicked = await evaluate(`(() => { const node = [...document.querySelectorAll('button')].find((item) => item.textContent.trim() === ${JSON.stringify(text)}); if (!node) return false; node.click(); return true; })()`); assert.equal(clicked, true, `missing button: ${text}`); await sleep(250); }
 async function clickWithConfirm(text, expected) { const dialog = waitEvent("Page.javascriptDialogOpening"); const click = evaluate(`(() => { const node = [...document.querySelectorAll('button')].find((item) => item.textContent.trim() === ${JSON.stringify(text)}); if (!node) return false; node.click(); return true; })()`); const event = await dialog; assert.match(event.message, expected); await send("Page.handleJavaScriptDialog", { accept: true }); assert.equal(await click, true); }
 async function bindFile(selector, file) { const document = await send("DOM.getDocument", { depth: -1, pierce: true }); const input = await send("DOM.querySelector", { nodeId: document.root.nodeId, selector }); assert.ok(input.nodeId, `missing file input: ${selector}`); await send("DOM.setFileInputFiles", { nodeId: input.nodeId, files: [file] }); }
@@ -94,9 +94,9 @@ await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: fix
 await navigate("/login", "body");
 await setToken(token);
 await viewport(1440, 900);
-await navigate("/settings", ".settings-data");
+await navigate("/finance?tab=maintenance", ".finance-data-maintenance");
 const initialDownloads = (await fs.readdir(fixtureDir)).filter((name) => name.endsWith(".json") || name === "workbench-finance-data.csv");
-assert.deepEqual(initialDownloads, [], "opening Settings must not auto-export");
+assert.deepEqual(initialDownloads, [], "opening maintenance must not auto-export");
 await bindFile("input[aria-label='导入外部流水 CSV']", csvFile);
 await waitFor("document.querySelector('.finance-import-preview')?.textContent.includes('可能重复')");
 const statuses = await evaluate("[...document.querySelectorAll('.finance-import-preview .ui-badge')].map((node) => node.textContent.trim())");
@@ -108,8 +108,8 @@ await evaluate("document.querySelector('.finance-import-preview').scrollIntoView
 const importPreviewDesktop = await screenshot("WB-R3-FIN04-import-preview-1440-final.png");
 
 await viewport(375, 812);
-await navigate("/settings", ".settings-data");
-await evaluate("document.querySelector('.settings-data').scrollIntoView({ block: 'start' })"); await sleep(200);
+await navigate("/finance?tab=maintenance", ".finance-data-maintenance");
+await evaluate("document.querySelector('.finance-data-maintenance').scrollIntoView({ block: 'start' })"); await sleep(200);
 const mobileLayout = await evaluate(`(() => { const buttons = [...document.querySelectorAll('.finance-data-actions button')]; const fabNode = document.querySelector('.quick-add-wrap'); const fab = fabNode?.getBoundingClientRect(); const nav = document.querySelector('.mobile-nav')?.getBoundingClientRect(); const overlaps = (a, b) => Boolean(a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top); return { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, labels: buttons.map((button) => button.textContent.trim()), labelsFit: buttons.every((button) => button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight), fabVisible: Boolean(fabNode && getComputedStyle(fabNode).display !== 'none'), fabNavOverlap: overlaps(fab, nav) }; })()`);
 assert.deepEqual({ width: mobileLayout.width, height: mobileLayout.height, scrollWidth: mobileLayout.scrollWidth }, { width: 375, height: 812, scrollWidth: 375 });
 assert.equal(mobileLayout.labelsFit, true);
@@ -133,14 +133,21 @@ for (const value of ["成功 2 行", "跳过重复 1 行", "确认可能重复 1
 
 await viewport(1440, 900);
 const importResultDesktop = await screenshot("WB-R3-FIN04-import-result-1440.png");
+await clickText("账户");
+await waitFor("document.querySelector('.finance-account-list')?.textContent.includes('-¥80.00')");
+await evaluate("history.back()");
+await waitFor("new URLSearchParams(location.search).get('tab') === 'maintenance' && document.querySelector('.finance-data-maintenance') !== null");
+await evaluate("history.forward()");
+await waitFor("new URLSearchParams(location.search).get('tab') === 'accounts'");
+await clickText("数据维护");
 const beforeReplay = await scalar(db, "SELECT COUNT(*) FROM finance_transactions WHERE user_id = ?", [owner.user.id]);
 await bindFile("input[aria-label='导入外部流水 CSV']", csvFile);
 await waitFor("document.querySelector('.finance-import-preview')?.textContent.includes('完全重复')");
 await sleep(300);
 assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_transactions WHERE user_id = ?", [owner.user.id]), beforeReplay);
 
-await navigate("/settings", ".settings-data");
-await evaluate("document.querySelector('.settings-data').scrollIntoView({ block: 'start' })");
+await navigate("/finance?tab=maintenance", ".finance-data-maintenance");
+await evaluate("document.querySelector('.finance-data-maintenance').scrollIntoView({ block: 'start' })");
 await clickWithConfirm("导出财务备份 JSON", /敏感信息/);
 await waitFor("document.querySelector('[role=status]')?.textContent.includes('已生成并下载')");
 const backupFile = await waitForDownload("workbench-finance-backup-v1.json");
@@ -149,8 +156,10 @@ await waitForDownload("workbench-finance-data.csv");
 assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_data_audits WHERE user_id = ? AND action IN ('FINANCE_BACKUP_EXPORT','FINANCE_CSV_EXPORT')", [owner.user.id]), 2);
 const exportDesktop = await screenshot("WB-R3-FIN04-export-1440.png");
 
+const entriesBeforeReconciliation = await scalar(db, "SELECT COUNT(*) FROM finance_entries WHERE user_id = ?", [owner.user.id]);
 await clickText("账本核对");
 await waitFor("document.querySelector('[role=status]')?.textContent.includes('全部正常')");
+assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_entries WHERE user_id = ?", [owner.user.id]), entriesBeforeReconciliation);
 const reconciliationDesktop = await screenshot("WB-R3-FIN04-reconciliation-1440.png");
 
 for (const query of ["FIN04 ready search", category.name, accountName]) {
@@ -177,12 +186,17 @@ const report = await api("/finance/reports?month=2026-09", undefined, token);
 assert.equal(budgets.find((item) => item.categoryId === null).spentCents, "8000");
 assert.equal(report.monthly.expenseCents, "8000");
 
-await navigate("/settings", ".settings-data");
+await navigate("/finance?tab=maintenance", ".finance-data-maintenance");
 await bindFile("input[aria-label='恢复 Finance JSON']", backupFile);
 await waitFor("document.querySelector('.finance-import-preview')?.textContent.includes('完整恢复需要空账本')");
 assert.equal(await evaluate("[...document.querySelectorAll('.finance-import-preview button')].some((node) => node.textContent.includes('确认恢复'))"), false);
 await setToken(fresh.token);
-await navigate("/settings", ".settings-data");
+assert.equal(await evaluate("document.querySelector('.finance-import-preview') !== null"), false, "previous user previews must be cleared");
+await navigate("/finance?tab=maintenance", ".finance-data-maintenance");
+assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_accounts WHERE user_id = ?", [fresh.user.id]), 0);
+assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_categories WHERE user_id = ?", [fresh.user.id]), 0);
+assert.equal(await evaluate("[...document.querySelectorAll('button')].some(node => node.textContent.includes('初始化财务分类'))"), false);
+assert.equal(await evaluate(`document.querySelector("input[aria-label='恢复 Finance JSON']").files.length`), 0);
 await bindFile("input[aria-label='恢复 Finance JSON']", backupFile);
 await waitFor("document.querySelector('.finance-import-preview')?.textContent.includes('备份版本 1')");
 assert.ok((await evaluate("document.querySelector('.finance-import-preview').textContent")).includes("可以在空账本中恢复"));
@@ -190,6 +204,42 @@ await clickWithConfirm("确认恢复", /只允许写入空账本/);
 await waitFor("document.querySelector('.finance-import-preview')?.textContent.includes('恢复完成')");
 assert.equal(await scalar(db, "SELECT COUNT(*) FROM finance_transactions WHERE user_id = ?", [fresh.user.id]), transactions);
 
-console.log(JSON.stringify({ exactViewport: "PASS", evidence: { importPreviewDesktop, importResultDesktop, exportDesktop, reconciliationDesktop, searchDesktop, mobileDataActions, importPreviewMobile }, mobileLayout, parity: { transactions, entries, imported, expenseCents: report.monthly.expenseCents }, restore: { sourceUserId: owner.user.id, targetUserId: fresh.user.id, restoredTransactions: transactions } }, null, 2));
+await clickText("账户");
+await waitFor("document.querySelector('.finance-account-list')?.textContent.includes('-¥80.00')");
+await navigate("/settings?topic=data", ".settings-data");
+assert.equal(await evaluate("document.querySelector('.settings-data h3').textContent"), "工作台数据导出");
+assert.equal(await evaluate("document.querySelector('.settings-data input[type=file]') !== null"), false);
+assert.equal(await evaluate("document.querySelector('.finance-data-maintenance') !== null"), false);
+assert.equal(await evaluate("[...document.querySelectorAll('.settings-secondary-nav button, .settings-mobile-topic option')].some(node => node.textContent.trim() === '钱包')"), false);
+assert.equal(await evaluate("document.querySelector('a[href=\"/finance?tab=maintenance\"]').textContent.trim()"), "钱包数据维护");
+assert.equal(await evaluate("document.querySelector('a[href=\"/search\"]') !== null && document.querySelector('a[href=\"/settings/trash\"]') !== null"), true);
+await evaluate("document.querySelector('select[aria-label=\"任务导出格式\"]').closest('.export-row').querySelector('button').click()");
+await waitFor("[...document.querySelectorAll('.export-row')].some(row => row.textContent.includes('0 条'))");
+const globalExportFile = await waitForDownload("personal-workbench-tasks.json");
+const globalExport = JSON.parse(await fs.readFile(globalExportFile, "utf8"));
+assert.equal(globalExport.domain, "tasks");
+assert.equal(globalExport.includeTrash, false);
+assert.deepEqual(globalExport.records, []);
+const globalDataDesktop = await screenshot("WB-WALLET-SETTINGS-global-data-1440.png");
+await viewport(375, 812);
+await navigate("/settings?topic=data", ".settings-data");
+assert.equal(await evaluate("getComputedStyle(document.querySelector('.settings-mobile-topic')).display !== 'none'"), true);
+await evaluate("scrollTo(0, 0)");
+await sleep(250);
+assert.equal(await evaluate("(() => { const rect = document.querySelector('.settings-mobile-topic select').getBoundingClientRect(); return rect.top >= 0 && rect.bottom < innerHeight; })()"), true);
+const globalDataMobile = await screenshot("WB-WALLET-SETTINGS-global-data-375.png");
+await navigate("/settings?topic=wallet&date=2026-09-19&format=csv&tab=maintenance", ".finance-route");
+assert.equal(await evaluate("location.pathname + location.search"), "/finance?date=2026-09-19");
+await evaluate("history.back()");
+await waitFor("location.pathname === '/settings' && new URLSearchParams(location.search).get('topic') === 'data' && document.querySelector('.settings-data') !== null");
+await evaluate("history.forward()");
+await waitFor("location.pathname + location.search === '/finance?date=2026-09-19'");
+await navigate("/settings?topic=wallet&date=invalid&format=csv", ".finance-route");
+assert.equal(await evaluate("location.pathname"), "/finance");
+assert.equal(await evaluate("[...new URLSearchParams(location.search).keys()].every(key => key === 'date')"), true);
+await navigate("/settings?topic=data", ".settings-data");
+await evaluate("document.querySelector('a[href=\"/finance?tab=maintenance\"]').click()");
+await waitFor("location.pathname === '/finance' && new URLSearchParams(location.search).get('tab') === 'maintenance' && document.querySelector('.finance-data-maintenance') !== null");
+console.log(JSON.stringify({ maintenanceOwnership: { emptyDomainAccess: "PASS", authDraftIsolation: "PASS", importRestoreCacheRefresh: "PASS", browserHistory: "PASS", readOnlyReconciliation: "PASS" }, settingsCleanup: { legacyReplace: "PASS", validDate: "PASS", parameterCleanup: "PASS", browserBackForward: "PASS", mobileTopics: "PASS", globalExport: "PASS", informationalHandoff: "PASS" }, exactViewport: "PASS", evidence: { importPreviewDesktop, importResultDesktop, exportDesktop, reconciliationDesktop, searchDesktop, mobileDataActions, importPreviewMobile, globalDataDesktop, globalDataMobile }, mobileLayout, parity: { transactions, entries, imported, expenseCents: report.monthly.expenseCents }, restore: { sourceUserId: owner.user.id, targetUserId: fresh.user.id, restoredTransactions: transactions } }, null, 2));
 await db.end();
 socket.close();

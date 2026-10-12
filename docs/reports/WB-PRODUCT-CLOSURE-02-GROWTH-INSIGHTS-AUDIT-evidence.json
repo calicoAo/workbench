@@ -1,0 +1,40 @@
+{
+  "verification": "SOURCE_AND_PURE_TIME_HELPER_REPRODUCTION; NOT_DATABASE_ACCEPTANCE",
+  "mixedTimezone": {
+    "queryTimezone": "UTC",
+    "recordTimezone": "Asia/Tokyo",
+    "from": "2026-09-30",
+    "to": "2026-10-06",
+    "slices": [
+      {
+        "businessDate": "2026-10-06",
+        "startedAt": "2026-10-06T14:55:00.000Z",
+        "endedAt": "2026-10-06T15:00:00.000Z",
+        "seconds": 300
+      },
+      {
+        "businessDate": "2026-10-07",
+        "startedAt": "2026-10-06T15:00:00.000Z",
+        "endedAt": "2026-10-06T15:15:00.000Z",
+        "seconds": 900
+      }
+    ],
+    "overviewSummaryMinutes": 20,
+    "trendMinutes": 5
+  },
+  "rounding": {
+    "categorySeconds": [
+      59,
+      59
+    ],
+    "sumOfRoundedCategoryMinutes": 0,
+    "dimensionRoundedMinutes": 1
+  },
+  "radar": {
+    "existingRadiusFormula": "20 + min(1, share) * 60",
+    "zeroShareRadius": 20,
+    "halfShareRadius": 50,
+    "oneShareRadius": 80,
+    "axes": "only dimensions with actualMinutes > 0; scaffold is a fixed four-point diamond"
+  }
+}

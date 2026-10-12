@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import type { Request } from "../../app/api";
@@ -86,7 +86,7 @@ describe("Settings", () => {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:test") }); Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() }); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
-    await screen.findByText("备份、恢复与导出"); const writingSelect = screen.getByLabelText("个人文字导出格式"); fireEvent.change(writingSelect, { target: { value: "markdown" } }); const writingRow = writingSelect.closest(".export-row")!; fireEvent.click(withinRowButton(writingRow));
+    await screen.findByText("工作台数据导出"); const writingSelect = screen.getByLabelText("个人文字导出格式"); fireEvent.change(writingSelect, { target: { value: "markdown" } }); const writingRow = writingSelect.closest(".export-row")!; fireEvent.click(withinRowButton(writingRow));
     await waitFor(() => expect(screen.getByText("2 条")).toBeTruthy()); expect(request).toHaveBeenCalledWith("/api/exports/writing?format=markdown&includeTrash=false");
   });
 
@@ -97,7 +97,7 @@ describe("Settings", () => {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={onError} /></MemoryRouter></QueryClientProvider>);
-    await screen.findByText("备份、恢复与导出");
+    await screen.findByText("工作台数据导出");
     const taskRow = screen.getByLabelText("任务导出格式").closest(".export-row")!;
     fireEvent.click(withinRowButton(taskRow));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("export unavailable", "导出失败"));
@@ -113,23 +113,25 @@ describe("Settings", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/exports/habits?format=json&includeTrash=false"));
   });
 
-  it("presents imported integer cents and statuses as Finance product language", async () => {
-    const preview = { id: 1, sourceName: "preview.csv", rows: [
-      { id: 1, date: "2026-09-11", amountCents: "-1000", kind: "EXPENSE", status: "EXACT_DUPLICATE", source: { account: "银行卡", category: "餐饮" } },
-      { id: 2, date: "2026-09-12", amountCents: "-2000", kind: "EXPENSE", status: "POSSIBLE_DUPLICATE", source: { account: "银行卡", category: "餐饮" } },
-      { id: 3, date: "2026-09-13", amountCents: "-3000", kind: "EXPENSE", status: "READY", source: { account: "银行卡", category: "餐饮" } },
-      { id: 4, date: null, amountCents: "-4000", kind: "EXPENSE", status: "INVALID", source: { account: "银行卡", category: "餐饮" } }
-    ] };
-    const request = vi.fn(async (path: string) => path === "/api/finance/imports/external/preview" ? preview : snapshot) as Request;
+  it("keeps global Data exports and tools without Finance maintenance ownership", async () => {
+    const request = vi.fn(async () => snapshot) as Request;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/settings?topic=data"]}><SettingsFeature request={request} userId={7} logout={vi.fn()} onProfileChanged={vi.fn()} onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
-    const file = { name: "preview.csv", text: async () => "date,amount\n2026-09-11,10.00" } as File;
-    fireEvent.change(await screen.findByLabelText("导入外部流水 CSV"), { target: { files: [file] } });
-    expect(await screen.findByText(/2026-09-11 · -¥10\.00/)).toBeTruthy();
-    for (const label of ["完全重复", "可能重复", "可导入", "需要修正"]) expect(screen.getByText(label)).toBeTruthy();
-    expect(screen.queryByText("EXACT_DUPLICATE")).toBeNull();
-    expect(screen.queryByText("READY")).toBeNull();
+    await screen.findByRole("heading", { name: "工作台数据导出" });
+    expect(screen.getByRole("link", { name: /搜索/ }).getAttribute("href")).toBe("/search");
+    expect(screen.getByRole("link", { name: /回收站/ }).getAttribute("href")).toBe("/settings/trash");
+    expect(screen.getByRole("link", { name: "钱包数据维护" }).getAttribute("href")).toBe("/finance?tab=maintenance");
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(document.querySelector(".finance-data-maintenance")).toBeNull();
+    expect((request as ReturnType<typeof vi.fn>).mock.calls.every(([path]) => !path.startsWith("/api/finance"))).toBe(true);
+    expect(within(screen.getByRole("navigation", { name: "设置主题" })).queryByRole("button", { name: "钱包" })).toBeNull();
+    const mobile = screen.getByRole("combobox", { name: "设置主题" });
+    expect(within(mobile).queryByRole("option", { name: "钱包" })).toBeNull();
+    fireEvent.change(mobile, { target: { value: "general" } });
+    expect(await screen.findByText("新的记录将使用此时区；已有历史日期不会重新归属。")).toBeTruthy();
   });
+
+
 });
 
 function withinRowButton(row: Element) { const button = row.querySelector("button"); if (!button) throw new Error("missing export button"); return button; }

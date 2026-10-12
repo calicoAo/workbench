@@ -1,5 +1,5 @@
 import { ArrowDownCircle, ArrowUpCircle, Landmark, ReceiptText } from "lucide-react";
-import { accountTypeLabel, yuan, type FinanceOverview } from "./model";
+import { accountBalanceLabel, accountTypeLabel, yuan, type FinanceOverview } from "./model";
 import { TransactionList } from "./transaction-list";
 import { tx } from "../../app/i18n";
 
@@ -19,6 +19,7 @@ export function Overview({
           <p>{tx("净值")}</p>
           <strong>{yuan(data.netWorthCents, hidden)}</strong>
           <small>{data.accountCount} {tx("个使用中的账户")}</small>
+          <small>{tx("仅统计未归档且计入总览的账户。")}</small>
         </div>
         <span>
           <b>{tx("总资产")}</b>
@@ -98,9 +99,7 @@ export function Overview({
                         : ""
                     }
                   >
-                    {item.type === "CREDIT" && BigInt(item.balanceCents) < 0n
-                      ? tx("欠款 {value0}", { value0: yuan((-BigInt(item.balanceCents)).toString(), hidden) })
-                      : yuan(item.balanceCents, hidden)}
+                    {accountBalanceLabel(item, hidden)}
                   </b>
                 </div>
               ))}

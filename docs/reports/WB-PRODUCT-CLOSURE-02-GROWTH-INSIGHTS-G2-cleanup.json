@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "droppedDatabases": [
+    "workbench_growth_g2_qa_test"
+  ],
+  "selfProvisionedTestDatabases": "Dropped by suite teardown",
+  "remainingG2Databases": [],
+  "productionDatabasesTouched": false,
+  "temporaryServicesStopped": true,
+  "temporaryDatadirAndChromeProfileRemoved": true,
+  "apiPort": 3000,
+  "webPort": 5185,
+  "cdpPort": 9335,
+  "mysqlPort": 33307
+}

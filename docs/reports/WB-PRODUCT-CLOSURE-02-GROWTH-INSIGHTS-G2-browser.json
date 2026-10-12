@@ -1,0 +1,414 @@
+{
+  "result": "PASS",
+  "fixtures": {
+    "dimension": {
+      "id": 77,
+      "dimensionKey": "custom_a629ae45d6cf496b9a",
+      "version": 1
+    },
+    "a": {
+      "id": 101,
+      "userId": 11,
+      "name": "Agent Engineering A",
+      "color": "#5B8DEF",
+      "icon": null,
+      "dimensionKey": "custom_a629ae45d6cf496b9a",
+      "targetMinutes": 6000,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-11T18:29:24.000Z",
+      "updatedAt": "2026-10-11T18:29:24.000Z",
+      "deletedAt": null
+    },
+    "b": {
+      "id": 102,
+      "userId": 11,
+      "name": "Guide Study B",
+      "color": "#B28DFF",
+      "icon": null,
+      "dimensionKey": "custom_a629ae45d6cf496b9a",
+      "targetMinutes": 6000,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-11T18:29:24.000Z",
+      "updatedAt": "2026-10-11T18:29:24.000Z",
+      "deletedAt": null
+    },
+    "c": {
+      "id": 103,
+      "userId": 11,
+      "name": "Unmapped C",
+      "color": "#64748B",
+      "icon": null,
+      "dimensionKey": null,
+      "targetMinutes": 6000,
+      "sortOrder": 0,
+      "enabled": 1,
+      "createdAt": "2026-10-11T18:29:24.000Z",
+      "updatedAt": "2026-10-11T18:29:24.000Z",
+      "deletedAt": null
+    },
+    "aWork": {
+      "taskId": 91,
+      "sessionId": 71,
+      "segmentIds": [
+        73,
+        74
+      ]
+    },
+    "bWork": {
+      "taskId": 92,
+      "sessionId": 72,
+      "segmentIds": [
+        75
+      ]
+    },
+    "cWork": {
+      "taskId": 93,
+      "sessionId": 73,
+      "segmentIds": [
+        76
+      ]
+    },
+    "preparation": "Authenticated publish/start/pause/resume/finish+complete; SQL adjusts only disposable elapsed-time fixtures."
+  },
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 1032.21875,
+          "right": 1098.125,
+          "height": 29.25
+        },
+        {
+          "label": "30 天",
+          "left": 1101.375,
+          "right": 1174.484375,
+          "height": 29.25
+        },
+        {
+          "label": "90 天",
+          "left": 1177.734375,
+          "right": 1251,
+          "height": 29.25
+        },
+        {
+          "label": "总览",
+          "left": 326.75,
+          "right": 393.75,
+          "height": 29.25
+        },
+        {
+          "label": "全部分类",
+          "left": 397,
+          "right": 483.5,
+          "height": 29.25
+        },
+        {
+          "label": "配置",
+          "left": 486.75,
+          "right": 553.75,
+          "height": 29.25
+        },
+        {
+          "label": "返回分类",
+          "left": 322.5,
+          "right": 1258.5,
+          "height": 29.25
+        },
+        {
+          "label": "首页",
+          "left": 322.5,
+          "right": 370,
+          "height": 29.25
+        },
+        {
+          "label": "下一页",
+          "left": 376.5,
+          "right": 433.75,
+          "height": 29.25
+        }
+      ],
+      "footerBottom": 999.515625,
+      "bottomNavTop": 1000,
+      "focus": "成长内容"
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "scrollWidth": 1429,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 1032.21875,
+          "right": 1098.125,
+          "height": 29.25
+        },
+        {
+          "label": "30 天",
+          "left": 1101.375,
+          "right": 1174.484375,
+          "height": 29.25
+        },
+        {
+          "label": "90 天",
+          "left": 1177.734375,
+          "right": 1251,
+          "height": 29.25
+        },
+        {
+          "label": "总览",
+          "left": 326.75,
+          "right": 393.75,
+          "height": 29.25
+        },
+        {
+          "label": "全部分类",
+          "left": 397,
+          "right": 483.5,
+          "height": 29.25
+        },
+        {
+          "label": "配置",
+          "left": 486.75,
+          "right": 553.75,
+          "height": 29.25
+        },
+        {
+          "label": "返回分类",
+          "left": 322.5,
+          "right": 1258.5,
+          "height": 29.25
+        },
+        {
+          "label": "首页",
+          "left": 322.5,
+          "right": 370,
+          "height": 29.25
+        },
+        {
+          "label": "下一页",
+          "left": 376.5,
+          "right": 433.75,
+          "height": 29.25
+        }
+      ],
+      "footerBottom": 999.515625,
+      "bottomNavTop": 1000,
+      "focus": null
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 15.625,
+          "right": 128.03125,
+          "height": 44
+        },
+        {
+          "label": "30 天",
+          "left": 131.28125,
+          "right": 243.703125,
+          "height": 44
+        },
+        {
+          "label": "90 天",
+          "left": 246.953125,
+          "right": 359.375,
+          "height": 44
+        },
+        {
+          "label": "总览",
+          "left": 12.375,
+          "right": 79.375,
+          "height": 44
+        },
+        {
+          "label": "全部分类",
+          "left": 82.625,
+          "right": 169.125,
+          "height": 44
+        },
+        {
+          "label": "配置",
+          "left": 172.375,
+          "right": 239.375,
+          "height": 44
+        },
+        {
+          "label": "返回分类",
+          "left": 8.125,
+          "right": 366.875,
+          "height": 44
+        },
+        {
+          "label": "首页",
+          "left": 8.125,
+          "right": 55.625,
+          "height": 44
+        },
+        {
+          "label": "下一页",
+          "left": 62.125,
+          "right": 119.375,
+          "height": 44
+        }
+      ],
+      "footerBottom": 691.75,
+      "bottomNavTop": 748,
+      "focus": "成长内容"
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "controls": [
+        {
+          "label": "7 天",
+          "left": 15.625,
+          "right": 128.03125,
+          "height": 44
+        },
+        {
+          "label": "30 天",
+          "left": 131.28125,
+          "right": 243.703125,
+          "height": 44
+        },
+        {
+          "label": "90 天",
+          "left": 246.953125,
+          "right": 359.375,
+          "height": 44
+        },
+        {
+          "label": "总览",
+          "left": 12.375,
+          "right": 79.375,
+          "height": 44
+        },
+        {
+          "label": "全部分类",
+          "left": 82.625,
+          "right": 169.125,
+          "height": 44
+        },
+        {
+          "label": "配置",
+          "left": 172.375,
+          "right": 239.375,
+          "height": 44
+        },
+        {
+          "label": "返回分类",
+          "left": 8.125,
+          "right": 366.875,
+          "height": 44
+        },
+        {
+          "label": "首页",
+          "left": 8.125,
+          "right": 55.625,
+          "height": 44
+        },
+        {
+          "label": "下一页",
+          "left": 62.125,
+          "right": 119.375,
+          "height": 44
+        }
+      ],
+      "footerBottom": 691.703125,
+      "bottomNavTop": 748,
+      "focus": null
+    }
+  ],
+  "journeys": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "categoryMetrics": {
+        "categoryId": 101,
+        "seconds": 900,
+        "events": 1,
+        "segments": 2,
+        "displayed": [
+          "0h 15m 0s",
+          "1",
+          "2"
+        ]
+      },
+      "unmapped": {
+        "categoryId": 103,
+        "seconds": 360,
+        "events": 1,
+        "segments": 1,
+        "displayed": [
+          "0h 6m 0s",
+          "1",
+          "1"
+        ]
+      },
+      "keyboard": "PASS",
+      "multiSegment": "PASS",
+      "sessionNoteOnce": "PASS",
+      "completionNoteSeparate": "PASS",
+      "backForward": "PASS",
+      "directAndRefresh": "PASS",
+      "periodAndDate": "PASS"
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "categoryMetrics": {
+        "categoryId": 101,
+        "seconds": 900,
+        "events": 1,
+        "segments": 2,
+        "displayed": [
+          "0h 15m 0s",
+          "1",
+          "2"
+        ]
+      },
+      "unmapped": {
+        "categoryId": 103,
+        "seconds": 360,
+        "events": 1,
+        "segments": 1,
+        "displayed": [
+          "0h 6m 0s",
+          "1",
+          "1"
+        ]
+      },
+      "keyboard": "PASS",
+      "multiSegment": "PASS",
+      "sessionNoteOnce": "PASS",
+      "completionNoteSeparate": "PASS",
+      "backForward": "PASS",
+      "directAndRefresh": "PASS",
+      "periodAndDate": "PASS"
+    }
+  ],
+  "checks": [
+    "Exact SQL metrics versus public Growth UI",
+    "1440 and 375 CSS viewport",
+    "All Categories + unmapped",
+    "Keyboard Enter expansion/navigation",
+    "Full Task/Session/Segment history",
+    "URL Back/Forward, direct link, reload",
+    "AppShell date retains Growth context",
+    "No horizontal overflow or bottom navigation overlap"
+  ],
+  "userId": 11,
+  "timezone": "Asia/Shanghai",
+  "date": "2026-10-12"
+}

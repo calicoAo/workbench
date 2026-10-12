@@ -1,0 +1,66 @@
+{
+  "preexistingFileCount": 568,
+  "unchangedPreexistingFileCount": 561,
+  "changedPreexistingFiles": {
+    "apps/web/src/features/growth/category-detail.tsx": {
+      "before": "0d0ed95f9a210801379c016445a6aac334d21c495853a6d3b28b6c81428532c7",
+      "after": "7fa9cea78b6fcc3d7a470396d26d9899c735d89e1fecca8e5402aa0ecb1c6214"
+    },
+    "apps/web/src/features/growth/category-insights.tsx": {
+      "before": "58ee4fd92cfe62b9bbea1d8cc57732ea215efd874a1e615d9018ecb204a022e7",
+      "after": "f2c801422a527e2111ef6ad62f5788fa2db6a7875da7aa92889e30f8ea56d5f3"
+    },
+    "apps/web/src/features/growth/configuration.tsx": {
+      "before": "481efe4d777d00b93fcd8e0b8793ca5bbd5c388772d5ac7a6591203e23ddeaf0",
+      "after": "e22559514df33d3bd5f267acb54fb62193aff1cfde1f20f5616d6ef7bef44f4e"
+    },
+    "apps/web/src/features/growth/overview.tsx": {
+      "before": "a1fb0e2db9f734387412a8c9cf05edcaa5d7836d873f559c5396983582851811",
+      "after": "057a5791e1a324fb1334eeae67df952e478d00f2e70e7993faf9d570da022afb"
+    },
+    "apps/web/src/features/growth/index.test.tsx": {
+      "before": "2104b93f851b1c96b390f22086e642b5d904ecfb024b9cde3c745717ce04af12",
+      "after": "60b50efd0877dcf8b1510e98dab069959d104ba1a9b5ec1a12770a3cdd051372"
+    },
+    "apps/web/src/features/growth/index.tsx": {
+      "before": "c8447f5993409c6ef68378e87df47288006274bfe03a49f70dff1ccc6a862222",
+      "after": "8bb098a87c7f28bc2a73cc17a586297dad9f540608a20b461c67e631ee3a57ab"
+    },
+    "apps/web/src/styles.css": {
+      "before": "5e2ef74ea56c1a3741c1035234c061aba33a623918d2841cc879e0f5e9548687",
+      "after": "35005f0c8af0827820d09b9fbb4f67b3a6813cbc78294ac3735c4a191c66e5b3"
+    }
+  },
+  "newFiles": [
+    "\"\\344\\270\\252\\344\\272\\272\\345\\267\\245\\344\\275\\234\\345\\217\\260PRD.md\"",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-001.md",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-all-categories-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-all-categories-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-browser.json",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-category-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-category-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-cleanup.json",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-configuration-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-configuration-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-configuration-long-name-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-configuration-long-name-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-direct-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-direct-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-expanded-dimension-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-expanded-dimension-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-history-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-history-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-mapping-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-mapping-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-overview-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-overview-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-radar-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-radar-375.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-radar-900.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-segments-1440.png",
+    "docs/reports/WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G3-segments-375.png",
+    "scripts/growth-g3-browser-evidence.mjs"
+  ],
+  "unexpectedPreexistingChanges": [],
+  "architectureApiSchemaContractsAppShellSharedUiPreviousEvidenceUnchanged": true
+}

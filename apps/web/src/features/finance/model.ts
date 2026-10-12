@@ -51,5 +51,13 @@ export function decimalToCents(value: string) {
   return `${negative ? "-" : ""}${BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"))}`;
 }
 
-export const accountTypeLabel: Record<FinanceAccountType, string> = { CASH: "现金", BANK: "银行", PAYMENT: "支付账户", CREDIT: "信用账户" };
+export function accountBalanceLabel(account: Pick<FinanceAccount, "type" | "balanceCents">, hidden = false) {
+  if (account.type !== "CREDIT") return yuan(account.balanceCents, hidden);
+  const balance = BigInt(account.balanceCents);
+  if (balance < 0n) return tx("欠款 {value0}", { value0: yuan((-balance).toString(), hidden) });
+  if (balance === 0n) return tx("已结清");
+  return tx("预存 {value0}", { value0: yuan(account.balanceCents, hidden) });
+}
+
+export const accountTypeLabel: Record<FinanceAccountType, string> = { CASH: "现金", BANK: "银行", PAYMENT: "支付账户", CREDIT: "负债 / 信用账户" };
 export const transactionTypeLabel: Record<FinanceTransactionType, string> = { OPENING: "期初", INCOME: "收入", EXPENSE: "支出", TRANSFER: "转账", REFUND: "退款", REVERSAL: "冲正", CORRECTION: "更正" };

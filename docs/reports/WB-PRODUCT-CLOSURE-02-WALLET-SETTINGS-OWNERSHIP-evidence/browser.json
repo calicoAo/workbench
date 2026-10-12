@@ -1,0 +1,99 @@
+{
+  "maintenanceOwnership": {
+    "emptyDomainAccess": "PASS",
+    "authDraftIsolation": "PASS",
+    "importRestoreCacheRefresh": "PASS",
+    "browserHistory": "PASS",
+    "readOnlyReconciliation": "PASS"
+  },
+  "settingsCleanup": {
+    "legacyReplace": "PASS",
+    "validDate": "PASS",
+    "parameterCleanup": "PASS",
+    "browserBackForward": "PASS",
+    "mobileTopics": "PASS",
+    "globalExport": "PASS",
+    "informationalHandoff": "PASS"
+  },
+  "exactViewport": "PASS",
+  "evidence": {
+    "importPreviewDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-import-preview-1440-final.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "importResultDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-import-result-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "exportDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-export-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "reconciliationDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-reconciliation-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "searchDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-search-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "mobileDataActions": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-data-actions-375-final.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    "importPreviewMobile": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-R3-FIN04-import-preview-375-final.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    "globalDataDesktop": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-WALLET-SETTINGS-global-data-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    "globalDataMobile": {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-CLOSURE-02-WALLET-SETTINGS-OWNERSHIP-evidence/WB-WALLET-SETTINGS-global-data-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    }
+  },
+  "mobileLayout": {
+    "width": 375,
+    "height": 812,
+    "scrollWidth": 375,
+    "labels": [
+      "导出财务备份 JSON",
+      "导出财务 CSV",
+      "账本核对"
+    ],
+    "labelsFit": true,
+    "fabVisible": false,
+    "fabNavOverlap": false
+  },
+  "parity": {
+    "transactions": 4,
+    "entries": 4,
+    "imported": 3,
+    "expenseCents": "8000"
+  },
+  "restore": {
+    "sourceUserId": 14,
+    "targetUserId": 15,
+    "restoredTransactions": 4
+  }
+}

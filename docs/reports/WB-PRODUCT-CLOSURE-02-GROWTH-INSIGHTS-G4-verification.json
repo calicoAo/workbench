@@ -1,0 +1,100 @@
+{
+  "result": "PASS",
+  "slice": "GROWTH-CATEGORY-MAPPING-OWNERSHIP",
+  "milestone": "GROWTH-INSIGHTS-AND-UI-CLOSURE COMPLETE",
+  "checks": [
+    {
+      "gate": "focusedWeb",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npm run test -w apps/web -- src/features/categories/index.test.tsx src/features/categories/mapping-editor.test.tsx src/features/growth/index.test.tsx src/features/tasks/create-category.test.tsx src/features/tasks/create-project.test.tsx src/app/shell/index.test.tsx src/app/architecture.test.ts",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "6897012a12c14d0726a9d6a659a83355aa0189e6785852a4edc99e32b2b5d650",
+      "passedTests": 138
+    },
+    {
+      "gate": "fullWeb",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npm run test -w apps/web",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "22db2e4b03d42106bb56b899e67e18fc6ccc29eda1e0f8529a4e30834cdaeaa5",
+      "passedTests": 372
+    },
+    {
+      "gate": "realMySQL",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "TEST_DATABASE_URL=<isolated _test URL> node --import tsx --test --test-concurrency=1 tests/growth-category-mapping-ownership.test.ts tests/growth-category-read-contract.test.ts tests/growth-category-detail.test.ts tests/bounty-category-quick-manager.test.ts tests/r2d1-growth.test.ts",
+      "workingDirectory": "/Users/lijingru/Developer/workbench/apps/api",
+      "logSha256": "bc17df79be5f64a9ff94a5124b535168d229153ea007df9ad91a959afe8afa9f",
+      "passedTests": 46
+    },
+    {
+      "gate": "typecheck",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npm run typecheck",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "a1d7f6f92b5704ef779a46b6f51dbb6bffd9c89c50dfb073c9c293a1d807d052"
+    },
+    {
+      "gate": "apiTestTypecheck",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npx tsc -p apps/api/tsconfig.test.json --noEmit",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "7cb184a026d2059da04c14360b4bef7380086ac2bba6fbd3cebb6383f36f4f47"
+    },
+    {
+      "gate": "lintI18n",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npm run lint",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "cb83336b4d6d7b79ebf316e46876d29facc2078dc8151a944a61b3639e4f0f8a"
+    },
+    {
+      "gate": "productionBuild",
+      "result": "PASS",
+      "exitCode": 0,
+      "command": "npm run build",
+      "workingDirectory": "/Users/lijingru/Developer/workbench",
+      "logSha256": "e25e485bd3adc7319c4d3ce22a41bccd3b72d4b271a1fd93cfb8ae57beddea95"
+    }
+  ],
+  "architecture": {
+    "root": "/Users/lijingru/Developer/workbench",
+    "config": null,
+    "errors": 0,
+    "warnings": 0,
+    "findings": []
+  },
+  "browser": {
+    "result": "PASS",
+    "script": "scripts/growth-g4-browser-evidence.mjs",
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        375,
+        812
+      ]
+    ],
+    "capturedSurfaces": 12,
+    "evidence": "WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G4-browser.json"
+  },
+  "database": {
+    "engine": "MySQL 8.0.25",
+    "migrationFiles": 42,
+    "head": "V41__add_ai_foundation.sql",
+    "isolation": "Fresh task database and per-suite disposable databases",
+    "cleanup": "WB-PRODUCT-CLOSURE-02-GROWTH-INSIGHTS-G4-cleanup.json"
+  },
+  "gitDiffCheck": {
+    "result": "PASS",
+    "exitCode": 0
+  }
+}

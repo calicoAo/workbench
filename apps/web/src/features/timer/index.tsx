@@ -51,6 +51,7 @@ export function useTimerCommands({ request, userId, selectedDate: selectedDateIn
   const refreshAffected = useCallback(async (taskId?: number) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.currentSession(userId) }),
+      queryClient.invalidateQueries({ queryKey: ["growth-overview", userId] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks(userId) }),
       taskId ? queryClient.invalidateQueries({ queryKey: queryKeys.task(userId, taskId) }) : Promise.resolve(),
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments(userId, selectedDate) }),
