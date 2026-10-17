@@ -76,8 +76,8 @@ export function SelectDailyTasksWorkflow({ children, request, selectedDate, task
   return <>
     {children(show)}
     {open && <ModalPortal onClose={() => setOpen(false)}>
-      <form className="task-selection-modal" onSubmit={submit}>
-        <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{selectedDate} {tx("· 任务池")}</p><h3 className="text-sm font-semibold">{tx("接取今天的悬赏")}</h3></div><CloseButton onClose={() => setOpen(false)} /></div>
+      <form className="ui-dialog task-selection-modal" onSubmit={submit}>
+        <header className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{selectedDate} {tx("· 任务池")}</p><h3 className="text-sm font-semibold">{tx("接取今天的悬赏")}</h3></div><CloseButton onClose={() => setOpen(false)} /></header>
         <p className="mb-3 text-[11px] leading-5 text-soft">{tx("可接取任意数量；今日重点建议不超过 3 项。未接取任务仍保留在悬赏池。")}</p>
         <div className="task-selector-summary"><strong>{tx("已接取")} {selectedIds.length} {tx("个")}</strong><span>{tx("预计")} {selectedMinutes} {tx("分钟")}</span><span>{tx("重点")} {focusedIds.filter((id) => selectedIds.includes(id)).length}/3</span></div>
         <div className="task-selector-filters">
@@ -98,7 +98,7 @@ export function SelectDailyTasksWorkflow({ children, request, selectedDate, task
             </div>;
           }) : <EmptyText text={poolTasks.length ? tx("没有符合筛选条件的悬赏。") : tx("任务池里还没有未完成任务。")} />}
         </div>
-        <div className="mt-3 flex items-center justify-end gap-2"><Button variant="ghost" type="button" onClick={() => setOpen(false)}>{tx("取消")}</Button><Button variant="primary" type="submit">{tx("确认接取")}</Button></div>
+        <footer className="mt-3 flex items-center justify-end gap-2"><Button variant="ghost" type="button" onClick={() => setOpen(false)}>{tx("取消")}</Button><Button variant="primary" type="submit">{tx("确认接取")}</Button></footer>
       </form>
     </ModalPortal>}
   </>;

@@ -50,13 +50,13 @@ export function CategoryEditor({ request, userId, category, allowEnabled = false
       if (stillCurrent()) { saving.current = false; setPending(false); onPending?.(false); }
     }
   }
-  return <form className="category-editor-form" onSubmit={(event) => void save(event)}>
+  return <form className="ui-dialog category-editor-form" onSubmit={(event) => void save(event)}>
     <header><h3 id="category-editor-title">{category ? tx("编辑分类") : tx("新增分类")}</h3><IconButton type="button" label={tx("关闭")} size="sm" disabled={pending} onClick={onClose}><X size={16} /></IconButton></header>
     <label>{tx("名称")}<input autoFocus data-dialog-initial-focus aria-label={category ? tx("分类名称") : tx("新分类名称")} className="field" required maxLength={64} disabled={pending} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
     <GrowthDimensionSelect request={request} userId={userId} label={category ? tx("分类成长维度") : tx("新分类成长维度")} value={draft.dimensionKey} disabled={pending} onChange={(dimensionKey) => setDraft({ ...draft, dimensionKey })} />
     <fieldset disabled={pending} className="category-color-fields"><CategoryColorControl color={draft.color} onChange={(color) => setDraft({ ...draft, color })} /></fieldset>
     {category && allowEnabled ? <label className="settings-toggle"><span>{draft.enabled ? tx("分类已启用") : tx("分类已停用")}</span><input type="checkbox" aria-label={draft.enabled ? tx("分类已启用") : tx("分类已停用")} disabled={pending} checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /></label> : null}
     {error ? <p className="notes-error" role="alert">{error}{outcomeUnknown ? <Button type="button" size="sm" onClick={() => void client.refetchQueries({ queryKey: ["task-categories", userId] })}>{tx("刷新分类列表")}</Button> : null}</p> : null}
-    <div className="category-form-actions"><Button type="button" disabled={pending} onClick={onClose}>{tx("取消")}</Button><Button variant="primary" loading={pending} disabled={!draft.name.trim() || !validCategoryColor(draft.color)} type="submit">{tx("保存分类")}</Button></div>
+    <footer className="category-form-actions"><Button type="button" disabled={pending} onClick={onClose}>{tx("取消")}</Button><Button variant="primary" loading={pending} disabled={!draft.name.trim() || !validCategoryColor(draft.color)} type="submit">{tx("保存分类")}</Button></footer>
   </form>;
 }

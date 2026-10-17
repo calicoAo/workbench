@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, Flag, Gift, LockKeyhole, Plus, RefreshCw } from "lucide-react";
+import { Award, Flag, Gift, LockKeyhole, Plus, RefreshCw, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { Request } from "../../app/api";
 import { tx } from "../../app/i18n";
-import { Badge, Button } from "../../shared/ui";
+import { Badge, Button, IconButton } from "../../shared/ui";
 
 type View = "overview" | "achievements" | "milestones" | "keepsakes";
 type BackpackData = {
@@ -367,12 +367,12 @@ export function BackpackPage({
           onMouseDown={() => setView(view)}
         >
           <section
-            className="modal-shell backpack-detail"
+            className="ui-dialog modal-shell backpack-detail"
             role="dialog"
             aria-modal="true"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <h2>{selected.title}</h2>
+            <header><h2>{selected.title}</h2><IconButton label={tx("关闭")} onClick={() => setView(view)}><X size={16} /></IconButton></header>
             <p>{selected.description}</p>
             {"happenedOn" in selected ? (
               <time>{selected.happenedOn}</time>
@@ -386,19 +386,19 @@ export function BackpackPage({
                 })}
               </small>
             ) : null}
-            <Button onClick={() => setView(view)}>{tx("关闭")}</Button>
+            <footer><Button onClick={() => setView(view)}>{tx("关闭")}</Button></footer>
           </section>
         </div>
       ) : null}
       {adding ? (
         <div className="modal-backdrop" role="presentation">
           <form
-            className="modal-shell backpack-create-dialog"
+            className="ui-dialog modal-shell backpack-create-dialog"
             onSubmit={create}
           >
-            <h2>
+            <header><h2>
               {adding === "milestone" ? tx("新建里程碑") : tx("制作纪念卡")}
-            </h2>
+            </h2><IconButton type="button" label={tx("关闭")} onClick={() => setAdding(null)}><X size={16} /></IconButton></header>
             <input
               className="field"
               name="title"
@@ -442,14 +442,14 @@ export function BackpackPage({
                 </label>
               </div>
             ) : null}
-            <div className="category-form-actions">
+            <footer className="category-form-actions">
               <Button type="button" onClick={() => setAdding(null)}>
                 {tx("取消")}
               </Button>
               <Button variant="primary" type="submit">
                 {tx("保存")}
               </Button>
-            </div>
+            </footer>
           </form>
         </div>
       ) : null}

@@ -1,0 +1,66 @@
+{
+  "result": "PASS",
+  "realPublicUIAndAPI": "PASS",
+  "exactViewport": "PASS",
+  "readonlyByDefault": "PASS",
+  "markdownSourcePersistence": "PASS",
+  "allWritingOwners": "PASS",
+  "sourceLinkAndHistoricalEdit": "PASS",
+  "i18n": "PASS",
+  "evidence": [
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-note-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-note-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-note-edit-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-note-edit-controls-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-morning-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-journal-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-review-375.png",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-journal-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    },
+    {
+      "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-WRITING-MARKDOWN-note-en-1440.png",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440
+    }
+  ]
+}

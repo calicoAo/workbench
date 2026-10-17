@@ -470,7 +470,7 @@ function JournalRoute() {
   return <WritingShell userId={value.session.user.id} date={value.date} activeId={activeId} enabledSlots={enabledSlots}>
     <section className="journal-route">
       <header className="journal-route-head"><div><p className="route-eyebrow">{tx("文字 / Writing")}</p><h1>{activeId === "morning" ? tx("晨写") : activeId === "review" ? tx("复盘") : tx("日记")}</h1><p>{tx("内容按所选日期独立保存。")}</p></div></header>
-      <WritingReflectionHistory loading={value.loading} enabledSlots={enabledSlots} onlySlot={slotKey} />
+      <WritingReflectionHistory loading={value.loading} enabledSlots={enabledSlots} onlySlot={slotKey} editOnOpen={params.get("edit") === "1"} />
     </section>
   </WritingShell>;
 }

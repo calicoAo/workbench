@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router";
 // @vitest-environment jsdom
 
 import { type ComponentProps } from "react";
@@ -37,4 +38,13 @@ describe("HistoryFeature ownership", () => {
     render(feature({ request, onError }));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("列表失败", "列表加载失败"));
   });
+  it("renders historical detail as Markdown and sends Edit to the exact date and writing owner", async () => {
+    const request = vi.fn(async () => [{ id: 2, writingDate: "2026-09-17", content: "# Archived heading\n\n**body**", moodScore: 3 }]) as Props["request"];
+    render(<MemoryRouter>{feature({ request })}</MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: /查看详情/ }));
+    expect(screen.getByRole("heading", { name: "Archived heading" })).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("link", { name: "编辑" }).getAttribute("href")).toBe("/journal?date=2026-09-17&tab=morning&edit=1");
+  });
+
 });

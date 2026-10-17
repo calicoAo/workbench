@@ -59,6 +59,21 @@ function renderHistoryShell(request = requestFor()) {
 }
 
 describe("R1C router and AppShell", () => {
+  it("keeps a historical writing deep link in reading mode and accepts only an explicit edit intent", async () => {
+    const base = requestFor(null, [{ slotKey: "JOURNAL", enabled: true, sortOrder: 0 }]);
+    const request = vi.fn(async (path: string, init?: RequestInit) => path.startsWith("/api/dashboard?date=") ? { ...dashboard(path.split("=")[1]), journalRecord: { id: 8, journalDate: "2026-09-17", content: "# Historical journal", moodScore: 3 } } : base(path, init)) as unknown as Request;
+    const view = renderShell("/journal?date=2026-09-17&tab=journal", request);
+    expect(await screen.findByRole("heading", { name: "Historical journal" })).toBeTruthy();
+    expect(screen.queryByLabelText("日记内容")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "打开日记编辑" }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>("日记内容").value).toBe("# Historical journal");
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByLabelText("日记内容")).toBeNull();
+    view.unmount();
+    renderShell("/journal?date=2026-09-17&tab=journal&edit=1", request);
+    expect((await screen.findByLabelText<HTMLTextAreaElement>("日记内容")).value).toBe("# Historical journal");
+  });
+
   it("opens a task detail deep link directly and preserves it on a fresh render", async () => {
     renderShell("/tasks/11?date=2026-09-19");
     expect(await screen.findByRole("heading", { name: "R1C integration" })).toBeTruthy();

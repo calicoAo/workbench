@@ -236,7 +236,7 @@ function TransactionDetail({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="time-modal finance-transaction-detail">
+      <section className="ui-dialog time-modal finance-transaction-detail">
         <header>
           <div>
             <p className="route-eyebrow">Transaction #{current.id}</p>

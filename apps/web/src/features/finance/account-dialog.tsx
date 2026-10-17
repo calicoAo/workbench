@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import { Archive, X } from "lucide-react";
 import type { Request } from "../../app/api";
 import { Button, IconButton } from "../../shared/ui";
@@ -28,6 +28,7 @@ export function AccountDialog({
   onError: (message: string, title?: string) => void;
   hidden: boolean;
 }) {
+  const titleId = useId();
   const [draft, setDraft] = useState({
     name: "",
     type: "BANK" as FinanceAccountType,
@@ -118,11 +119,11 @@ export function AccountDialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <form className="time-modal finance-dialog" onSubmit={submit}>
+      <form className="ui-dialog time-modal finance-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={submit}>
         <header>
           <div>
             <p className="route-eyebrow">{account ? tx("账户设置") : tx("建立账本")}</p>
-            <h2>{account ? account.name : tx("创建账户")}</h2>
+            <h2 id={titleId}>{account ? account.name : tx("创建账户")}</h2>
           </div>
           <IconButton label={tx("关闭")} type="button" onClick={onClose}>
             <X size={17} />
@@ -197,7 +198,7 @@ export function AccountDialog({
             onChange={(event) =>
               setDraft({ ...draft, includeInOverview: event.target.checked })
             }
-          />{tx("计入总览净值")}</label>
+          /><span>{tx("计入总览净值")}</span></label>
         {account ? (
           <p className="settings-note">{tx("归档后，该账户余额不再计入当前概览统计，但历史记录仍会保留。")}</p>
         ) : null}

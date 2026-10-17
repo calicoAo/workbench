@@ -68,6 +68,22 @@ describe("FIN-01 Finance", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/initialize", expect.objectContaining({ method: "POST" })));
   });
 
+  it("keeps account title and close in its header and makes the inclusion label clickable", async () => {
+    const request = requestFor(); renderPage(request, "/finance?date=2026-09-21&tab=accounts");
+    fireEvent.click(await screen.findByRole("button", { name: "创建账户" }));
+    const dialog = screen.getByRole("dialog", { name: "创建账户" });
+    const header = dialog.querySelector(":scope > header")!;
+    expect(within(header as HTMLElement).getByRole("heading", { name: "创建账户" })).toBeTruthy();
+    const close = within(header as HTMLElement).getByRole("button", { name: "关闭" });
+    const box = within(dialog).getByRole<HTMLInputElement>("checkbox", { name: "计入总览净值" });
+    expect(box.checked).toBe(true);
+    fireEvent.click(within(dialog).getByText("计入总览净值"));
+    expect(box.checked).toBe(false);
+    fireEvent.click(close);
+    expect(screen.queryByRole("dialog", { name: "创建账户" })).toBeNull();
+    expect(request).not.toHaveBeenCalledWith("/api/finance/accounts", expect.objectContaining({ method: "POST" }));
+  });
+
   it("creates an account and converts opening Yuan to integer cents", async () => {
     const request = requestFor(); renderPage(request); fireEvent.click(await screen.findByRole("button", { name: "账户" })); fireEvent.click(screen.getByRole("button", { name: /创建账户/ }));
     fireEvent.change(screen.getByLabelText("账户名称"), { target: { value: "现金钱包" } }); fireEvent.change(screen.getByLabelText("期初余额"), { target: { value: "88.36" } }); fireEvent.click(screen.getByRole("button", { name: "保存" }));

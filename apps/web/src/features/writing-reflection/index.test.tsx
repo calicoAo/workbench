@@ -64,6 +64,11 @@ function feature(
 }
 
 function input(label: string) {
+  if (!screen.queryByLabelText(label)) {
+    const close = screen.queryByRole("button", { name: "关闭" });
+    if (close) fireEvent.click(close);
+    fireEvent.click(screen.getByRole("button", { name: label === "晨写内容" ? "打开晨写编辑" : label === "日记内容" ? "打开日记编辑" : "打开复盘编辑" }));
+  }
   return screen.getByLabelText(label) as HTMLTextAreaElement;
 }
 
@@ -168,7 +173,8 @@ describe("WritingReflectionFeature draft ownership", () => {
     const view = render(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={[]} /> }));
     expect(screen.queryByLabelText("日记内容")).toBeNull();
     view.rerender(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={["JOURNAL"]} /> }));
-    expect(screen.getByLabelText("日记内容")).toBeTruthy();
+    expect(screen.getByText("日记 A")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "打开日记编辑" })).toBeTruthy();
     expect(screen.queryByLabelText("晨写内容")).toBeNull();
     expect(screen.queryByLabelText("大盘结论")).toBeNull();
     view.rerender(feature(snapshot("A"), { children: <WritingReflectionHistory loading={false} enabledSlots={[]} /> }));
@@ -186,4 +192,73 @@ describe("WritingReflectionFeature draft ownership", () => {
     expect(screen.queryByRole("button", { name: "晨写" })).toBeNull();
     expect(screen.queryByRole("button", { name: "复盘" })).toBeNull();
   });
+  it("defaults every writing detail to Markdown reading and only opens fields through Edit", () => {
+    const records = snapshot("A");
+    records.morning!.content = "# Morning heading\n\n**important**";
+    records.journal!.content = "# Journal heading";
+    records.review!.marketSummary = "# Review heading";
+    records.review!.goodPoints = "**Preserved observation**";
+    render(feature(records));
+    for (const heading of ["Morning heading", "Journal heading", "Review heading"]) expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+    expect(screen.getByText("Preserved observation").tagName).toBe("STRONG");
+    expect(screen.queryByRole("textbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "打开晨写编辑" }));
+    expect(input("晨写内容").value).toBe(records.morning!.content);
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it.each(["morning", "journal", "review"] as const)("saves %s Markdown through its existing owner and displays it after acknowledgement", async (kind) => {
+    const request = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
+    render(feature(emptySnapshot, { request: request as FeatureProps["request"] }));
+    const label = kind === "morning" ? "晨写内容" : kind === "journal" ? "日记内容" : "大盘结论";
+    const source = "## Saved Markdown\n\n> thought\n\n- item";
+    fireEvent.change(input(label), { target: { value: source } });
+    saveForm(label);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: "Saved Markdown" })).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    const body = JSON.parse(String(request.mock.calls[0][1]?.body));
+    expect(body[kind === "review" ? "marketSummary" : "content"]).toBe(source);
+    expect(request.mock.calls[0][0]).toBe(kind === "morning" ? "/api/morning-writings" : kind === "journal" ? "/api/journals" : "/api/stock-reviews");
+  });
+
+  it("keeps unsaved or failed edits separate from the saved reading surface and allows retry", async () => {
+    const request = vi.fn().mockRejectedValueOnce(new Error("Offline")).mockResolvedValue({});
+    const onError = vi.fn();
+    render(feature(snapshot("A"), { request: request as FeatureProps["request"], onError }));
+    fireEvent.change(input("日记内容"), { target: { value: "# Unsaved" } });
+    saveForm("日记内容");
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("Offline", "操作没有成功"));
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByText("日记 A")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Unsaved" })).toBeNull();
+    expect(input("日记内容").value).toBe("# Unsaved");
+    saveForm("日记内容");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: "Unsaved" })).toBeTruthy();
+  });
+
+  it("supports an explicit archive edit intent once after loading, without reopening on ordinary refresh", () => {
+    const children = <WritingReflectionHistory loading={false} onlySlot="JOURNAL" editOnOpen />;
+    const view = render(feature(snapshot("A"), { children }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    view.rerender(feature(snapshot("B"), { children }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("日记 B")).toBeTruthy();
+  });
+
+  it("keeps the existing goodPoints field editable and preserved when saving other review text", async () => {
+    const records = snapshot("A"); records.review!.goodPoints = "**Keep discipline**";
+    const request = vi.fn(async (_path: string, _init?: RequestInit) => ({}));
+    render(feature(records, { request: request as FeatureProps["request"] }));
+    fireEvent.change(input("大盘结论"), { target: { value: "# Changed market" } });
+    expect(screen.getByLabelText<HTMLTextAreaElement>("做得好的地方").value).toBe("**Keep discipline**");
+    saveForm("大盘结论");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body)).goodPoints).toBe("**Keep discipline**");
+    expect(screen.getByText("Keep discipline").tagName).toBe("STRONG");
+  });
+
 });

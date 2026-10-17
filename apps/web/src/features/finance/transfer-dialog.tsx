@@ -45,7 +45,7 @@ export function TransferDialog({ date, request, accounts, categories, initialInt
     } catch (error) { const value = financeErrorMessage(error); setInlineError(value); onError(value, tx("转账没有保存")); }
     finally { setPending(false); }
   }
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="time-modal finance-dialog finance-record-dialog finance-transfer-dialog" onSubmit={submit}>
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="ui-dialog time-modal finance-dialog finance-record-dialog finance-transfer-dialog" onSubmit={submit}>
     <header><div><p className="route-eyebrow">{tx("账户之间的原子转移")}</p><h2>{title}</h2></div><IconButton label={tx("关闭")} type="button" onClick={onClose}><X size={17} /></IconButton></header>
     <label>{tx("操作意图")}<select className="field" value={intent} onChange={(event) => { setIntent(event.target.value as TransferIntent); setInlineError(null); }}><option value="transfer">{tx("普通转账")}</option><option value="borrow">{tx("借入")}</option><option value="repay">{tx("还款")}</option></select></label>
     <p className="settings-note">{intent === "borrow" ? tx("从负债账户转入资产账户；预存会先减少，再形成欠款。") : intent === "repay" ? tx("从资产账户转入负债账户；超过欠款的金额成为预存。") : tx("选择转出和转入账户；信用账户之间或预存提取也使用普通转账。")}</p>

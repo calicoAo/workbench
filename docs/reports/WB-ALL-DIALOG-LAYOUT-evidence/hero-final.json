@@ -1,0 +1,142 @@
+{
+  "result": "PASS",
+  "scope": "Real public feature components and production CSS; isolated fixture reads, no API/DB persistence assertions",
+  "evidence": [
+    {
+      "name": "hero",
+      "width": 1440,
+      "layout": {
+        "title": "EARTH ONLINE欢迎您，Owner",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 245.40625,
+          "bottom": 654.59375,
+          "width": 520,
+          "height": 409.1875
+        },
+        "header": {
+          "left": 478,
+          "right": 962,
+          "top": 263.40625,
+          "bottom": 320.40625,
+          "width": 484,
+          "height": 57
+        },
+        "close": {
+          "left": 918,
+          "right": 962,
+          "top": 263.40625,
+          "bottom": 307.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 478,
+          "right": 593.203125,
+          "top": 280.65625,
+          "bottom": 304.65625,
+          "width": 115.203125,
+          "height": 24
+        },
+        "footer": {
+          "left": 478,
+          "right": 962,
+          "top": 551.09375,
+          "bottom": 608.09375,
+          "width": 484,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 405,
+        "clientHeight": 405,
+        "scrollWidth": 516,
+        "clientWidth": 516
+      },
+      "scroll": {
+        "headerTop": 263.40625,
+        "footerBottom": 608.09375
+      },
+      "screenshot": {
+        "file": "/tmp/workbench-all-dialogs-hero-final/hero-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "hero",
+      "width": 375,
+      "layout": {
+        "title": "EARTH ONLINE欢迎您，Owner",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 18,
+          "right": 361,
+          "top": 161.40625,
+          "bottom": 650.59375,
+          "width": 343,
+          "height": 489.1875
+        },
+        "header": {
+          "left": 36,
+          "right": 343,
+          "top": 179.40625,
+          "bottom": 236.40625,
+          "width": 307,
+          "height": 57
+        },
+        "close": {
+          "left": 299,
+          "right": 343,
+          "top": 179.40625,
+          "bottom": 223.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 36,
+          "right": 151.203125,
+          "top": 196.65625,
+          "bottom": 220.65625,
+          "width": 115.203125,
+          "height": 24
+        },
+        "footer": {
+          "left": 36,
+          "right": 343,
+          "top": 547.09375,
+          "bottom": 604.09375,
+          "width": 307,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 485,
+        "clientHeight": 485,
+        "scrollWidth": 339,
+        "clientWidth": 339
+      },
+      "scroll": {
+        "headerTop": 179.40625,
+        "footerBottom": 604.09375
+      },
+      "screenshot": {
+        "file": "/tmp/workbench-all-dialogs-hero-final/hero-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    }
+  ]
+}

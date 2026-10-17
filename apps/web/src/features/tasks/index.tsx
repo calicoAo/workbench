@@ -305,8 +305,8 @@ function CompletedTasksModal({ tasks, categories, rewardsByTaskId, onClose }: {
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   return (
     <ModalPortal onClose={onClose}>
-      <section className="task-selection-modal">
-        <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{tx("已完成任务")}</p><h3 className="text-sm font-semibold">{tx("完成记录")}</h3></div><CloseButton onClose={onClose} /></div>
+      <section className="ui-dialog task-selection-modal">
+        <header className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{tx("已完成任务")}</p><h3 className="text-sm font-semibold">{tx("完成记录")}</h3></div><CloseButton onClose={onClose} /></header>
         <div className="task-pool-list">
           {tasks.length ? tasks.map((task) => {
             const category = task.categoryId ? categoryById.get(task.categoryId) : null;

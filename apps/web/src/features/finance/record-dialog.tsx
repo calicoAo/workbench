@@ -85,7 +85,7 @@ export function RecordDialog({
       }}
     >
       <form
-        className="time-modal finance-dialog finance-record-dialog"
+        className="ui-dialog time-modal finance-dialog finance-record-dialog"
         onSubmit={submit}
       >
         <header>

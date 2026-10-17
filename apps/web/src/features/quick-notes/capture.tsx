@@ -1,3 +1,4 @@
+import { MarkdownInput } from "../../shared/markdown";
 import { useQueryClient } from "@tanstack/react-query";
 import { Lightbulb, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
@@ -90,9 +91,9 @@ function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCrea
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" aria-labelledby="quick-note-capture-title" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="quick-note-editor" onSubmit={submit}>
+        <form className="ui-dialog quick-note-editor" onSubmit={submit}>
           <header className="quick-note-editor-head"><div><p className="route-eyebrow">{tx("捕捉此刻")}</p><h2 id="quick-note-capture-title">{tx("随手记")}</h2></div><IconButton label={tx("关闭")} onClick={onClose}><X size={16} /></IconButton></header>
-          <textarea aria-label={tx("随手记正文")} className="quick-note-body" maxLength={5000} placeholder={tx("先把刚想到的东西记下来...")} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
+          <MarkdownInput aria-label={tx("随手记正文")} className="quick-note-body" maxLength={5000} placeholder={tx("先把刚想到的东西记下来...")} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
           <div className="quick-note-fields">
             <input aria-label={tx("随手记标题")} maxLength={120} placeholder={tx("标题（可选）")} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
             <input aria-label={tx("随手记标签")} maxLength={64} placeholder={tx("标签（可选）")} value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />

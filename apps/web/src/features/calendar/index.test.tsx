@@ -4,10 +4,17 @@ import { type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CalendarFeature, type TimelineItem } from ".";
+import { ApiError } from "../../app/api";
+import { I18nProvider, tx } from "../../app/i18n";
 
 type FeatureProps = ComponentProps<typeof CalendarFeature>;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.removeItem("workbench:locale");
+  render(<I18nProvider>{null}</I18nProvider>);
+  cleanup();
+});
 
 const tasks = [{ id: 11, title: "完成架构切片" }];
 const categories = [{ id: 7, name: "编程", dimensionKey: "career" as const, color: "#5B8DEF", targetMinutes: 6000, totalMinutes: 120 }];
@@ -38,6 +45,32 @@ function openEditor() {
 }
 
 describe("CalendarFeature workflow ownership", () => {
+  it.each([
+    ["zh-CN", false], ["en", false], ["zh-CN", true], ["en", true]
+  ] as const)("localizes overlap feedback in %s (correcting=%s) without losing the draft", async (locale, correcting) => {
+    localStorage.setItem("workbench:locale", locale);
+    const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => {
+      throw new ApiError("actual time overlaps an existing included interval", 409, 40900, null);
+    });
+    const onError = vi.fn();
+    const onChanged = vi.fn();
+    render(<I18nProvider>{feature({ request: requestMock as FeatureProps["request"], onError, onChanged, items: [{ ...items[0], taskId: null }] })}</I18nProvider>);
+    if (correcting) fireEvent.click(screen.getByRole("button", { name: tx("{value0}{value1}", { value0: tx("编辑"), value1: tx("补录") }) }));
+    else fireEvent.click(screen.getByRole("button", { name: tx("记录") }));
+    const titleLabel = locale === "en" ? "Time block title" : "时间块标题";
+    fireEvent.change(screen.getByLabelText(titleLabel), { target: { value: "做排骨" } });
+    fireEvent.click(screen.getByRole("button", { name: locale === "en" ? "Save" : "保存" }));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(
+      locale === "en" ? "This actual time overlaps existing activity. Adjust the start or end time." : "这段实际时间与已有投入重叠，请调整开始或结束时间。",
+      locale === "en" ? "Operation unsuccessful" : "操作没有成功"
+    ));
+    expect(screen.getByRole("alert").textContent).toContain(locale === "en" ? "Overlaps existing activity" : "与已有投入重叠");
+    expect(screen.getByLabelText<HTMLInputElement>(titleLabel).value).toBe("做排骨");
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(requestMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).includeInActualTime).toBe(true);
+  });
+
   it("uses current Category colors when a Schedule color snapshot is stale", () => {
     const view = render(feature());
     const block = () => screen.getByText("实际投入").closest<HTMLElement>(".timeline-block")!;

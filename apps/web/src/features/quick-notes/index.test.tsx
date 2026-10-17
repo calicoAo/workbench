@@ -46,7 +46,8 @@ describe("Quick Notes draft ownership", () => {
       throw new Error("quick note version conflict");
     });
     wrapper(<QuickNoteDetailPage request={requestMock as Request} userId={7} noteId={4} selectedDate="2026-09-20" />);
-    await screen.findByDisplayValue("Server body");
+    await screen.findByText("Server body");
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByLabelText("随手记正文"), { target: { value: "My unsaved edit" } });
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("当前草稿仍保留"));
@@ -57,7 +58,7 @@ describe("Quick Notes draft ownership", () => {
     const note = { id: 5, userId: 7, noteDate: "2026-09-20", recordTimezone: "Asia/Shanghai", title: "Long note", content: "x".repeat(2100), tag: null, archivedAt: null, deletedAt: null, version: 1, createdAt: "2026-09-20T08:00:00Z", updatedAt: "2026-09-20T08:00:00Z", linkedTask: null };
     const requestMock = vi.fn(async (_path: string, init?: RequestInit) => init?.method ? { id: 9 } : note);
     wrapper(<QuickNoteDetailPage request={requestMock as Request} userId={7} noteId={5} selectedDate="2026-09-20" recordTimezone="Asia/Shanghai" categories={[]} />);
-    await screen.findByDisplayValue("Long note"); fireEvent.click(screen.getByRole("button", { name: "转为悬赏" }));
+    await screen.findByText("Long note"); fireEvent.click(screen.getByRole("button", { name: "转为悬赏" }));
     expect(screen.getByText(/原文 2,100 字/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "发布悬赏" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("任务行动摘要"), { target: { value: "A confirmed summary" } });
@@ -77,7 +78,7 @@ describe("Quick Notes draft ownership", () => {
     const requestMock = vi.fn(async () => note);
     const onQuote = vi.fn(() => ({ status: "inserted" as const }));
     wrapper(<QuickNoteDetailPage request={requestMock as Request} userId={7} noteId={7} selectedDate="2026-09-20" onQuoteToJournal={onQuote} />);
-    await screen.findByDisplayValue("private text");
+    await screen.findByText("private text");
     fireEvent.click(screen.getByRole("button", { name: "引用到日记" }));
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(onQuote).not.toHaveBeenCalled();
@@ -100,9 +101,11 @@ describe("Quick Notes draft ownership", () => {
       return current;
     });
     wrapper(<QuickNoteDetailPage request={requestMock as Request} userId={7} noteId={8} selectedDate="2026-09-21" projects={[{ id: 9, name: "导游考试", archivedAt: null }]} />);
-    const selector = await screen.findByLabelText<HTMLSelectElement>("关联项目");
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
+    const selector = screen.getByLabelText<HTMLSelectElement>("关联项目");
     fireEvent.change(selector, { target: { value: "9" } }); fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
     await waitFor(() => expect(JSON.parse(String(requestMock.mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.body)).projectId).toBe(9));
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByLabelText("关联项目"), { target: { value: "" } }); fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
     await waitFor(() => expect(requestMock.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2));
     expect(JSON.parse(String(requestMock.mock.calls.filter(([, init]) => init?.method === "PUT")[1][1]?.body)).projectId).toBeNull();
@@ -111,8 +114,48 @@ describe("Quick Notes draft ownership", () => {
   it("keeps a historical archived Project visible in the selector", async () => {
     const note = { id: 9, userId: 7, noteDate: "2026-09-21", recordTimezone: "Asia/Shanghai", title: "历史素材", content: "仍保留关联", tag: null, projectId: 12, archivedAt: null, deletedAt: null, version: 2, createdAt: "2026-09-21T08:00:00Z", updatedAt: "2026-09-21T08:00:00Z", linkedTask: null, linkedProject: { id: 12, name: "旧项目", status: 2, archivedAt: "2026-09-21T09:00:00Z" } };
     wrapper(<QuickNoteDetailPage request={vi.fn(async () => note) as Request} userId={7} noteId={9} selectedDate="2026-09-21" projects={[]} />);
-    const selector = await screen.findByLabelText<HTMLSelectElement>("关联项目");
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
+    const selector = screen.getByLabelText<HTMLSelectElement>("关联项目");
     expect(selector.value).toBe("12");
     expect(screen.getByRole("option", { name: "旧项目（已归档）" })).toBeTruthy();
   });
+  it("reads rendered Markdown by default, preserves a cancelled draft, and returns to reading after save", async () => {
+    let note = { id: 30, userId: 7, noteDate: "2026-09-20", recordTimezone: "Asia/Shanghai", title: "Markdown note", content: "# Saved heading\n\n**bold**", tag: null, archivedAt: null, deletedAt: null, version: 2, createdAt: "2026-09-20T08:00:00Z", updatedAt: "2026-09-20T08:00:00Z" };
+    const request = vi.fn(async (_path: string, init?: RequestInit) => {
+      if (init?.method === "PUT") note = { ...note, ...JSON.parse(String(init.body)), version: 3 };
+      return note;
+    });
+    const view = wrapper(<QuickNoteDetailPage request={request as Request} userId={7} noteId={30} selectedDate="2026-09-20" />);
+    await screen.findByRole("heading", { name: "Saved heading" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>("随手记正文").value).toBe(note.content);
+    const source = "## New heading\n\n- [x] done\n\n`code`";
+    fireEvent.change(screen.getByLabelText("随手记正文"), { target: { value: source } });
+    fireEvent.click(screen.getByRole("button", { name: "返回阅读" }));
+    expect(screen.getByRole("heading", { name: "Saved heading" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "New heading" })).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(request).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>("随手记正文").value).toBe(source);
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    await screen.findByRole("heading", { name: "New heading" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body))).toMatchObject({ content: source, expectedVersion: 2 });
+    view.unmount();
+    wrapper(<QuickNoteDetailPage request={request as Request} userId={7} noteId={30} selectedDate="2026-09-20" />);
+    await screen.findByRole("heading", { name: "New heading" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("does not expose editing for a deleted note", async () => {
+    const note = { id: 31, userId: 7, noteDate: "2026-09-20", content: "## Recycled", title: null, tag: null, projectId: null, recordTimezone: "Asia/Shanghai", archivedAt: null, deletedAt: "2026-09-20T09:00:00Z", version: 1, createdAt: "2026-09-20T08:00:00Z", updatedAt: "2026-09-20T09:00:00Z" };
+    wrapper(<QuickNoteDetailPage request={vi.fn(async () => note) as Request} userId={7} noteId={31} selectedDate="2026-09-20" />);
+    await screen.findByRole("heading", { name: "Recycled" });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "编辑" })).toBeNull();
+    expect(screen.getByRole("button", { name: "恢复" })).toBeTruthy();
+  });
+
 });

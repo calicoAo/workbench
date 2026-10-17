@@ -5,7 +5,7 @@ import { tx } from "../../app/i18n";
 import { CategoryEditor } from "./editor";
 export { CategoryMappingEditor } from "./mapping-editor";
 export { CategoryQuickManager, useCategoryOptions, CategoryRefreshStatus } from "./quick-manager";
-import { Button } from "../../shared/ui";
+import { IconButton, Button } from "../../shared/ui";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Confirm = (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
@@ -154,21 +154,21 @@ function CategoryEditDialog(props: {
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={props.onClose}>
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="time-modal" onSubmit={props.onSubmit}>
-          <div className="mb-3 flex items-center justify-between">
+        <form className="ui-dialog time-modal" onSubmit={props.onSubmit}>
+          <header className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">{tx("编辑类型")}</h3>
-            <button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={props.onClose}><X size={15} /></button>
-          </div>
+            <IconButton type="button" label={tx("关闭")} onClick={props.onClose}><X size={15} /></IconButton>
+          </header>
           <label className="text-[11px] text-soft">{tx("名称")}<input aria-label={tx("类型名称")} className="field mt-1" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} /></label>
           <label className="mt-2 block text-[11px] text-soft">{tx("能力维度")}<select aria-label={tx("能力维度")} className="field mt-1" value={props.dimensionKey} onChange={(event) => props.onDimensionKeyChange(event.target.value as DimensionKey)}><DimensionOptions /></select></label>
           <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-2">
             <div><p className="mb-1 text-[11px] text-soft">{tx("标签预览")}</p><CategoryTag category={{ ...props.category, name: props.name || tx("类型预览"), dimensionKey: props.dimensionKey }} /></div>
             <label className="text-[11px] text-soft">{tx("目标小时")}<input aria-label={tx("目标小时")} className="field mt-1" min="1" type="number" value={props.targetHours} onChange={(event) => props.onTargetHoursChange(event.target.value)} /></label>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
+          <footer className="mt-4 flex justify-end gap-2">
             <button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={props.onClose}>{tx("取消")}</button>
             <button className="primary-button px-5" type="submit">{tx("保存")}</button>
-          </div>
+          </footer>
         </form>
       </div>
     </div>,

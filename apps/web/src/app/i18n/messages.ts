@@ -1,4 +1,5 @@
 export const englishMessages: Record<string, string> = {
+  "这段实际时间与已有投入重叠，请调整开始或结束时间。": "This actual time overlaps existing activity. Adjust the start or end time.",
   "分类映射已保存": "Category mapping saved",
   "映射已保存，分类读取失败。请刷新分类列表，无需再次保存。": "Mapping saved, but categories could not load. Refresh the category list without saving again.",
   "维度已停用": "Dimension disabled",
@@ -1100,7 +1101,7 @@ export const englishMessages: Record<string, string> = {
   "优先级 / 难度": "Priority/Difficulty",
   "优先级筛选": "Priority filtering",
   "余额来自已入账分录，和工作台金币完全分开。": "The balance comes from the posted entries and is completely separate from the workbench coins.",
-  "与已有投入重叠": "Overlap with existing inputs",
+  "与已有投入重叠": "Overlaps existing activity",
   "语言": "Language",
   "预计": "Expected",
   "预计 {value0}m": "Estimated __ WBVAR0 __ m",
@@ -1512,4 +1513,12 @@ export const englishMessages: Record<string, string> = {
   "项目已更新": "Project updated",
   "项目已被更新。请读取最新版本并核对草稿后重试。": "Project changed. Load the latest version and review your draft before retrying.",
   "项目详情与保存身份不一致": "Project details do not match the saved identity",
+  "支持 Markdown": "Markdown supported",
+  "Markdown 预览": "Markdown preview",
+  "继续编辑": "Continue editing",
+  "返回阅读": "Back to reading",
+  "有未保存草稿，点击编辑继续。": "You have an unsaved draft. Select Edit to continue.",
+  "做得好的地方": "What went well",
+  "预览": "Preview",
+  "暂无内容": "No content yet",
 };

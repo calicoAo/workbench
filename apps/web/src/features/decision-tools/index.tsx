@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { Scale, Sparkles, X } from "lucide-react";
@@ -209,7 +210,7 @@ function DecisionToolModal(props: {
   const balance = Number(props.benefitScore) - Number(props.drawbackScore);
   return (
     <FeatureModal onClose={props.onClose}>
-      <form className="tool-modal" onSubmit={props.onSubmit}>
+      <form className="ui-dialog tool-modal" onSubmit={props.onSubmit}>
         <ToolModalHeader eyebrow={props.selectedDate} title={tx("辅助决策")} onClose={props.onClose} />
         <div className="tool-modal-grid">
           <div className="space-y-2">
@@ -224,7 +225,7 @@ function DecisionToolModal(props: {
               <div className={`decision-score ${balance >= 0 ? "decision-score-positive" : "decision-score-negative"}`}><span>{tx("倾向")}</span><strong>{balance > 0 ? `+${balance}` : balance}</strong></div>
             </div>
             <input className="field" placeholder={tx("当前倾向/结论，可不填")} value={props.conclusion} onChange={(event) => props.onConclusionChange(event.target.value)} />
-            <div className="flex justify-end gap-2"><button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={props.onClose}>{tx("取消")}</button><button className="primary-button px-5" type="submit">{tx("保存决策")}</button></div>
+            <footer className="ui-dialog-actions"><button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={props.onClose}>{tx("取消")}</button><button className="primary-button px-5" type="submit">{tx("保存决策")}</button></footer>
           </div>
           <ToolRecordList emptyText={tx("保存后会在这里看到决策记录。")} items={props.records.map((item) => ({ id: item.id, title: item.theme, meta: tx("{value0} · 好处 {value1} / 坏处 {value2}", { value0: item.decisionDate, value1: item.benefitScore, value2: item.drawbackScore }), body: item.conclusion || item.benefits }))} />
         </div>
@@ -248,13 +249,13 @@ function PsychologicalBridgeModal(props: {
   const latest = props.result ?? props.records[0] ?? null;
   return (
     <FeatureModal onClose={props.onClose}>
-      <form className="tool-modal" onSubmit={props.onSubmit}>
+      <form className="ui-dialog tool-modal" onSubmit={props.onSubmit}>
         <ToolModalHeader eyebrow={props.selectedDate} title={tx("心理桥梁")} onClose={props.onClose} />
         <div className="tool-modal-grid">
           <div className="space-y-2">
             <label className="space-y-1"><span className="tool-label">{tx("想达成的效果")}</span><textarea className="journal-input min-h-28" placeholder={tx("比如：我想稳定开始画画，不再只停留在想法里。")} value={props.desiredEffect} onChange={(event) => props.onDesiredEffectChange(event.target.value)} /></label>
             <label className="space-y-1"><span className="tool-label">{tx("现在的阻力")}</span><textarea className="journal-input min-h-28" placeholder={tx("比如：一想到要开始就觉得麻烦，怕画得不好。")} value={props.resistance} onChange={(event) => props.onResistanceChange(event.target.value)} /></label>
-            <button className="primary-button w-full px-5" type="submit" disabled={props.loading}>{props.loading ? tx("生成中...") : tx("生成心理桥梁")}</button>
+            <footer className="ui-dialog-actions"><button className="primary-button w-full px-5" type="submit" disabled={props.loading}>{props.loading ? tx("生成中...") : tx("生成心理桥梁")}</button></footer>
             {latest && <article className="bridge-result"><p className="whitespace-pre-wrap text-[12px] leading-6 text-ink">{latest.bridgeText}</p>{latest.nextStep && <p className="mt-2 text-[12px] font-semibold text-mint-700">{tx("下一步：")}{latest.nextStep}</p>}{latest.reassurance && <p className="mt-2 text-[12px] text-soft">{latest.reassurance}</p>}</article>}
           </div>
           <ToolRecordList emptyText={tx("生成后会在这里看到心理桥梁记录。")} items={props.records.map((item) => ({ id: item.id, title: item.desiredEffect, meta: item.bridgeDate, body: item.nextStep || item.bridgeText }))} />
@@ -265,7 +266,7 @@ function PsychologicalBridgeModal(props: {
 }
 
 function ToolModalHeader({ eyebrow, title, onClose }: { eyebrow: string; title: string; onClose: () => void }) {
-  return <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[11px] text-soft">{tx(eyebrow)}</p><h3 className="text-sm font-semibold">{tx(title)}</h3></div><button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button></div>;
+  return <header><div><p className="text-[11px] text-soft">{tx(eyebrow)}</p><h3 className="text-sm font-semibold">{tx(title)}</h3></div><IconButton type="button" label={tx("关闭")} onClick={onClose}><X size={15} /></IconButton></header>;
 }
 
 function ToolRecordList({ items, emptyText }: { items: Array<{ id: number; title: string; meta: string; body: string }>; emptyText: string }) {

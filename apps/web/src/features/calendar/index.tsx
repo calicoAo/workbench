@@ -115,7 +115,7 @@ export function CalendarFeature({
       setState((current) => ({ ...current, editorOpen: false, editingId: null, overlapConflict: false, draft: { ...current.draft, title: "", note: "", completeTask: false } }));
       await onChanged();
     } catch (error) {
-      if (Number(currentState.draft.kind) === 1 && errorMessage(error).toLowerCase().includes("overlap")) setState((current) => ({ ...current, overlapConflict: true }));
+      if (Number(currentState.draft.kind) === 1 && error instanceof Error && error.message.toLowerCase().includes("overlap")) setState((current) => ({ ...current, overlapConflict: true }));
       onError(errorMessage(error), tx("操作没有成功"));
     }
   }
@@ -187,11 +187,11 @@ function ExecutionDetailDialog({ item, onClose }: { item: TimelineItem; onClose:
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal-shell" role="dialog" aria-modal="true" aria-label={tx("计时记录详情")} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="time-modal">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="ui-dialog time-modal">
+          <header className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">{tx("计时记录详情")}</h3>
             <IconButton size="sm" label={tx("关闭")} onClick={onClose}><X size={15} /></IconButton>
-          </div>
+          </header>
           <div className="detail-history">
             <div>
               <strong>{item.title}</strong>
@@ -202,7 +202,7 @@ function ExecutionDetailDialog({ item, onClose }: { item: TimelineItem; onClose:
             <p className="text-[11px] font-semibold text-ink">{tx("备注")}</p>
             <p className="mt-1 text-sm text-soft">{item.sessionNote || tx("暂无备注")}</p>
           </div>
-          <div className="mt-4 flex justify-end"><Button variant="secondary" type="button" onClick={onClose}>{tx("关闭")}</Button></div>
+          <footer className="mt-4 flex justify-end"><Button variant="secondary" type="button" onClick={onClose}>{tx("关闭")}</Button></footer>
         </div>
       </div>
     </div>,
@@ -250,11 +250,11 @@ function TimeBlockDialog({ categories, tasks, projects, draft, editing, overlapC
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div ref={shellRef} className="modal-shell" role="dialog" aria-modal="true" aria-label={editing ? tx("修正时间块") : tx("记录时间块")} onMouseDown={(event) => event.stopPropagation()}>
-        <form className="time-modal" onSubmit={onSubmit}>
-          <div className="mb-3 flex items-center justify-between">
+        <form className="ui-dialog time-modal" onSubmit={onSubmit}>
+          <header className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">{editing ? tx("修正时间块") : tx("记录时间块")}</h3>
             <IconButton size="sm" label={tx("关闭")} type="button" onClick={onClose}><X size={15} /></IconButton>
-          </div>
+          </header>
 
           <div className="time-editor-primary-grid">
             <select aria-label={tx("关联任务")} className="field" value={draft.taskId} onChange={(event) => { const task = tasks.find((item) => String(item.id) === event.target.value); onChange({ taskId: event.target.value, projectId: task?.projectId ? String(task.projectId) : "" }); }}>
@@ -289,10 +289,10 @@ function TimeBlockDialog({ categories, tasks, projects, draft, editing, overlapC
           {draft.kind === "1" ? <p className="manual-actual-note">{tx("补录投入 ≠ 完成 Task；默认只记录实际投入。")}</p> : null}
           {overlapConflict ? <div className="overlap-conflict" role="alert"><strong>{tx("与已有投入重叠")}</strong><span>{tx("调整开始/结束时间，或保留为不计入汇总的附注。")}</span><button type="button" onClick={onKeepExcluded}>{tx("保留附注，不计入投入汇总")}</button></div> : null}
 
-          <div className="mt-4 flex justify-end gap-2">
+          <footer className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={onClose}>{tx("取消")}</Button>
             <Button variant="primary" type="submit">{tx("保存")}</Button>
-          </div>
+          </footer>
         </form>
       </div>
     </div>,
@@ -332,5 +332,8 @@ function formatSeconds(seconds: number) {
 }
 
 function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message === "actual time overlaps an existing included interval") {
+    return tx("这段实际时间与已有投入重叠，请调整开始或结束时间。");
+  }
   return error instanceof Error ? error.message : tx("操作失败");
 }

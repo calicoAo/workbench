@@ -1,0 +1,297 @@
+{
+  "result": "PASS",
+  "scope": "real Finance UI/CSS; layout-only fixture data, no database or persistence assertions",
+  "evidence": [
+    {
+      "width": 1440,
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 252.59375,
+          "bottom": 647.40625,
+          "width": 520,
+          "height": 394.8125
+        },
+        "header": {
+          "display": "flex",
+          "left": 474,
+          "right": 966,
+          "top": 266.59375,
+          "bottom": 321.34375,
+          "width": 492,
+          "height": 54.75
+        },
+        "title": {
+          "left": 474,
+          "right": 526,
+          "top": 286.09375,
+          "bottom": 305.59375,
+          "width": 52,
+          "height": 19.5
+        },
+        "close": {
+          "left": 922,
+          "right": 966,
+          "top": 266.59375,
+          "bottom": 310.59375,
+          "width": 44,
+          "height": 44
+        },
+        "label": {
+          "display": "flex",
+          "left": 474,
+          "right": 966,
+          "top": 536.40625,
+          "bottom": 580.40625,
+          "width": 492,
+          "height": 44
+        },
+        "checkbox": {
+          "left": 474,
+          "right": 487,
+          "top": 551.90625,
+          "bottom": 564.90625,
+          "width": 13,
+          "height": 13
+        },
+        "text": {
+          "left": 493.5,
+          "right": 552,
+          "top": 551.90625,
+          "bottom": 564.90625,
+          "width": 58.5,
+          "height": 13
+        },
+        "footerDisplay": "flex"
+      },
+      "screenshot": {
+        "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-FINANCE-DIALOG-LAYOUT-create-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "width": 375,
+      "layout": {
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 13,
+          "right": 362,
+          "top": 16,
+          "bottom": 540.6875,
+          "width": 349,
+          "height": 524.6875
+        },
+        "header": {
+          "display": "flex",
+          "left": 27,
+          "right": 348,
+          "top": 30,
+          "bottom": 84.75,
+          "width": 321,
+          "height": 54.75
+        },
+        "title": {
+          "left": 27,
+          "right": 79,
+          "top": 49.5,
+          "bottom": 69,
+          "width": 52,
+          "height": 19.5
+        },
+        "close": {
+          "left": 304,
+          "right": 348,
+          "top": 30,
+          "bottom": 74,
+          "width": 44,
+          "height": 44
+        },
+        "label": {
+          "display": "flex",
+          "left": 27,
+          "right": 348,
+          "top": 409.6875,
+          "bottom": 453.6875,
+          "width": 321,
+          "height": 44
+        },
+        "checkbox": {
+          "left": 27,
+          "right": 40,
+          "top": 425.1875,
+          "bottom": 438.1875,
+          "width": 13,
+          "height": 13
+        },
+        "text": {
+          "left": 46.5,
+          "right": 105,
+          "top": 425.1875,
+          "bottom": 438.1875,
+          "width": 58.5,
+          "height": 13
+        },
+        "footerDisplay": "flex"
+      },
+      "screenshot": {
+        "file": "/Users/lijingru/Developer/workbench/docs/reports/WB-FINANCE-DIALOG-LAYOUT-create-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "dialog": "记支出",
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 288.8125,
+          "bottom": 611.1875,
+          "width": 520,
+          "height": 322.375
+        },
+        "header": {
+          "display": "flex",
+          "left": 474,
+          "right": 966,
+          "top": 302.8125,
+          "bottom": 357.5625,
+          "width": 492,
+          "height": 54.75
+        },
+        "title": {
+          "left": 474,
+          "right": 539,
+          "top": 322.3125,
+          "bottom": 341.8125,
+          "width": 65,
+          "height": 19.5
+        },
+        "close": {
+          "left": 922,
+          "right": 966,
+          "top": 302.8125,
+          "bottom": 346.8125,
+          "width": 44,
+          "height": 44
+        },
+        "label": null,
+        "checkbox": null,
+        "text": null,
+        "footerDisplay": "flex"
+      }
+    },
+    {
+      "dialog": "记收入",
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 288.8125,
+          "bottom": 611.1875,
+          "width": 520,
+          "height": 322.375
+        },
+        "header": {
+          "display": "flex",
+          "left": 474,
+          "right": 966,
+          "top": 302.8125,
+          "bottom": 357.5625,
+          "width": 492,
+          "height": 54.75
+        },
+        "title": {
+          "left": 474,
+          "right": 539,
+          "top": 322.3125,
+          "bottom": 341.8125,
+          "width": 65,
+          "height": 19.5
+        },
+        "close": {
+          "left": 922,
+          "right": 966,
+          "top": 302.8125,
+          "bottom": 346.8125,
+          "width": 44,
+          "height": 44
+        },
+        "label": null,
+        "checkbox": null,
+        "text": null,
+        "footerDisplay": "flex"
+      }
+    },
+    {
+      "dialog": "转账",
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 110,
+          "bottom": 790,
+          "width": 520,
+          "height": 680
+        },
+        "header": {
+          "display": "flex",
+          "left": 474,
+          "right": 955,
+          "top": 124,
+          "bottom": 178.75,
+          "width": 481,
+          "height": 54.75
+        },
+        "title": {
+          "left": 474,
+          "right": 564,
+          "top": 143.5,
+          "bottom": 163,
+          "width": 90,
+          "height": 19.5
+        },
+        "close": {
+          "left": 911,
+          "right": 955,
+          "top": 124,
+          "bottom": 168,
+          "width": 44,
+          "height": 44
+        },
+        "label": null,
+        "checkbox": null,
+        "text": null,
+        "footerDisplay": "flex"
+      }
+    }
+  ]
+}

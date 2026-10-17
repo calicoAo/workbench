@@ -1,3 +1,6 @@
+import { IconButton } from "../../shared/ui";
+import { Link } from "react-router";
+import { MarkdownContent } from "../../shared/markdown";
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -67,7 +70,7 @@ export function ArchiveBrowser({ request, refreshRevision, onError }: {
           </button>
         ))}
       </div>
-      {selectedItem && <ArchiveDetailDialog item={selectedItem} onClose={() => setSelectedItem(null)} />}
+      {selectedItem && <ArchiveDetailDialog tab={activeTab} item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </div>
   );
 }
@@ -83,20 +86,21 @@ function archiveItems(tab: ArchiveTab, records: MorningWritingRecord[] | Journal
     score: item.disciplineScore,
     sections: [
       { label: "大盘结论", value: item.marketSummary }, { label: "操作记录", value: item.operations }, { label: "持仓观察", value: item.holdingsReview },
-      { label: "错误复盘", value: item.mistakes }, { label: "明日计划", value: item.tomorrowPlan }, { label: "标签", value: item.tags },
+      { label: "做得好的地方", value: item.goodPoints }, { label: "错误复盘", value: item.mistakes }, { label: "明日计划", value: item.tomorrowPlan }, { label: "标签", value: item.tags },
       { label: "心情", value: item.emotionScore ? `${item.emotionScore}/5` : null }, { label: "纪律", value: item.disciplineScore ? `${item.disciplineScore}/5` : null }
     ]
   }));
 }
 
-function ArchiveDetailDialog({ item, onClose }: { item: ArchiveItem; onClose: () => void }) {
+function ArchiveDetailDialog({ item, tab, onClose }: { item: ArchiveItem; tab: ArchiveTab; onClose: () => void }) {
   const sections = item.sections.filter((section) => String(section.value ?? "").trim());
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
-        <article className="writing-modal">
-          <div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-[11px] text-soft">{formatDayLabel(item.date)}</p><h3 className="text-base font-semibold">{item.title}</h3></div><button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button></div>
-          <div className="writing-body space-y-3">{sections.length ? sections.map((section) => <section className="archive-detail-section" key={tx(section.label)}><p className="mb-1 text-[11px] font-semibold text-mint-700">{tx(section.label)}</p><p className="whitespace-pre-wrap text-[13px] leading-6 text-ink">{section.value}</p></section>) : <EmptyText text={tx("这天还没写内容。")} />}</div>
+        <article className="ui-dialog writing-modal" role="dialog" aria-modal="true" aria-label={tx(item.title)}>
+          <header className="mb-3 flex items-start justify-between gap-3"><div><p className="text-[11px] text-soft">{formatDayLabel(item.date)}</p><h3 className="text-base font-semibold">{item.title}</h3></div><IconButton type="button" label={tx("关闭")} onClick={onClose}><X size={15} /></IconButton></header>
+          <div className="writing-body space-y-3">{sections.length ? sections.map((section) => <section className="archive-detail-section" key={tx(section.label)}><p className="mb-1 text-[11px] font-semibold text-mint-700">{tx(section.label)}</p><MarkdownContent content={String(section.value)} /></section>) : <EmptyText text={tx("这天还没写内容。")} />}</div>
+          <footer className="mt-4 flex justify-end"><Link className="primary-button px-4" to={`/journal?date=${item.date}&tab=${tab}&edit=1`}>{tx("编辑")}</Link></footer>
         </article>
       </div>
     </div>,

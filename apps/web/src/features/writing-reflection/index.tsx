@@ -1,7 +1,11 @@
+import { IconButton } from "../../shared/ui";
 import { createContext, type FormEvent, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpenText, CheckCircle2, Pencil, Sparkles, SunMedium, TrendingUp, X } from "lucide-react";
 import { getActiveLocale, tx } from "../../app/i18n";
+
+import { MarkdownContent, MarkdownInput } from "../../shared/markdown";
+import { WritingReading, type ReadingSnapshot } from "./reading";
 
 type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 type WritingKind = "morning" | "journal" | "review";
@@ -47,6 +51,7 @@ type ReviewDraft = {
   marketSummary: string;
   operations: string;
   holdingsReview: string;
+  goodPoints: string;
   mistakes: string;
   tomorrowPlan: string;
   emotionScore: string;
@@ -65,6 +70,7 @@ type ContextValue = {
   setJournal: (draft: SimpleDraft) => void;
   review: ReviewDraft;
   setReview: (draft: ReviewDraft) => void;
+  reading: ReadingSnapshot;
   completed: Record<WritingKind, boolean>;
   insights: Partial<Record<InsightKind, AiInsight>>;
   aiLoading: InsightKind | null;
@@ -119,6 +125,8 @@ export function WritingReflectionFeature({
   const [morning, setMorning] = useState<SimpleDraft>(() => simpleDraft(initialSnapshot.morning));
   const [journal, setJournal] = useState<SimpleDraft>(() => simpleDraft(initialSnapshot.journal));
   const [review, setReview] = useState<ReviewDraft>(() => reviewDraft(initialSnapshot.review));
+  const [reading, setReading] = useState<ReadingSnapshot>(initialSnapshot);
+  useEffect(() => { setReading(initialSnapshot); }, [initialSnapshot]);
   const [completed, setCompleted] = useState<Record<WritingKind, boolean>>(() => ({
     morning: hasText(initialSnapshot.morning?.content),
     journal: hasText(initialSnapshot.journal?.content),
@@ -165,6 +173,7 @@ export function WritingReflectionFeature({
         body: JSON.stringify({ writingDate: selectedDate, content: morning.content, moodScore: Number(morning.moodScore) })
       });
       setMorning(next);
+      setReading((current) => ({ ...current, morning: { content: next.content, moodScore: Number(next.moodScore) } }));
       setCompleted((current) => ({ ...current, morning: hasText(next.content) }));
       setModal(null);
       await onChanged();
@@ -182,6 +191,7 @@ export function WritingReflectionFeature({
         body: JSON.stringify({ journalDate: selectedDate, content: journal.content, moodScore: Number(journal.moodScore) })
       });
       setJournal(next);
+      setReading((current) => ({ ...current, journal: { content: next.content, moodScore: Number(next.moodScore) } }));
       setCompleted((current) => ({ ...current, journal: hasText(next.content) }));
       setModal(null);
       await onChanged();
@@ -199,6 +209,7 @@ export function WritingReflectionFeature({
         body: JSON.stringify({ reviewDate: selectedDate, ...review, emotionScore: Number(review.emotionScore), disciplineScore: Number(review.disciplineScore) })
       });
       setReview(next);
+      setReading((current) => ({ ...current, review: { ...next, emotionScore: Number(next.emotionScore), disciplineScore: Number(next.disciplineScore) } }));
       setCompleted((current) => ({ ...current, review: hasReviewDraftContent(next) }));
       setModal(null);
       await onChanged();
@@ -221,6 +232,7 @@ export function WritingReflectionFeature({
           body: JSON.stringify({ writingDate: selectedDate, content: morning.content, moodScore: Number(morning.moodScore) })
         });
       }
+      if (kind === "morning") setReading((current) => ({ ...current, morning: { content: morning.content.trim(), moodScore: Number(morning.moodScore) } }));
       const insight = await request<AiInsight>("/api/ai-insights/analyze", {
         method: "POST",
         body: JSON.stringify({ sourceType: kind, sourceDate: selectedDate, content, operationId: crypto.randomUUID() })
@@ -246,6 +258,7 @@ export function WritingReflectionFeature({
     setJournal,
     review,
     setReview,
+    reading,
     completed,
     insights,
     aiLoading,
@@ -310,9 +323,15 @@ export function WritingReflectionShortcuts({ enabledSlots }: { enabledSlots?: st
 
 export function WritingQuickActions({ enabledSlots, onSelect, showIcons = false }: { enabledSlots: string[]; onSelect?: () => void; showIcons?: boolean }) { const feature = useWritingReflection(); const entries = { MORNING_WRITING: { kind: "morning" as const, label: "晨写", icon: SunMedium }, JOURNAL: { kind: "journal" as const, label: "日记", icon: BookOpenText }, STOCK_REVIEW: { kind: "review" as const, label: "股市复盘", icon: TrendingUp } }; return <>{enabledSlots.map((key) => ({ key, entry: entries[key as keyof typeof entries] })).filter(({ entry }) => entry).map(({ key, entry }) => { const Icon = entry.icon; return <button key={key} type="button" onClick={() => { feature.setModal(entry.kind); onSelect?.(); }}>{showIcons ? <Icon size={17} /> : null}<span>{tx(entry.label)}</span></button>; })}</>; }
 
-export function WritingReflectionHistory({ loading, enabledSlots, onlySlot }: { loading: boolean; enabledSlots?: string[]; onlySlot?: "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW" }) {
+export function WritingReflectionHistory({ loading, enabledSlots, onlySlot, editOnOpen = false }: { loading: boolean; enabledSlots?: string[]; onlySlot?: "MORNING_WRITING" | "JOURNAL" | "STOCK_REVIEW"; editOnOpen?: boolean }) {
   const feature = useWritingReflection();
   const enabled = new Set(enabledSlots ?? ["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"]);
+  const consumedEdit = useRef(false);
+  useEffect(() => {
+    if (!editOnOpen || consumedEdit.current || loading || feature.disabled || !onlySlot || !enabled.has(onlySlot)) return;
+    consumedEdit.current = true;
+    feature.setModal(onlySlot === "MORNING_WRITING" ? "morning" : onlySlot === "STOCK_REVIEW" ? "review" : "journal");
+  }, [editOnOpen, loading, onlySlot, feature.disabled, feature.setModal, enabledSlots]);
   return (
     <>
       {enabled.has("MORNING_WRITING") && (!onlySlot || onlySlot === "MORNING_WRITING") ? <FeaturePanel
@@ -320,9 +339,7 @@ export function WritingReflectionHistory({ loading, enabledSlots, onlySlot }: { 
         icon={<SunMedium size={17} />}
         action={<ExpandButton label={tx("打开晨写编辑")} disabled={feature.disabled} onClick={() => feature.setModal("morning")} />}
       >
-        <form className="space-y-2" onSubmit={feature.saveMorning}>
-          <MorningFields compact />
-        </form>
+        <WritingReading kind="morning" snapshot={feature.reading} hasDraft={feature.morning.content !== (feature.reading.morning?.content ?? "") || feature.morning.moodScore !== String(feature.reading.morning?.moodScore ?? 4)} />
       </FeaturePanel> : null}
 
       {enabled.has("JOURNAL") && (!onlySlot || onlySlot === "JOURNAL") ? <FeaturePanel
@@ -331,9 +348,7 @@ export function WritingReflectionHistory({ loading, enabledSlots, onlySlot }: { 
         action={<ExpandButton label={tx("打开日记编辑")} disabled={feature.disabled} onClick={() => feature.setModal("journal")} />}
       >
         <p className="mb-2 text-[11px] text-soft">{loading || feature.disabled ? tx("加载中...") : tx("可随时回看和编辑当天内容。")}</p>
-        <form className="space-y-2" onSubmit={feature.saveJournal}>
-          <JournalFields compact />
-        </form>
+        <WritingReading kind="journal" snapshot={feature.reading} hasDraft={feature.journal.content !== (feature.reading.journal?.content ?? "") || feature.journal.moodScore !== String(feature.reading.journal?.moodScore ?? 4)} />
       </FeaturePanel> : null}
 
       {enabled.has("STOCK_REVIEW") && (!onlySlot || onlySlot === "STOCK_REVIEW") ? <FeaturePanel
@@ -341,9 +356,7 @@ export function WritingReflectionHistory({ loading, enabledSlots, onlySlot }: { 
         icon={<TrendingUp size={17} />}
         action={<ExpandButton label={tx("打开复盘编辑")} disabled={feature.disabled} onClick={() => feature.setModal("review")} />}
       >
-        <form className="space-y-2" onSubmit={feature.saveReview}>
-          <ReviewFields compact />
-        </form>
+        <WritingReading kind="review" snapshot={feature.reading} hasDraft={JSON.stringify(feature.review) !== JSON.stringify(reviewDraft(feature.reading.review))} />
       </FeaturePanel> : null}
     </>
   );
@@ -375,7 +388,7 @@ function WritingDialogs() {
   );
 }
 
-function MorningFields({ compact = false }: { compact?: boolean }) {
+function MorningFields() {
   const feature = useWritingReflection();
   const select = (
     <select aria-label={tx("晨写状态")} className="field" disabled={feature.disabled} value={feature.morning.moodScore} onChange={(event) => feature.setMorning({ ...feature.morning, moodScore: event.target.value })}>
@@ -384,20 +397,20 @@ function MorningFields({ compact = false }: { compact?: boolean }) {
   );
   return (
     <>
-      <textarea
+      <MarkdownInput
         aria-label={tx("晨写内容")}
-        className={compact ? "journal-input" : "writing-textarea"}
+        className="writing-textarea"
         disabled={feature.disabled}
         placeholder={tx("早上先写几句：醒来想到什么、今天想把注意力放在哪里...")}
         value={feature.morning.content}
         onChange={(event) => feature.setMorning({ ...feature.morning, content: event.target.value })}
       />
-      {compact ? <div className="grid grid-cols-[1fr_auto] gap-2">{select}<SaveButton disabled={feature.disabled} /></div> : select}
+      {select}
     </>
   );
 }
 
-function JournalFields({ compact = false }: { compact?: boolean }) {
+function JournalFields() {
   const feature = useWritingReflection();
   const select = (
     <select aria-label={tx("日记状态")} className="field" disabled={feature.disabled} value={feature.journal.moodScore} onChange={(event) => feature.setJournal({ ...feature.journal, moodScore: event.target.value })}>
@@ -406,44 +419,43 @@ function JournalFields({ compact = false }: { compact?: boolean }) {
   );
   return (
     <>
-      <textarea
+      <MarkdownInput
         aria-label={tx("日记内容")}
-        className={compact ? "journal-input" : "writing-textarea"}
+        className="writing-textarea"
         disabled={feature.disabled}
-        placeholder={compact ? tx("睡前简单写几句：今天发生了什么、感谢什么、明天最重要的一件事...") : tx("睡前慢慢写：今天发生了什么、感谢什么、明天最重要的一件事...")}
+        placeholder={tx("睡前慢慢写：今天发生了什么、感谢什么、明天最重要的一件事...")}
         value={feature.journal.content}
         onChange={(event) => feature.setJournal({ ...feature.journal, content: event.target.value })}
       />
-      {compact ? <div className="grid grid-cols-[1fr_auto] gap-2">{select}<SaveButton disabled={feature.disabled} /></div> : select}
+      {select}
     </>
   );
 }
 
-function ReviewFields({ compact = false }: { compact?: boolean }) {
+function ReviewFields() {
   const feature = useWritingReflection();
-  const inputClass = compact ? "journal-input" : "journal-input min-h-32 resize-y";
+  const inputClass = "journal-input min-h-32 resize-y";
   return (
     <>
-      <textarea aria-label={tx("大盘结论")} className={compact ? "journal-input min-h-28" : "writing-textarea min-h-[220px]"} disabled={feature.disabled} placeholder={tx("今天的大盘和最重要的结论...")} value={feature.review.marketSummary} onChange={(event) => feature.setReview({ ...feature.review, marketSummary: event.target.value })} />
+      <MarkdownInput aria-label={tx("大盘结论")} className="writing-textarea min-h-[220px]" disabled={feature.disabled} placeholder={tx("今天的大盘和最重要的结论...")} value={feature.review.marketSummary} onChange={(event) => feature.setReview({ ...feature.review, marketSummary: event.target.value })} />
       <div className="grid gap-2 md:grid-cols-2">
-        <textarea aria-label={tx("操作记录")} className={inputClass} disabled={feature.disabled} placeholder={tx("操作记录...")} value={feature.review.operations} onChange={(event) => feature.setReview({ ...feature.review, operations: event.target.value })} />
-        <textarea aria-label={tx("持仓观察")} className={inputClass} disabled={feature.disabled} placeholder={tx("持仓观察...")} value={feature.review.holdingsReview} onChange={(event) => feature.setReview({ ...feature.review, holdingsReview: event.target.value })} />
+        <MarkdownInput aria-label={tx("操作记录")} className={inputClass} disabled={feature.disabled} placeholder={tx("操作记录...")} value={feature.review.operations} onChange={(event) => feature.setReview({ ...feature.review, operations: event.target.value })} />
+        <MarkdownInput aria-label={tx("持仓观察")} className={inputClass} disabled={feature.disabled} placeholder={tx("持仓观察...")} value={feature.review.holdingsReview} onChange={(event) => feature.setReview({ ...feature.review, holdingsReview: event.target.value })} />
       </div>
+      <MarkdownInput aria-label={tx("做得好的地方")} className={inputClass} disabled={feature.disabled} placeholder={tx("做得好的地方")} value={feature.review.goodPoints} onChange={(event) => feature.setReview({ ...feature.review, goodPoints: event.target.value })} />
       <div className="grid gap-2 md:grid-cols-2">
-        <textarea aria-label={tx("错误复盘")} className={inputClass} disabled={feature.disabled} placeholder={tx("错误复盘...")} value={feature.review.mistakes} onChange={(event) => feature.setReview({ ...feature.review, mistakes: event.target.value })} />
-        <textarea aria-label={tx("明日计划")} className={inputClass} disabled={feature.disabled} placeholder={tx("明日计划...")} value={feature.review.tomorrowPlan} onChange={(event) => feature.setReview({ ...feature.review, tomorrowPlan: event.target.value })} />
+        <MarkdownInput aria-label={tx("错误复盘")} className={inputClass} disabled={feature.disabled} placeholder={tx("错误复盘...")} value={feature.review.mistakes} onChange={(event) => feature.setReview({ ...feature.review, mistakes: event.target.value })} />
+        <MarkdownInput aria-label={tx("明日计划")} className={inputClass} disabled={feature.disabled} placeholder={tx("明日计划...")} value={feature.review.tomorrowPlan} onChange={(event) => feature.setReview({ ...feature.review, tomorrowPlan: event.target.value })} />
       </div>
-      <div className={`grid gap-2 ${compact ? "md:grid-cols-[repeat(2,minmax(0,1fr))_auto]" : "md:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.4fr)]"}`}>
+      <div className="grid gap-2 md:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.4fr)]">
         <select aria-label={tx("复盘心情")} className="field" disabled={feature.disabled} value={feature.review.emotionScore} onChange={(event) => feature.setReview({ ...feature.review, emotionScore: event.target.value })}>
           <NumberOptions label={tx("心情")} />
         </select>
         <select aria-label={tx("复盘纪律")} className="field" disabled={feature.disabled} value={feature.review.disciplineScore} onChange={(event) => feature.setReview({ ...feature.review, disciplineScore: event.target.value })}>
           <NumberOptions label={tx("纪律")} />
         </select>
-        {compact && <SaveButton disabled={feature.disabled} />}
-        {!compact && <input aria-label={tx("复盘标签")} className="field" disabled={feature.disabled} placeholder={tx("标签，用逗号分隔")} value={feature.review.tags} onChange={(event) => feature.setReview({ ...feature.review, tags: event.target.value })} />}
+        <input aria-label={tx("复盘标签")} className="field" disabled={feature.disabled} placeholder={tx("标签，用逗号分隔")} value={feature.review.tags} onChange={(event) => feature.setReview({ ...feature.review, tags: event.target.value })} />
       </div>
-      {compact && <input aria-label={tx("复盘标签")} className="field" disabled={feature.disabled} placeholder={tx("标签，用逗号分隔")} value={feature.review.tags} onChange={(event) => feature.setReview({ ...feature.review, tags: event.target.value })} />}
     </>
   );
 }
@@ -482,12 +494,8 @@ function FeaturePanel({ title, icon, children, action }: { title: string; icon: 
 function ExpandButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
   return (
     <button className="icon-button h-8 w-auto gap-1 px-3 text-[11px]" type="button" aria-label={tx(label)} disabled={disabled} onClick={onClick}>
-      <Pencil size={13} />{tx("展开写")}</button>
+      <Pencil size={13} />{tx("编辑")}</button>
   );
-}
-
-function SaveButton({ disabled }: { disabled: boolean }) {
-  return <button className="primary-button px-4" type="submit" disabled={disabled}>{tx("保存")}</button>;
 }
 
 function WritingShortcut({ label, done, disabled, onClick }: { label: string; done: boolean; disabled: boolean; onClick: () => void }) {
@@ -510,7 +518,7 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
       if (event.key !== "Tab" || !shell) return;
-      const focusable = [...shell.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)")];
+      const focusable = [...shell.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled):not([hidden]), select:not(:disabled)")];
       if (!focusable.length) return;
       const first = focusable[0], last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -522,19 +530,19 @@ function WritingModal({ title, children, onClose, onSubmit }: { title: string; c
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="writing-modal" onSubmit={onSubmit}>
-          <div className="mb-3 flex items-center justify-between gap-2">
+        <form className="ui-dialog writing-modal" onSubmit={onSubmit}>
+          <header className="mb-3 flex items-center justify-between gap-2">
             <div>
               <p className="text-[11px] text-soft">{tx("大空间写作")}</p>
               <h3 className="text-sm font-semibold">{tx(title)}</h3>
             </div>
-            <button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}><X size={15} /></button>
-          </div>
+            <IconButton type="button" label={tx("关闭")} onClick={onClose}><X size={15} /></IconButton>
+          </header>
           <div className="writing-body space-y-2">{children}</div>
-          <div className="mt-4 flex justify-end gap-2">
+          <footer className="mt-4 flex justify-end gap-2">
             <button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={onClose}>{tx("取消")}</button>
             <button className="primary-button px-5" type="submit">{tx("保存")}</button>
-          </div>
+          </footer>
         </form>
       </div>
     </div>,
@@ -557,7 +565,7 @@ function AiInsightCard({ insight }: { insight: AiInsight }) {
       <div className="mt-2 space-y-2 text-[12px] leading-6 text-soft">
         {!!stress.length && <p>{tx("压力关键词：")}{stress.join("、")}</p>}
         {insight.suggestion && <p>{tx("建议：")}{insight.suggestion}</p>}
-        {insight.fullText && <p className="whitespace-pre-wrap text-ink">{insight.fullText}</p>}
+        {insight.fullText && <MarkdownContent content={insight.fullText} />}
       </div>
     </article>
   );
@@ -585,11 +593,12 @@ function simpleDraft(record: MorningWritingRecord | JournalRecord | null): Simpl
   return { content: record?.content ?? "", moodScore: String(record?.moodScore ?? 4) };
 }
 
-function reviewDraft(record: StockReviewRecord | null): ReviewDraft {
+function reviewDraft(record: ReadingSnapshot["review"]): ReviewDraft {
   return {
     marketSummary: record?.marketSummary ?? "",
     operations: record?.operations ?? "",
     holdingsReview: record?.holdingsReview ?? "",
+    goodPoints: record?.goodPoints ?? "",
     mistakes: record?.mistakes ?? "",
     tomorrowPlan: record?.tomorrowPlan ?? "",
     emotionScore: String(record?.emotionScore ?? 4),
@@ -608,6 +617,7 @@ function normalizeReviewDraft(draft: ReviewDraft): ReviewDraft {
     marketSummary: draft.marketSummary.trim(),
     operations: draft.operations.trim(),
     holdingsReview: draft.holdingsReview.trim(),
+    goodPoints: draft.goodPoints.trim(),
     mistakes: draft.mistakes.trim(),
     tomorrowPlan: draft.tomorrowPlan.trim(),
     tags: draft.tags.trim()
@@ -623,7 +633,7 @@ function hasReviewContent(review: StockReviewRecord | null) {
 }
 
 function hasReviewDraftContent(review: ReviewDraft) {
-  return [review.marketSummary, review.operations, review.holdingsReview, review.mistakes, review.tomorrowPlan, review.tags].some(hasText);
+  return [review.marketSummary, review.operations, review.holdingsReview, review.goodPoints, review.mistakes, review.tomorrowPlan, review.tags].some(hasText);
 }
 
 function formatDayLabel(date: string) {

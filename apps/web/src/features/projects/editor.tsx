@@ -74,7 +74,7 @@ export function ProjectEditor({ project, request, userId, onError, onClose, onSa
   }
 
   const locked = pending || savedId !== null;
-  const form = <form className="time-modal project-editor" onSubmit={(event: FormEvent) => { event.preventDefault(); event.stopPropagation(); void run("save"); }}>
+  const form = <form className="ui-dialog time-modal project-editor" onSubmit={(event: FormEvent) => { event.preventDefault(); event.stopPropagation(); void run("save"); }}>
     <header><div><p className="route-eyebrow">{project ? tx("编辑项目") : tx("新项目")}</p><h2 id="project-editor-title">{project ? project.name : tx("创建长期目标")}</h2></div><IconButton label={tx("关闭")} type="button" disabled={pending} onClick={close}>×</IconButton></header>
     <label>{tx("项目名称")}<input className="field" autoFocus data-dialog-initial-focus required maxLength={120} disabled={locked} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
     <label>{tx("说明")}<textarea disabled={locked} value={draft.description} maxLength={4000} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>

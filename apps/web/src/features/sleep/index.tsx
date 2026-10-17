@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui";
 import { Moon, Pencil, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useEffect, useRef, useState } from "react";
@@ -149,13 +150,13 @@ function SleepEditDialog({
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal-shell" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="time-modal" onSubmit={onSubmit}>
-          <div className="mb-3 flex items-center justify-between">
+        <form className="ui-dialog time-modal" onSubmit={onSubmit}>
+          <header className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">{tx("编辑睡眠")}</h3>
-            <button className="icon-button h-8 w-8" type="button" aria-label={tx("关闭")} onClick={onClose}>
+            <IconButton type="button" label={tx("关闭")} onClick={onClose}>
               <X size={15} />
-            </button>
-          </div>
+            </IconButton>
+          </header>
 
           <div className="sleep-date-grid">
             <label className="text-[11px] text-soft">{tx("入睡日期")}<input aria-label={tx("入睡日期")} className="field mt-1" type="date" value={draft.sleepStartDate} onChange={(event) => onChange({ sleepStartDate: event.target.value })} />
@@ -179,10 +180,10 @@ function SleepEditDialog({
             <option value="1">{tx("质量 1")}</option>
           </select>
 
-          <div className="mt-4 flex justify-end gap-2">
+          <footer className="mt-4 flex justify-end gap-2">
             <button className="icon-button w-auto px-4" type="button" aria-label={tx("取消")} onClick={onClose}>{tx("取消")}</button>
             <button className="primary-button px-5" type="submit">{tx("保存")}</button>
-          </div>
+          </footer>
         </form>
       </div>
     </div>,

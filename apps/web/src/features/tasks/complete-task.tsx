@@ -76,11 +76,12 @@ export function CompleteTaskWorkflow({ children, request, selectedDate, timezone
     {children(toggle)}
     {task && (
       <ModalPortal onClose={close}>
-        <form className="time-modal max-w-[560px]" onSubmit={submit}>
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div><p className="text-xs font-semibold text-mint-700">{combined ? tx("完成悬赏并结束") : tx("任务完成了")}</p><h3 className="text-sm font-semibold">{task.title}</h3><p className="mt-1 text-[11px] text-soft">{tx("Task 完成不会伪造 Actual 时间；实际投入请由计时或手工 Actual 记录。")}</p></div>
+        <form className="ui-dialog time-modal max-w-[560px]" onSubmit={submit}>
+          <header className="mb-3 flex items-start justify-between gap-3">
+            <div><p className="text-xs font-semibold text-mint-700">{combined ? tx("完成悬赏并结束") : tx("任务完成了")}</p><h3 className="text-sm font-semibold">{task.title}</h3></div>
             <CloseButton onClose={close} />
-          </div>
+          </header>
+          <p className="mt-1 text-[11px] text-soft">{tx("Task 完成不会伪造 Actual 时间；实际投入请由计时或手工 Actual 记录。")}</p>
           <textarea aria-label={tx("完成感想")} className="journal-input mt-2 min-h-28" placeholder={tx("刚刚完成后的感想...")} value={note} onChange={(event) => setNote(event.target.value)} />
           {!combined ? <label className="manual-complete-option"><input type="checkbox" checked={recordTime} onChange={(event) => setRecordTime(event.target.checked)} />{tx("同时补录实际投入")}</label> : null}
           {recordTime && !combined ? <div className="time-editor-date-grid"><label className="text-[11px] text-soft">{tx("开始日期")}<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">{tx("开始时间")}<input aria-label={tx("完成补录开始时间")} className="field mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="text-[11px] text-soft">{tx("结束日期")}<input className="field mt-1" type="date" value={selectedDate} readOnly /></label><label className="text-[11px] text-soft">{tx("结束时间")}<input aria-label={tx("完成补录结束时间")} className="field mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div> : null}

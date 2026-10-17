@@ -1509,8 +1509,15 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .finance-transaction-list .is-income { @apply text-mint-700; }
   .finance-transaction-list .is-expense { @apply text-pink-500; }
   .finance-transaction-list .is-neutral { @apply text-ink; }
-  .finance-dialog { @apply max-h-[min(88dvh,680px)] overflow-y-auto; }
-  .finance-dialog label { @apply grid gap-1 text-[11px] font-semibold text-soft; }
+  .finance-dialog { @apply grid max-h-[min(88dvh,680px)] gap-4 overflow-y-auto; grid-template-columns: minmax(0, 1fr); }
+  .finance-dialog > header { @apply flex items-center justify-between gap-3 border-b border-white/80 pb-3; }
+  .finance-dialog > header > div { @apply min-w-0; }
+  .finance-dialog > header h2 { @apply text-base font-bold; overflow-wrap: anywhere; }
+  .finance-dialog > header > .ui-icon-button { @apply shrink-0; width: 44px; height: 44px; }
+  .finance-dialog > footer { @apply flex items-center justify-between gap-3 border-t border-white/80 pt-3; }
+  .finance-dialog label:not(.finance-check) { @apply grid gap-1 text-[11px] font-semibold text-soft; }
+  .finance-dialog .finance-check { min-height: 44px; }
+  .finance-dialog .finance-check input { @apply h-4 w-4 shrink-0; }
   .finance-dialog label small { @apply font-normal text-[10px]; }
   .finance-dialog footer > div { @apply flex gap-2; }
   .finance-form-grid, .finance-record-primary { @apply grid grid-cols-2 gap-2; }
@@ -3192,4 +3199,108 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 
 @media (prefers-reduced-motion: reduce) {
   .growth-route *, .growth-route *::before, .growth-route *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Writing presentation: Markdown source stays with its feature owner. */
+.markdown-content { min-width: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; }
+.markdown-content > * + * { margin-top: .8rem; }
+.markdown-content p { white-space: pre-wrap; }
+.markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4 { font-weight: 650; line-height: 1.5; margin: 1rem 0 .5rem; }
+.markdown-content h1 { font-size: 1.5rem; }
+.markdown-content h2 { font-size: 1.25rem; }
+.markdown-content h3 { font-size: 1.1rem; }
+.markdown-content ul, .markdown-content ol { padding-left: 1.5rem; }
+.markdown-content ul { list-style: disc; }
+.markdown-content ol { list-style: decimal; }
+.markdown-content .task-list-item { list-style: none; }
+.markdown-content li + li { margin-top: .25rem; }
+.markdown-content blockquote { border-left: 3px solid #71a99c; padding-left: .8rem; color: #58706a; }
+.markdown-content a { color: #287466; text-decoration: underline; }
+.markdown-content code { border-radius: .25rem; background: #edf3f0; padding: .1rem .3rem; }
+.markdown-content pre { max-width: 100%; overflow-x: auto; white-space: pre; border-radius: .6rem; background: #edf3f0; padding: .8rem; }
+.markdown-content pre code { padding: 0; }
+.markdown-content img { max-width: 100%; height: auto; }
+.markdown-content hr { border-top: 1px solid #d8e3de; }
+.markdown-table-scroll { max-width: 100%; overflow-x: auto; }
+.markdown-content th, .markdown-content td { padding: .4rem .7rem; border: 1px solid #d8e3de; text-align: left; }
+.markdown-input { min-width: 0; }
+.markdown-input textarea { width: 100%; }
+.markdown-input textarea[hidden] { display: none; }
+.markdown-input-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .4rem; font-size: 11px; color: #58706a; }
+.markdown-input-preview { min-height: 8rem; border: 1px solid #d8e3de; border-radius: .8rem; padding: .8rem; background: #ffffff80; }
+.quick-note-reading h2 { font-size: 1.2rem; font-weight: 650; margin-bottom: .6rem; }
+.writing-reading { display: grid; gap: .8rem; min-width: 0; }
+.writing-reading > section > h3 { font-size: 12px; font-weight: 650; color: #287466; margin-bottom: .25rem; }
+.writing-draft-hint { font-size: 12px; color: #58706a; }
+.quick-notes-route, .quick-note-detail, .journal-route { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.quick-note-reading, .journal-route > section { min-width: 0; }
+.writing-reading { grid-template-columns: minmax(0, 1fr); }
+.writing-reading > section { min-width: 0; }
+
+@media (max-width: 767px) {
+  .quick-note-detail-actions > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quick-note-detail-actions > div > .ui-button { min-height: 44px; }
+  .quick-note-detail-actions > div > .ui-button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* Shared dialog presentation only; feature owners retain interaction and state. */
+.ui-dialog {
+  width: min(var(--dialog-width, 520px), calc(100vw - 32px));
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+  max-height: calc(100dvh - 32px - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+.ui-dialog.task-create-modal, .ui-dialog.task-selection-modal { --dialog-width: 680px; }
+.ui-dialog.writing-modal { --dialog-width: 860px; }
+.ui-dialog.tool-modal { --dialog-width: 920px; }
+.ui-dialog.quick-note-editor { --dialog-width: 720px; }
+.ui-dialog.finish-dialog { --dialog-width: 440px; }
+.ui-dialog.feedback-modal { --dialog-width: 420px; }
+.ui-dialog > * { min-width: 0; flex-shrink: 0; }
+.ui-dialog > header, .ui-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+}
+.ui-dialog > header { position: sticky; top: -16px; z-index: 3; background: var(--surface-card); }
+.ui-dialog > header > :first-child, .ui-dialog-header > :first-child { min-width: 0; }
+.ui-dialog > header :is(h1, h2, h3), .ui-dialog-header strong { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.ui-dialog > header > :is(.ui-icon-button, .ui-button), .ui-dialog-header > :is(.ui-icon-button, .ui-button) { width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; }
+.ui-dialog > footer, .ui-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border-soft);
+}
+.ui-dialog > footer { position: sticky; bottom: -16px; z-index: 2; background: var(--surface-card); }
+.ui-dialog > footer > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ui-dialog :is(footer, .ui-dialog-actions) :is(button, a) { min-height: 44px; }
+.ui-dialog label:has(> input:is([type="checkbox"], [type="radio"])) { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.ui-dialog label > input:is([type="checkbox"], [type="radio"]) { width: 16px; height: 16px; min-width: 16px; flex: 0 0 16px; margin: 0; }
+.ui-dialog :is(input, select, textarea) { max-width: 100%; min-width: 0; }
+.ui-dialog > label:not(:has(> input:is([type="checkbox"], [type="radio"]))) { display: grid; gap: 4px; }
+.earth-entry > :is(header, footer) { width: 100%; }
+.earth-entry > .pixel-icon-slot { align-self: center; }
+
+@media (max-width: 767px) {
+  .ui-dialog { max-height: calc(100dvh - 32px - var(--safe-bottom)); padding-bottom: calc(16px + var(--safe-bottom)); }
+  .ui-dialog > footer { bottom: calc(-16px - var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
+  .ui-dialog .writing-body, .ui-dialog .task-pool-list { max-height: none; overflow-y: visible; }
+  .ui-dialog :is(.sleep-date-grid, .time-editor-date-grid, .habit-form-grid, .library-form-row, .note-convert-fields) { grid-template-columns: minmax(0, 1fr); }
 }

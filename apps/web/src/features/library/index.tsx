@@ -200,7 +200,7 @@ export function LibraryPage({
       )}
       {adding ? (
         <div className="modal-backdrop" role="presentation">
-          <form className="modal-shell library-create-dialog" onSubmit={create}>
+          <form className="ui-dialog modal-shell library-create-dialog" onSubmit={create}>
             <header>
               <h2>{tx("添加作品")}</h2>
               <IconButton label={tx("关闭")} onClick={() => setAdding(false)}>
@@ -260,9 +260,9 @@ export function LibraryPage({
               maxLength={1000}
               placeholder={tx("简短备注（长笔记请写入 Notebook）")}
             />
-            <Button variant="primary" type="submit">
+            <footer><Button type="button" onClick={() => setAdding(false)}>{tx("取消")}</Button><Button variant="primary" type="submit">
               {tx("保存作品")}
-            </Button>
+            </Button></footer>
           </form>
         </div>
       ) : null}

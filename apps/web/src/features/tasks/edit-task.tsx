@@ -91,8 +91,8 @@ export function EditTaskWorkflow({ children, request, projects, categories, onEr
     {task && (
       <ModalPortal panelKey={categoryPanel ? "category" : "task"} label={categoryPanel ? tx("管理分类") : tx("编辑任务")} onClose={categoryPanel ? closeCategory : close}>
         <div hidden={categoryPanel} {...(categoryPanel ? { inert: "" } : { "data-active-task-panel": true })}>
-        <form className="time-modal" onSubmit={submit}>
-          <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-semibold">{tx("编辑任务")}</h3><CloseButton onClose={close} /></div>
+        <form className="ui-dialog time-modal" onSubmit={submit}>
+          <header className="mb-3 flex items-center justify-between"><h3 className="text-sm font-semibold">{tx("编辑任务")}</h3><CloseButton onClose={close} /></header>
           <div className="space-y-2">
             <input aria-label={tx("编辑任务标题")} className="field" autoFocus maxLength={200} placeholder={tx("任务标题")} value={title} onChange={(event) => setTitle(event.target.value)} />
             <textarea aria-label={tx("编辑任务详情")} className="task-description-field" maxLength={2000} placeholder={tx("任务详情：背景、步骤、完成标准、灵感都可以放在这里")} value={description} onChange={(event) => setDescription(event.target.value)} />

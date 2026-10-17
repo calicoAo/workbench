@@ -68,7 +68,7 @@ export function CloseButton({ onClose }: { onClose: () => void }) {
 }
 
 export function ModalActions({ onClose, submitLabel, disabled = false }: { onClose: () => void; submitLabel: string; disabled?: boolean }) {
-  return <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" type="button" onClick={onClose}>{tx("取消")}</Button><Button variant="primary" type="submit" disabled={disabled}>{submitLabel}</Button></div>;
+  return <footer><Button variant="secondary" type="button" onClick={onClose}>{tx("取消")}</Button><Button variant="primary" type="submit" disabled={disabled}>{submitLabel}</Button></footer>;
 }
 
 export function EmptyText({ text }: { text: string }) {
