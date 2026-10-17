@@ -1,0 +1,184 @@
+{
+  "result": "PASS",
+  "scope": "Real public feature components and production CSS; isolated fixture reads, no API/DB persistence assertions",
+  "evidence": [
+    {
+      "name": "capture",
+      "width": 819,
+      "layout": {
+        "title": "随手记",
+        "viewport": {
+          "width": 819,
+          "height": 541,
+          "scrollWidth": 819
+        },
+        "form": {
+          "left": 89.5,
+          "right": 729.5,
+          "top": 60,
+          "bottom": 481,
+          "width": 640,
+          "height": 421
+        },
+        "header": {
+          "left": 114.5,
+          "right": 704.5,
+          "top": 85,
+          "bottom": 129,
+          "width": 590,
+          "height": 44
+        },
+        "close": {
+          "left": 660.5,
+          "right": 704.5,
+          "top": 85,
+          "bottom": 129,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 114.5,
+          "right": 168.5,
+          "top": 93.5,
+          "bottom": 120.5,
+          "width": 54,
+          "height": 27
+        },
+        "footer": {
+          "left": 114.5,
+          "right": 704.5,
+          "top": 395,
+          "bottom": 456,
+          "width": 590,
+          "height": 61
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 419,
+        "clientHeight": 419,
+        "scrollWidth": 638,
+        "clientWidth": 638
+      },
+      "scroll": {
+        "headerTop": 85,
+        "footerBottom": 456
+      },
+      "capturePresentation": {
+        "surfaces": [
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)"
+        ],
+        "footerDirection": "row",
+        "countRight": 152.890625,
+        "actionsLeft": 582,
+        "countCenter": 434,
+        "actionsCenter": 434,
+        "bodyWeight": "400",
+        "borderStyle": "solid",
+        "width": 640
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/compact/capture-819.png",
+        "innerWidth": 819,
+        "innerHeight": 541,
+        "scrollWidth": 819
+      },
+      "previewScreenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/compact/capture-preview-819.png",
+        "innerWidth": 819,
+        "innerHeight": 541,
+        "scrollWidth": 819
+      }
+    },
+    {
+      "name": "capture",
+      "width": 320,
+      "layout": {
+        "title": "随手记",
+        "viewport": {
+          "width": 320,
+          "height": 568,
+          "scrollWidth": 320
+        },
+        "form": {
+          "left": 16,
+          "right": 304,
+          "top": 16,
+          "bottom": 489,
+          "width": 288,
+          "height": 473
+        },
+        "header": {
+          "left": 33,
+          "right": 287,
+          "top": 33,
+          "bottom": 77,
+          "width": 254,
+          "height": 44
+        },
+        "close": {
+          "left": 243,
+          "right": 287,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 87,
+          "top": 41.5,
+          "bottom": 68.5,
+          "width": 54,
+          "height": 27
+        },
+        "footer": {
+          "left": 33,
+          "right": 287,
+          "top": 411,
+          "bottom": 472,
+          "width": 254,
+          "height": 61
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 471,
+        "clientHeight": 471,
+        "scrollWidth": 286,
+        "clientWidth": 286
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 472
+      },
+      "capturePresentation": {
+        "surfaces": [
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)"
+        ],
+        "footerDirection": "row",
+        "countRight": 71.390625,
+        "actionsLeft": 164.5,
+        "countCenter": 450,
+        "actionsCenter": 450,
+        "bodyWeight": "400",
+        "borderStyle": "solid",
+        "width": 288
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/compact/capture-320.png",
+        "innerWidth": 320,
+        "innerHeight": 568,
+        "scrollWidth": 320
+      },
+      "previewScreenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/compact/capture-preview-320.png",
+        "innerWidth": 320,
+        "innerHeight": 568,
+        "scrollWidth": 320
+      }
+    }
+  ]
+}

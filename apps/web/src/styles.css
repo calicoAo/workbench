@@ -3245,6 +3245,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 
 /* Shared dialog presentation only; feature owners retain interaction and state. */
 .ui-dialog {
+  --dialog-padding: 16px;
   width: min(var(--dialog-width, 520px), calc(100vw - 32px));
   max-width: 100%;
   display: flex;
@@ -3255,7 +3256,8 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   max-height: calc(100dvh - 32px - var(--safe-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: var(--dialog-padding);
+  background-color: var(--dialog-surface, var(--surface-raised));
 }
 .ui-dialog.task-create-modal, .ui-dialog.task-selection-modal { --dialog-width: 680px; }
 .ui-dialog.writing-modal { --dialog-width: 860px; }
@@ -3274,7 +3276,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   border-bottom: 1px solid var(--border-soft);
   text-align: left;
 }
-.ui-dialog > header { position: sticky; top: -16px; z-index: 3; background: var(--surface-card); }
+.ui-dialog > header { position: sticky; top: 0; z-index: 3; background: var(--dialog-surface, var(--surface-raised)); }
 .ui-dialog > header > :first-child, .ui-dialog-header > :first-child { min-width: 0; }
 .ui-dialog > header :is(h1, h2, h3), .ui-dialog-header strong { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
 .ui-dialog > header > :is(.ui-icon-button, .ui-button), .ui-dialog-header > :is(.ui-icon-button, .ui-button) { width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; }
@@ -3288,7 +3290,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   padding: 12px 0 0;
   border-top: 1px solid var(--border-soft);
 }
-.ui-dialog > footer { position: sticky; bottom: -16px; z-index: 2; background: var(--surface-card); }
+.ui-dialog > footer { position: sticky; bottom: 0; z-index: 2; background: var(--dialog-surface, var(--surface-raised)); }
 .ui-dialog > footer > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .ui-dialog :is(footer, .ui-dialog-actions) :is(button, a) { min-height: 44px; }
 .ui-dialog label:has(> input:is([type="checkbox"], [type="radio"])) { display: flex; align-items: center; gap: 8px; min-height: 44px; }
@@ -3297,10 +3299,60 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .ui-dialog > label:not(:has(> input:is([type="checkbox"], [type="radio"]))) { display: grid; gap: 4px; }
 .earth-entry > :is(header, footer) { width: 100%; }
 .earth-entry > .pixel-icon-slot { align-self: center; }
+.earth-entry { --dialog-surface: #ECFCF9; }
+.feedback-modal-reward > :is(header, footer) { background: transparent; }
+
+.ui-dialog.quick-note-capture-dialog {
+  --dialog-width: 640px;
+  --dialog-padding: 24px;
+  gap: 16px;
+  border-radius: 18px;
+}
+.quick-note-capture-dialog > header { padding-bottom: 0; border-bottom: 0; }
+.quick-note-capture-dialog > header h2 { font-size: 18px; }
+.quick-note-capture-dialog .markdown-input-toolbar { margin-bottom: 8px; color: var(--text-muted); }
+.quick-note-capture-dialog .quick-note-body,
+.quick-note-capture-dialog .markdown-input-preview {
+  min-height: clamp(144px, 24dvh, 208px);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.quick-note-capture-dialog .quick-note-body:focus {
+  border-color: var(--focus-ring);
+  --tw-ring-color: transparent;
+  box-shadow: 0 0 0 2px rgba(148, 169, 255, .16);
+}
+.quick-note-capture-dialog .quick-note-body { display: block; }
+.quick-note-capture-dialog .quick-note-fields { grid-template-columns: minmax(0, 1fr) 130px 145px; gap: 10px; }
+.quick-note-capture-dialog .quick-note-fields input {
+  height: 40px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-page);
+  font-size: 12px;
+}
+.quick-note-capture-dialog .quick-note-fields input:focus {
+  border-color: var(--focus-ring);
+  --tw-ring-color: transparent;
+  box-shadow: 0 0 0 2px rgba(148, 169, 255, .16);
+}
+.quick-note-capture-dialog > footer { justify-content: space-between; padding-top: 16px; }
+.quick-note-capture-dialog > footer > span { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.quick-note-capture-dialog > footer .ui-button-visual { border-radius: 8px; }
 
 @media (max-width: 767px) {
-  .ui-dialog { max-height: calc(100dvh - 32px - var(--safe-bottom)); padding-bottom: calc(16px + var(--safe-bottom)); }
-  .ui-dialog > footer { bottom: calc(-16px - var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
+  .ui-dialog { max-height: calc(100dvh - 32px - var(--safe-bottom)); padding-bottom: calc(var(--dialog-padding) + var(--safe-bottom)); }
+  .ui-dialog > footer { padding-bottom: var(--safe-bottom); }
   .ui-dialog .writing-body, .ui-dialog .task-pool-list { max-height: none; overflow-y: visible; }
   .ui-dialog :is(.sleep-date-grid, .time-editor-date-grid, .habit-form-grid, .library-form-row, .note-convert-fields) { grid-template-columns: minmax(0, 1fr); }
+  .ui-dialog.quick-note-capture-dialog { --dialog-padding: 16px; }
+  .quick-note-capture-dialog .quick-note-fields { grid-template-columns: minmax(0, 1fr) 145px; }
+  .quick-note-capture-dialog .quick-note-fields > :first-child { grid-column: 1 / -1; }
+  .quick-note-capture-dialog > footer { flex-direction: row; align-items: center; }
+  .quick-note-capture-dialog > footer > div { width: auto; }
+  .quick-note-capture-dialog > footer .ui-button { flex: initial; }
 }

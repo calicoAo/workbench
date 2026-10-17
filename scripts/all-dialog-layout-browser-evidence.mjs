@@ -31,8 +31,11 @@ const cases=[
  ['categories',['新增分类']],['habits',['新建习惯']],['hero',[]],['backpack',['新建里程碑']],['backpack-detail',['首个里程碑'],'backpack'],['library',['添加作品']],['onboarding',[]],['feedback',['打开']],['reward',['打开']]
 ];
 const evidence=[];
+const viewports = process.env.ALL_DIALOG_LAYOUT_VIEWPORTS
+ ? process.env.ALL_DIALOG_LAYOUT_VIEWPORTS.split(',').map(value => value.split('x').map(Number))
+ : [[1440,900],[375,812]];
 try {
- for(const [width,height] of [[1440,900],[375,812]]) {
+ for(const [width,height] of viewports) {
   await viewport(width,height);
   for(const [name,buttons,scene=name] of cases.filter(([name]) => !process.env.ALL_DIALOG_LAYOUT_CASES || process.env.ALL_DIALOG_LAYOUT_CASES.split(",").includes(name))) {
    await navigate('/.dialog-layout-qa.html?scene='+scene,'#root');
@@ -53,7 +56,37 @@ try {
    await evaluate("Array.from(document.querySelectorAll('.ui-dialog')).filter(el=>el.getBoundingClientRect().width>0).at(-1).scrollTop=100000");await sleep(80);
    const scroll=await evaluate("(() => {const f=Array.from(document.querySelectorAll('.ui-dialog')).filter(el=>el.getBoundingClientRect().width>0).at(-1),h=f.querySelector(':scope > header'),foot=f.querySelector(':scope > footer, .ui-dialog-actions');return {headerTop:h.getBoundingClientRect().top,footerBottom:foot.getBoundingClientRect().bottom}})()");
    assert.ok(scroll.headerTop>=0,name+' title remains reachable');assert.ok(scroll.footerBottom<=height,name+' actions reachable after scroll');
-   evidence.push({name,width,layout,scroll,screenshot:await screenshot(`${name}-${width}.png`)});
+   let capturePresentation;
+   if (name === 'capture') {
+    capturePresentation = await evaluate(`(() => {
+     const form=document.querySelector('.quick-note-capture-dialog'),header=form.querySelector('header'),footer=form.querySelector('footer'),count=footer.querySelector('span'),actions=footer.querySelector('div'),body=form.querySelector('textarea');
+     body.focus();
+     const c=count.getBoundingClientRect(),a=actions.getBoundingClientRect();
+     return {surfaces:[form,header,footer].map(el=>getComputedStyle(el).backgroundColor),footerDirection:getComputedStyle(footer).flexDirection,countRight:c.right,actionsLeft:a.left,countCenter:(c.top+c.bottom)/2,actionsCenter:(a.top+a.bottom)/2,bodyWeight:getComputedStyle(body).fontWeight,borderStyle:getComputedStyle(form).borderTopStyle,width:form.getBoundingClientRect().width};
+    })()`);
+    assert.equal(new Set(capturePresentation.surfaces).size,1,'capture uses one coherent panel surface');
+    assert.equal(capturePresentation.footerDirection,'row','capture count and actions stay on one row');
+    assert.ok(capturePresentation.countRight<capturePresentation.actionsLeft,'capture count stays left of actions');
+    assert.ok(Math.abs(capturePresentation.countCenter-capturePresentation.actionsCenter)<2,'capture footer vertical alignment');
+    assert.equal(capturePresentation.bodyWeight,'400','capture does not inherit launcher typography');
+    assert.equal(capturePresentation.borderStyle,'solid','capture does not inherit launcher border');
+    assert.ok(capturePresentation.width<=640,'capture width stays compact');
+   }
+   const emptyScreenshot=await screenshot(`${name}-${width}.png`);
+   let previewScreenshot;
+   if (name === 'capture') {
+    await send('Input.insertText',{text:'# 今天的想法\n\n先记下来，再**慢慢整理**。'});
+    await waitFor("document.querySelector('.quick-note-capture-dialog textarea').value.includes('慢慢整理')");
+    await clickButton('预览');
+    await waitFor("document.querySelector('.markdown-input-preview strong')?.textContent === '慢慢整理'");
+    assert.equal(await evaluate("document.querySelector('.quick-note-capture-dialog textarea').hidden"),true);
+    previewScreenshot=await screenshot(`capture-preview-${width}.png`);
+    await clickButton('继续编辑');
+    assert.equal(await evaluate("document.querySelector('.quick-note-capture-dialog textarea').hidden"),false);
+    assert.equal(await evaluate("document.querySelector('.quick-note-capture-dialog textarea').value"),'# 今天的想法\n\n先记下来，再**慢慢整理**。');
+    await evaluate('localStorage.clear()');
+   }
+   evidence.push({name,width,layout,scroll,capturePresentation,screenshot:emptyScreenshot,previewScreenshot});
    console.log(name,width,'PASS');
   }
  }

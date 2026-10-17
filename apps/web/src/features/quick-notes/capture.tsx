@@ -91,8 +91,8 @@ function QuickNoteCaptureDialog({ request, userId, selectedDate, onClose, onCrea
   return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div aria-modal="true" className="modal-shell" ref={shellRef} role="dialog" aria-labelledby="quick-note-capture-title" onMouseDown={(event) => event.stopPropagation()}>
-        <form className="ui-dialog quick-note-editor" onSubmit={submit}>
-          <header className="quick-note-editor-head"><div><p className="route-eyebrow">{tx("捕捉此刻")}</p><h2 id="quick-note-capture-title">{tx("随手记")}</h2></div><IconButton label={tx("关闭")} onClick={onClose}><X size={16} /></IconButton></header>
+        <form className="ui-dialog quick-note-editor quick-note-capture-dialog" onSubmit={submit}>
+          <header className="quick-note-editor-head"><h2 id="quick-note-capture-title">{tx("随手记")}</h2><IconButton label={tx("关闭")} onClick={onClose}><X size={18} /></IconButton></header>
           <MarkdownInput aria-label={tx("随手记正文")} className="quick-note-body" maxLength={5000} placeholder={tx("先把刚想到的东西记下来...")} value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
           <div className="quick-note-fields">
             <input aria-label={tx("随手记标题")} maxLength={120} placeholder={tx("标题（可选）")} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />

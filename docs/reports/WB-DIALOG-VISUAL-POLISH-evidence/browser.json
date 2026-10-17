@@ -1,0 +1,4288 @@
+{
+  "result": "PASS",
+  "scope": "Real public feature components and production CSS; isolated fixture reads, no API/DB persistence assertions",
+  "evidence": [
+    {
+      "name": "create",
+      "width": 1440,
+      "layout": {
+        "title": "发布悬赏新增任务到任务池",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 380,
+          "right": 1060,
+          "top": 152.96875,
+          "bottom": 747.03125,
+          "width": 680,
+          "height": 594.0625
+        },
+        "header": {
+          "left": 397,
+          "right": 1043,
+          "top": 169.96875,
+          "bottom": 226.96875,
+          "width": 646,
+          "height": 57
+        },
+        "close": {
+          "left": 999,
+          "right": 1043,
+          "top": 169.96875,
+          "bottom": 213.96875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 397,
+          "right": 525,
+          "top": 186.46875,
+          "bottom": 210.46875,
+          "width": 128,
+          "height": 24
+        },
+        "footer": {
+          "left": 397,
+          "right": 1043,
+          "top": 673.03125,
+          "bottom": 730.03125,
+          "width": 646,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 592,
+        "clientHeight": 592,
+        "scrollWidth": 678,
+        "clientWidth": 678
+      },
+      "scroll": {
+        "headerTop": 169.96875,
+        "footerBottom": 730.03125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "create-category",
+      "width": 1440,
+      "layout": {
+        "title": "新增分类",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 478,
+          "right": 962,
+          "top": 186.828125,
+          "bottom": 631.328125,
+          "width": 484,
+          "height": 444.5
+        },
+        "header": {
+          "left": 494,
+          "right": 946,
+          "top": 202.828125,
+          "bottom": 259.828125,
+          "width": 452,
+          "height": 57
+        },
+        "close": {
+          "left": 902,
+          "right": 946,
+          "top": 202.828125,
+          "bottom": 246.828125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 494,
+          "right": 558,
+          "top": 212.828125,
+          "bottom": 236.828125,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 494,
+          "right": 946,
+          "top": 558.328125,
+          "bottom": 615.328125,
+          "width": 452,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 445,
+        "clientHeight": 445,
+        "scrollWidth": 484,
+        "clientWidth": 484
+      },
+      "scroll": {
+        "headerTop": 202.828125,
+        "footerBottom": 615.328125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-category-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "create-project",
+      "width": 1440,
+      "layout": {
+        "title": "新项目创建长期目标×",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 478,
+          "right": 962,
+          "top": 132.390625,
+          "bottom": 719.765625,
+          "width": 484,
+          "height": 587.375
+        },
+        "header": {
+          "left": 478,
+          "right": 962,
+          "top": 132.390625,
+          "bottom": 189.390625,
+          "width": 484,
+          "height": 57
+        },
+        "close": {
+          "left": 918,
+          "right": 962,
+          "top": 132.390625,
+          "bottom": 176.390625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 478,
+          "right": 574,
+          "top": 149.640625,
+          "bottom": 173.640625,
+          "width": 96,
+          "height": 24
+        },
+        "footer": {
+          "left": 478,
+          "right": 962,
+          "top": 662.765625,
+          "bottom": 719.765625,
+          "width": 484,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 587,
+        "clientHeight": 587,
+        "scrollWidth": 484,
+        "clientWidth": 484
+      },
+      "scroll": {
+        "headerTop": 132.390625,
+        "footerBottom": 719.765625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-project-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "timer",
+      "width": 1440,
+      "layout": {
+        "title": "Session #1结束本次投入",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 500,
+          "right": 940,
+          "top": 238.3125,
+          "bottom": 661.6875,
+          "width": 440,
+          "height": 423.375
+        },
+        "header": {
+          "left": 517,
+          "right": 923,
+          "top": 255.3125,
+          "bottom": 312.3125,
+          "width": 406,
+          "height": 57
+        },
+        "close": {
+          "left": 879,
+          "right": 923,
+          "top": 255.3125,
+          "bottom": 299.3125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 517,
+          "right": 613,
+          "top": 272.5625,
+          "bottom": 296.5625,
+          "width": 96,
+          "height": 24
+        },
+        "footer": {
+          "left": 517,
+          "right": 923,
+          "top": 587.6875,
+          "bottom": 644.6875,
+          "width": 406,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 421,
+        "clientHeight": 421,
+        "scrollWidth": 438,
+        "clientWidth": 438
+      },
+      "scroll": {
+        "headerTop": 255.3125,
+        "footerBottom": 644.6875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/timer-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "note-convert",
+      "width": 1440,
+      "layout": {
+        "title": "确认行动快照转为悬赏",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 360,
+          "right": 1080,
+          "top": 188.28125,
+          "bottom": 711.71875,
+          "width": 720,
+          "height": 523.4375
+        },
+        "header": {
+          "left": 377,
+          "right": 1063,
+          "top": 205.28125,
+          "bottom": 262.28125,
+          "width": 686,
+          "height": 57
+        },
+        "close": {
+          "left": 1019,
+          "right": 1063,
+          "top": 205.28125,
+          "bottom": 249.28125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 377,
+          "right": 441,
+          "top": 222.53125,
+          "bottom": 246.53125,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 377,
+          "right": 1063,
+          "top": 637.71875,
+          "bottom": 694.71875,
+          "width": 686,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 521,
+        "clientHeight": 521,
+        "scrollWidth": 718,
+        "clientWidth": 718
+      },
+      "scroll": {
+        "headerTop": 205.28125,
+        "footerBottom": 694.71875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/note-convert-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "note-quote",
+      "width": 1440,
+      "layout": {
+        "title": "本设备草稿引用到日记",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 360,
+          "right": 1080,
+          "top": 250.875,
+          "bottom": 649.125,
+          "width": 720,
+          "height": 398.25
+        },
+        "header": {
+          "left": 377,
+          "right": 1063,
+          "top": 267.875,
+          "bottom": 324.875,
+          "width": 686,
+          "height": 57
+        },
+        "close": {
+          "left": 1019,
+          "right": 1063,
+          "top": 267.875,
+          "bottom": 311.875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 377,
+          "right": 457,
+          "top": 285.125,
+          "bottom": 309.125,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 377,
+          "right": 1063,
+          "top": 575.125,
+          "bottom": 632.125,
+          "width": 686,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 396,
+        "clientHeight": 396,
+        "scrollWidth": 718,
+        "clientWidth": 718
+      },
+      "scroll": {
+        "headerTop": 267.875,
+        "footerBottom": 632.125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/note-quote-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "edit",
+      "width": 1440,
+      "layout": {
+        "title": "编辑任务",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 218.859375,
+          "bottom": 681.140625,
+          "width": 520,
+          "height": 462.28125
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 235.859375,
+          "bottom": 292.859375,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 235.859375,
+          "bottom": 279.859375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 541,
+          "top": 245.859375,
+          "bottom": 269.859375,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 607.140625,
+          "bottom": 664.140625,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 460,
+        "clientHeight": 460,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 235.859375,
+        "footerBottom": 664.140625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/edit-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "complete",
+      "width": 1440,
+      "layout": {
+        "title": "任务完成了验证弹窗的布局与操作",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 264.40625,
+          "bottom": 635.59375,
+          "width": 520,
+          "height": 371.1875
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 281.40625,
+          "bottom": 338.40625,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 281.40625,
+          "bottom": 325.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 637,
+          "top": 297.90625,
+          "bottom": 321.90625,
+          "width": 160,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 561.59375,
+          "bottom": 618.59375,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 477,
+              "right": 493,
+              "top": 517.59375,
+              "bottom": 533.59375,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 477,
+              "right": 963,
+              "top": 503.59375,
+              "bottom": 547.59375,
+              "width": 486,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 369,
+        "clientHeight": 369,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 281.40625,
+        "footerBottom": 618.59375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/complete-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "select",
+      "width": 1440,
+      "layout": {
+        "title": "2026-10-13 · 任务池接取今天的悬赏",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 380,
+          "right": 1060,
+          "top": 243.40625,
+          "bottom": 656.59375,
+          "width": 680,
+          "height": 413.1875
+        },
+        "header": {
+          "left": 397,
+          "right": 1043,
+          "top": 260.40625,
+          "bottom": 317.40625,
+          "width": 646,
+          "height": 57
+        },
+        "close": {
+          "left": 999,
+          "right": 1043,
+          "top": 260.40625,
+          "bottom": 304.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 397,
+          "right": 509,
+          "top": 278.375,
+          "bottom": 302.375,
+          "width": 112,
+          "height": 24
+        },
+        "footer": {
+          "left": 397,
+          "right": 1043,
+          "top": 582.59375,
+          "bottom": 639.59375,
+          "width": 646,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 404.5,
+              "right": 420.5,
+              "top": 531.09375,
+              "bottom": 547.09375,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 404.5,
+              "right": 967.25,
+              "top": 517.09375,
+              "bottom": 561.09375,
+              "width": 562.75,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 411,
+        "clientHeight": 411,
+        "scrollWidth": 678,
+        "clientWidth": 678
+      },
+      "scroll": {
+        "headerTop": 260.40625,
+        "footerBottom": 639.59375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/select-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "calendar",
+      "width": 1440,
+      "layout": {
+        "title": "记录时间块",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 178.46875,
+          "bottom": 721.53125,
+          "width": 520,
+          "height": 543.0625
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 195.46875,
+          "bottom": 252.46875,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 195.46875,
+          "bottom": 239.46875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 557,
+          "top": 205.46875,
+          "bottom": 229.46875,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 647.53125,
+          "bottom": 704.53125,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 541,
+        "clientHeight": 541,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 195.46875,
+        "footerBottom": 704.53125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/calendar-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "sleep",
+      "width": 1440,
+      "layout": {
+        "title": "编辑睡眠",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 248.96875,
+          "bottom": 651.03125,
+          "width": 520,
+          "height": 402.0625
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 265.96875,
+          "bottom": 322.96875,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 265.96875,
+          "bottom": 309.96875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 541,
+          "top": 275.96875,
+          "bottom": 299.96875,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 577.03125,
+          "bottom": 634.03125,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 400,
+        "clientHeight": 400,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 265.96875,
+        "footerBottom": 634.03125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/sleep-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "capture",
+      "width": 1440,
+      "layout": {
+        "title": "随手记",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 400,
+          "right": 1040,
+          "top": 207.5,
+          "bottom": 692.5,
+          "width": 640,
+          "height": 485
+        },
+        "header": {
+          "left": 425,
+          "right": 1015,
+          "top": 232.5,
+          "bottom": 276.5,
+          "width": 590,
+          "height": 44
+        },
+        "close": {
+          "left": 971,
+          "right": 1015,
+          "top": 232.5,
+          "bottom": 276.5,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 425,
+          "right": 479,
+          "top": 241,
+          "bottom": 268,
+          "width": 54,
+          "height": 27
+        },
+        "footer": {
+          "left": 425,
+          "right": 1015,
+          "top": 606.5,
+          "bottom": 667.5,
+          "width": 590,
+          "height": 61
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 483,
+        "clientHeight": 483,
+        "scrollWidth": 638,
+        "clientWidth": 638
+      },
+      "scroll": {
+        "headerTop": 232.5,
+        "footerBottom": 667.5
+      },
+      "capturePresentation": {
+        "surfaces": [
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)"
+        ],
+        "footerDirection": "row",
+        "countRight": 463.390625,
+        "actionsLeft": 892.5,
+        "countCenter": 645.5,
+        "actionsCenter": 645.5,
+        "bodyWeight": "400",
+        "borderStyle": "solid",
+        "width": 640
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/capture-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      },
+      "previewScreenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/capture-preview-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "writing-morning",
+      "width": 1440,
+      "layout": {
+        "title": "大空间写作晨写 · 10/13",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 290,
+          "right": 1150,
+          "top": 98.234375,
+          "bottom": 801.765625,
+          "width": 860,
+          "height": 703.53125
+        },
+        "header": {
+          "left": 307,
+          "right": 1133,
+          "top": 115.234375,
+          "bottom": 172.234375,
+          "width": 826,
+          "height": 57
+        },
+        "close": {
+          "left": 1089,
+          "right": 1133,
+          "top": 115.234375,
+          "bottom": 159.234375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 307,
+          "right": 393.78125,
+          "top": 133.203125,
+          "bottom": 157.203125,
+          "width": 86.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 307,
+          "right": 1133,
+          "top": 727.765625,
+          "bottom": 784.765625,
+          "width": 826,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 702,
+        "clientHeight": 702,
+        "scrollWidth": 858,
+        "clientWidth": 858
+      },
+      "scroll": {
+        "headerTop": 115.234375,
+        "footerBottom": 784.765625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-morning-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "writing-journal",
+      "width": 1440,
+      "layout": {
+        "title": "大空间写作睡前日记 · 10/13",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 290,
+          "right": 1150,
+          "top": 98.234375,
+          "bottom": 801.765625,
+          "width": 860,
+          "height": 703.53125
+        },
+        "header": {
+          "left": 307,
+          "right": 1133,
+          "top": 115.234375,
+          "bottom": 172.234375,
+          "width": 826,
+          "height": 57
+        },
+        "close": {
+          "left": 1089,
+          "right": 1133,
+          "top": 115.234375,
+          "bottom": 159.234375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 307,
+          "right": 425.78125,
+          "top": 133.203125,
+          "bottom": 157.203125,
+          "width": 118.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 307,
+          "right": 1133,
+          "top": 727.765625,
+          "bottom": 784.765625,
+          "width": 826,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 702,
+        "clientHeight": 702,
+        "scrollWidth": 858,
+        "clientWidth": 858
+      },
+      "scroll": {
+        "headerTop": 115.234375,
+        "footerBottom": 784.765625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-journal-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "writing-review",
+      "width": 1440,
+      "layout": {
+        "title": "大空间写作股市复盘 · 10/13",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 290,
+          "right": 1150,
+          "top": 38,
+          "bottom": 862,
+          "width": 860,
+          "height": 824
+        },
+        "header": {
+          "left": 307,
+          "right": 1133,
+          "top": 55,
+          "bottom": 112,
+          "width": 826,
+          "height": 57
+        },
+        "close": {
+          "left": 1089,
+          "right": 1133,
+          "top": 55,
+          "bottom": 99,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 307,
+          "right": 425.78125,
+          "top": 72.96875,
+          "bottom": 96.96875,
+          "width": 118.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 307,
+          "right": 1133,
+          "top": 788,
+          "bottom": 845,
+          "width": 826,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 822,
+        "clientHeight": 822,
+        "scrollWidth": 858,
+        "clientWidth": 858
+      },
+      "scroll": {
+        "headerTop": 55,
+        "footerBottom": 845
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-review-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "decision",
+      "width": 1440,
+      "layout": {
+        "title": "2026-10-13辅助决策",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 260,
+          "right": 1180,
+          "top": 227.234375,
+          "bottom": 672.765625,
+          "width": 920,
+          "height": 445.53125
+        },
+        "header": {
+          "left": 277,
+          "right": 1163,
+          "top": 244.234375,
+          "bottom": 301.234375,
+          "width": 886,
+          "height": 57
+        },
+        "close": {
+          "left": 1119,
+          "right": 1163,
+          "top": 244.234375,
+          "bottom": 288.234375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 277,
+          "right": 341,
+          "top": 262.203125,
+          "bottom": 286.203125,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 277,
+          "right": 873.25,
+          "top": 598.765625,
+          "bottom": 655.765625,
+          "width": 596.25,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 444,
+        "clientHeight": 444,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "scroll": {
+        "headerTop": 244.234375,
+        "footerBottom": 655.765625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/decision-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "bridge",
+      "width": 1440,
+      "layout": {
+        "title": "2026-10-13心理桥梁",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 260,
+          "right": 1180,
+          "top": 250.71875,
+          "bottom": 649.28125,
+          "width": 920,
+          "height": 398.5625
+        },
+        "header": {
+          "left": 277,
+          "right": 1163,
+          "top": 267.71875,
+          "bottom": 324.71875,
+          "width": 886,
+          "height": 57
+        },
+        "close": {
+          "left": 1119,
+          "right": 1163,
+          "top": 267.71875,
+          "bottom": 311.71875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 277,
+          "right": 341,
+          "top": 285.6875,
+          "bottom": 309.6875,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 277,
+          "right": 873.25,
+          "top": 575.28125,
+          "bottom": 632.28125,
+          "width": 596.25,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 397,
+        "clientHeight": 397,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "scroll": {
+        "headerTop": 267.71875,
+        "footerBottom": 632.28125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/bridge-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "finance",
+      "width": 1440,
+      "layout": {
+        "title": "建立账本创建账户",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 237.09375,
+          "bottom": 662.90625,
+          "width": 520,
+          "height": 425.8125
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 254.09375,
+          "bottom": 311.09375,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 254.09375,
+          "bottom": 298.09375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 541,
+          "top": 271.34375,
+          "bottom": 295.34375,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 588.90625,
+          "bottom": 645.90625,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 477,
+              "right": 493,
+              "top": 544.90625,
+              "bottom": 560.90625,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 477,
+              "right": 963,
+              "top": 530.90625,
+              "bottom": 574.90625,
+              "width": 486,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 424,
+        "clientHeight": 424,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 254.09375,
+        "footerBottom": 645.90625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/finance-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "expense",
+      "width": 1440,
+      "layout": {
+        "title": "快速记账记一笔支出",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 273.8125,
+          "bottom": 626.1875,
+          "width": 520,
+          "height": 352.375
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 290.8125,
+          "bottom": 347.8125,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 290.8125,
+          "bottom": 334.8125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 557,
+          "top": 308.0625,
+          "bottom": 332.0625,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 552.1875,
+          "bottom": 609.1875,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 350,
+        "clientHeight": 350,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 290.8125,
+        "footerBottom": 609.1875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/expense-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "income",
+      "width": 1440,
+      "layout": {
+        "title": "快速记账记一笔收入",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 273.8125,
+          "bottom": 626.1875,
+          "width": 520,
+          "height": 352.375
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 290.8125,
+          "bottom": 347.8125,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 290.8125,
+          "bottom": 334.8125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 557,
+          "top": 308.0625,
+          "bottom": 332.0625,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 552.1875,
+          "bottom": 609.1875,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 350,
+        "clientHeight": 350,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 290.8125,
+        "footerBottom": 609.1875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/income-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "transfer",
+      "width": 1440,
+      "layout": {
+        "title": "账户之间的原子转移普通转账",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 43.1875,
+          "bottom": 856.8125,
+          "width": 520,
+          "height": 813.625
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 60.1875,
+          "bottom": 117.1875,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 60.1875,
+          "bottom": 104.1875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 567,
+          "top": 77.4375,
+          "bottom": 101.4375,
+          "width": 90,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 782.8125,
+          "bottom": 839.8125,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 812,
+        "clientHeight": 812,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 60.1875,
+        "footerBottom": 839.8125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/transfer-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "categories",
+      "width": 1440,
+      "layout": {
+        "title": "新增分类",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 225.75,
+          "bottom": 674.25,
+          "width": 520,
+          "height": 448.5
+        },
+        "header": {
+          "left": 478,
+          "right": 962,
+          "top": 243.75,
+          "bottom": 300.75,
+          "width": 484,
+          "height": 57
+        },
+        "close": {
+          "left": 918,
+          "right": 962,
+          "top": 243.75,
+          "bottom": 287.75,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 478,
+          "right": 538,
+          "top": 254.5,
+          "bottom": 277,
+          "width": 60,
+          "height": 22.5
+        },
+        "footer": {
+          "left": 478,
+          "right": 962,
+          "top": 599.25,
+          "bottom": 656.25,
+          "width": 484,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 449,
+        "clientHeight": 449,
+        "scrollWidth": 520,
+        "clientWidth": 520
+      },
+      "scroll": {
+        "headerTop": 243.75,
+        "footerBottom": 656.25
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/categories-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "habits",
+      "width": 1440,
+      "layout": {
+        "title": "新的行为目标创建习惯",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 141.5625,
+          "bottom": 758.4375,
+          "width": 520,
+          "height": 616.875
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 158.5625,
+          "bottom": 215.5625,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 158.5625,
+          "bottom": 202.5625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 541,
+          "top": 175.8125,
+          "bottom": 199.8125,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 684.4375,
+          "bottom": 741.4375,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 477,
+              "right": 493,
+              "top": 640.4375,
+              "bottom": 656.4375,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 477,
+              "right": 963,
+              "top": 626.4375,
+              "bottom": 670.4375,
+              "width": 486,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 615,
+        "clientHeight": 615,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 158.5625,
+        "footerBottom": 741.4375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/habits-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "hero",
+      "width": 1440,
+      "layout": {
+        "title": "EARTH ONLINE欢迎您，Owner",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 245.40625,
+          "bottom": 654.59375,
+          "width": 520,
+          "height": 409.1875
+        },
+        "header": {
+          "left": 478,
+          "right": 962,
+          "top": 263.40625,
+          "bottom": 320.40625,
+          "width": 484,
+          "height": 57
+        },
+        "close": {
+          "left": 918,
+          "right": 962,
+          "top": 263.40625,
+          "bottom": 307.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 478,
+          "right": 593.203125,
+          "top": 280.65625,
+          "bottom": 304.65625,
+          "width": 115.203125,
+          "height": 24
+        },
+        "footer": {
+          "left": 478,
+          "right": 962,
+          "top": 551.09375,
+          "bottom": 608.09375,
+          "width": 484,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 405,
+        "clientHeight": 405,
+        "scrollWidth": 516,
+        "clientWidth": 516
+      },
+      "scroll": {
+        "headerTop": 263.40625,
+        "footerBottom": 608.09375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/hero-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "backpack",
+      "width": 1440,
+      "layout": {
+        "title": "新建里程碑",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 264.78125,
+          "bottom": 635.21875,
+          "width": 520,
+          "height": 370.4375
+        },
+        "header": {
+          "left": 476,
+          "right": 964,
+          "top": 280.78125,
+          "bottom": 337.78125,
+          "width": 488,
+          "height": 57
+        },
+        "close": {
+          "left": 920,
+          "right": 964,
+          "top": 280.78125,
+          "bottom": 324.78125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 476,
+          "right": 556,
+          "top": 290.78125,
+          "bottom": 314.78125,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 476,
+          "right": 964,
+          "top": 562.21875,
+          "bottom": 619.21875,
+          "width": 488,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 370,
+        "clientHeight": 370,
+        "scrollWidth": 520,
+        "clientWidth": 520
+      },
+      "scroll": {
+        "headerTop": 280.78125,
+        "footerBottom": 619.21875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/backpack-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "backpack-detail",
+      "width": 1440,
+      "layout": {
+        "title": "首个里程碑",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 339.328125,
+          "bottom": 560.671875,
+          "width": 520,
+          "height": 221.34375
+        },
+        "header": {
+          "left": 476,
+          "right": 964,
+          "top": 355.328125,
+          "bottom": 412.328125,
+          "width": 488,
+          "height": 57
+        },
+        "close": {
+          "left": 920,
+          "right": 964,
+          "top": 355.328125,
+          "bottom": 399.328125,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 476,
+          "right": 556,
+          "top": 365.328125,
+          "bottom": 389.328125,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 476,
+          "right": 964,
+          "top": 487.671875,
+          "bottom": 544.671875,
+          "width": 488,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 221,
+        "clientHeight": 221,
+        "scrollWidth": 520,
+        "clientWidth": 520
+      },
+      "scroll": {
+        "headerTop": 355.328125,
+        "footerBottom": 544.671875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/backpack-detail-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "library",
+      "width": 1440,
+      "layout": {
+        "title": "添加作品",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 188.25,
+          "bottom": 711.75,
+          "width": 520,
+          "height": 523.5
+        },
+        "header": {
+          "left": 476,
+          "right": 964,
+          "top": 204.25,
+          "bottom": 261.25,
+          "width": 488,
+          "height": 57
+        },
+        "close": {
+          "left": 920,
+          "right": 964,
+          "top": 204.25,
+          "bottom": 248.25,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 476,
+          "right": 540,
+          "top": 214.25,
+          "bottom": 238.25,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 476,
+          "right": 964,
+          "top": 638.75,
+          "bottom": 695.75,
+          "width": 488,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 524,
+        "clientHeight": 524,
+        "scrollWidth": 520,
+        "clientWidth": 520
+      },
+      "scroll": {
+        "headerTop": 204.25,
+        "footerBottom": 695.75
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/library-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "onboarding",
+      "width": 1440,
+      "layout": {
+        "title": "✨ 养成系统欢迎来到养成系统",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 460,
+          "right": 980,
+          "top": 326.90625,
+          "bottom": 573.078125,
+          "width": 520,
+          "height": 246.171875
+        },
+        "header": {
+          "left": 477,
+          "right": 963,
+          "top": 343.90625,
+          "bottom": 400.90625,
+          "width": 486,
+          "height": 57
+        },
+        "close": {
+          "left": 919,
+          "right": 963,
+          "top": 343.90625,
+          "bottom": 387.90625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 477,
+          "right": 605,
+          "top": 361.15625,
+          "bottom": 385.15625,
+          "width": 128,
+          "height": 24
+        },
+        "footer": {
+          "left": 477,
+          "right": 963,
+          "top": 499.078125,
+          "bottom": 556.078125,
+          "width": 486,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 244,
+        "clientHeight": 244,
+        "scrollWidth": 518,
+        "clientWidth": 518
+      },
+      "scroll": {
+        "headerTop": 343.90625,
+        "footerBottom": 556.078125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/onboarding-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "feedback",
+      "width": 1440,
+      "layout": {
+        "title": "确认操作",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 510,
+          "right": 930,
+          "top": 353.875,
+          "bottom": 546.125,
+          "width": 420,
+          "height": 192.25
+        },
+        "header": {
+          "left": 527,
+          "right": 913,
+          "top": 370.875,
+          "bottom": 427.875,
+          "width": 386,
+          "height": 57
+        },
+        "close": {
+          "left": 869,
+          "right": 913,
+          "top": 370.875,
+          "bottom": 414.875,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 572.5,
+          "right": 636.5,
+          "top": 375,
+          "bottom": 399,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 527,
+          "right": 913,
+          "top": 472.125,
+          "bottom": 529.125,
+          "width": 386,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 190,
+        "clientHeight": 190,
+        "scrollWidth": 418,
+        "clientWidth": 418
+      },
+      "scroll": {
+        "headerTop": 370.875,
+        "footerBottom": 529.125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/feedback-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "reward",
+      "width": 1440,
+      "layout": {
+        "title": "日记已保存",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440
+        },
+        "form": {
+          "left": 510,
+          "right": 930,
+          "top": 314.375,
+          "bottom": 585.625,
+          "width": 420,
+          "height": 271.25
+        },
+        "header": {
+          "left": 527,
+          "right": 913,
+          "top": 331.375,
+          "bottom": 388.375,
+          "width": 386,
+          "height": 57
+        },
+        "close": {
+          "left": 869,
+          "right": 913,
+          "top": 331.375,
+          "bottom": 375.375,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 572.5,
+          "right": 652.5,
+          "top": 335.5,
+          "bottom": 359.5,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 527,
+          "right": 913,
+          "top": 511.625,
+          "bottom": 568.625,
+          "width": 386,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 269,
+        "clientHeight": 269,
+        "scrollWidth": 418,
+        "clientWidth": 418
+      },
+      "scroll": {
+        "headerTop": 331.375,
+        "footerBottom": 568.625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/reward-1440.png",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "name": "create",
+      "width": 375,
+      "layout": {
+        "title": "发布悬赏新增任务到任务池",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 796,
+          "width": 343,
+          "height": 780
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 161,
+          "top": 49.5,
+          "bottom": 73.5,
+          "width": 128,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 722,
+          "bottom": 779,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 832,
+        "clientHeight": 778,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 778.875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "create-category",
+      "width": 375,
+      "layout": {
+        "title": "新增分类",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 32,
+          "right": 343,
+          "top": 32,
+          "bottom": 542.5,
+          "width": 311,
+          "height": 510.5
+        },
+        "header": {
+          "left": 48,
+          "right": 327,
+          "top": 48,
+          "bottom": 105,
+          "width": 279,
+          "height": 57
+        },
+        "close": {
+          "left": 283,
+          "right": 327,
+          "top": 48,
+          "bottom": 92,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 48,
+          "right": 112,
+          "top": 58,
+          "bottom": 82,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 48,
+          "right": 327,
+          "top": 469.5,
+          "bottom": 526.5,
+          "width": 279,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 511,
+        "clientHeight": 511,
+        "scrollWidth": 311,
+        "clientWidth": 311
+      },
+      "scroll": {
+        "headerTop": 48,
+        "footerBottom": 526.5
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-category-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "create-project",
+      "width": 375,
+      "layout": {
+        "title": "新项目创建长期目标×",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 32,
+          "right": 343,
+          "top": 32,
+          "bottom": 619.375,
+          "width": 311,
+          "height": 587.375
+        },
+        "header": {
+          "left": 32,
+          "right": 343,
+          "top": 32,
+          "bottom": 89,
+          "width": 311,
+          "height": 57
+        },
+        "close": {
+          "left": 299,
+          "right": 343,
+          "top": 32,
+          "bottom": 76,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 32,
+          "right": 128,
+          "top": 49.25,
+          "bottom": 73.25,
+          "width": 96,
+          "height": 24
+        },
+        "footer": {
+          "left": 32,
+          "right": 343,
+          "top": 562.375,
+          "bottom": 619.375,
+          "width": 311,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 587,
+        "clientHeight": 587,
+        "scrollWidth": 311,
+        "clientWidth": 311
+      },
+      "scroll": {
+        "headerTop": 32,
+        "footerBottom": 619.375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/create-project-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "timer",
+      "width": 375,
+      "layout": {
+        "title": "Session #1结束本次投入",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 439.375,
+          "width": 343,
+          "height": 423.375
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 129,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 96,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 365.375,
+          "bottom": 422.375,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 421,
+        "clientHeight": 421,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 422.375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/timer-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "note-convert",
+      "width": 375,
+      "layout": {
+        "title": "确认行动快照转为悬赏",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 701.3125,
+          "width": 343,
+          "height": 685.3125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 627.3125,
+          "bottom": 684.3125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 683,
+        "clientHeight": 683,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 684.3125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/note-convert-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "note-quote",
+      "width": 375,
+      "layout": {
+        "title": "本设备草稿引用到日记",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 484.25,
+          "width": 343,
+          "height": 468.25
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 113,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 410.25,
+          "bottom": 467.25,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 466,
+        "clientHeight": 466,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 467.25
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/note-quote-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "edit",
+      "width": 375,
+      "layout": {
+        "title": "编辑任务",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 618.28125,
+          "width": 343,
+          "height": 602.28125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 43,
+          "bottom": 67,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 544.28125,
+          "bottom": 601.28125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 600,
+        "clientHeight": 600,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 601.28125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/edit-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "complete",
+      "width": 375,
+      "layout": {
+        "title": "任务完成了验证弹窗的布局与操作",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 403.125,
+          "width": 343,
+          "height": 387.125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 193,
+          "top": 49.5,
+          "bottom": 73.5,
+          "width": 160,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 329.125,
+          "bottom": 386.125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 33,
+              "right": 49,
+              "top": 285.125,
+              "bottom": 301.125,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 33,
+              "right": 342,
+              "top": 271.125,
+              "bottom": 315.125,
+              "width": 309,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 385,
+        "clientHeight": 385,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 386.125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/complete-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "select",
+      "width": 375,
+      "layout": {
+        "title": "2026-10-13 · 任务池接取今天的悬赏",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 516.9375,
+          "width": 343,
+          "height": 500.9375
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 145,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 112,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 442.9375,
+          "bottom": 499.9375,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 40.5,
+              "right": 56.5,
+              "top": 391.4375,
+              "bottom": 407.4375,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 40.5,
+              "right": 266.25,
+              "top": 377.4375,
+              "bottom": 421.4375,
+              "width": 225.75,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 499,
+        "clientHeight": 499,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 499.9375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/select-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "calendar",
+      "width": 375,
+      "layout": {
+        "title": "记录时间块",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 704.6875,
+          "width": 343,
+          "height": 688.6875
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 113,
+          "top": 43,
+          "bottom": 67,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 630.6875,
+          "bottom": 687.6875,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 687,
+        "clientHeight": 687,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 687.6875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/calendar-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "sleep",
+      "width": 375,
+      "layout": {
+        "title": "编辑睡眠",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 527.9375,
+          "width": 343,
+          "height": 511.9375
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 43,
+          "bottom": 67,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 453.9375,
+          "bottom": 510.9375,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 510,
+        "clientHeight": 510,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 510.9375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/sleep-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "capture",
+      "width": 375,
+      "layout": {
+        "title": "随手记",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 539.875,
+          "width": 343,
+          "height": 523.875
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 309,
+          "height": 44
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 87,
+          "top": 41.5,
+          "bottom": 68.5,
+          "width": 54,
+          "height": 27
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 461.875,
+          "bottom": 522.875,
+          "width": 309,
+          "height": 61
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 522,
+        "clientHeight": 522,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 522.875
+      },
+      "capturePresentation": {
+        "surfaces": [
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)",
+          "rgb(255, 255, 255)"
+        ],
+        "footerDirection": "row",
+        "countRight": 71.390625,
+        "actionsLeft": 219.5,
+        "countCenter": 500.875,
+        "actionsCenter": 500.875,
+        "bodyWeight": "400",
+        "borderStyle": "solid",
+        "width": 343
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/capture-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      },
+      "previewScreenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/capture-preview-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "writing-morning",
+      "width": 375,
+      "layout": {
+        "title": "大空间写作晨写 · 10/13",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 737.53125,
+          "width": 343,
+          "height": 721.53125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 119.78125,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 86.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 663.53125,
+          "bottom": 720.53125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 720,
+        "clientHeight": 720,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 720.53125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-morning-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "writing-journal",
+      "width": 375,
+      "layout": {
+        "title": "大空间写作睡前日记 · 10/13",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 737.53125,
+          "width": 343,
+          "height": 721.53125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 151.78125,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 118.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 663.53125,
+          "bottom": 720.53125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 720,
+        "clientHeight": 720,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 720.53125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-journal-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "writing-review",
+      "width": 375,
+      "layout": {
+        "title": "大空间写作股市复盘 · 10/13",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 796,
+          "width": 343,
+          "height": 780
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 151.78125,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 118.78125,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 722,
+          "bottom": 779,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 1378,
+        "clientHeight": 778,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 778.9375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/writing-review-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "decision",
+      "width": 375,
+      "layout": {
+        "title": "2026-10-13辅助决策",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 782.0625,
+          "width": 343,
+          "height": 766.0625
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 644.9375,
+          "bottom": 701.9375,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 764,
+        "clientHeight": 764,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 701.9375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/decision-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "bridge",
+      "width": 375,
+      "layout": {
+        "title": "2026-10-13心理桥梁",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 477.6875,
+          "width": 343,
+          "height": 461.6875
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 50.96875,
+          "bottom": 74.96875,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 340.5625,
+          "bottom": 397.5625,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 460,
+        "clientHeight": 460,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 397.5625
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/bridge-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "finance",
+      "width": 375,
+      "layout": {
+        "title": "建立账本创建账户",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 551.6875,
+          "width": 343,
+          "height": 535.6875
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 477.6875,
+          "bottom": 534.6875,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 33,
+              "right": 49,
+              "top": 433.6875,
+              "bottom": 449.6875,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 33,
+              "right": 342,
+              "top": 419.6875,
+              "bottom": 463.6875,
+              "width": 309,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 534,
+        "clientHeight": 534,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 534.6875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/finance-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "expense",
+      "width": 375,
+      "layout": {
+        "title": "快速记账记一笔支出",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 423.3125,
+          "width": 343,
+          "height": 407.3125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 113,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 349.3125,
+          "bottom": 406.3125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 405,
+        "clientHeight": 405,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 406.3125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/expense-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "income",
+      "width": 375,
+      "layout": {
+        "title": "快速记账记一笔收入",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 423.3125,
+          "width": 343,
+          "height": 407.3125
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 113,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 349.3125,
+          "bottom": 406.3125,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 405,
+        "clientHeight": 405,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 406.3125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/income-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "transfer",
+      "width": 375,
+      "layout": {
+        "title": "账户之间的原子转移普通转账",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 796,
+          "width": 343,
+          "height": 780
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 123,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 90,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 722,
+          "bottom": 779,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 993,
+        "clientHeight": 778,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 778.6875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/transfer-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "categories",
+      "width": 375,
+      "layout": {
+        "title": "新增分类",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 530.5,
+          "width": 343,
+          "height": 514.5
+        },
+        "header": {
+          "left": 34,
+          "right": 341,
+          "top": 34,
+          "bottom": 91,
+          "width": 307,
+          "height": 57
+        },
+        "close": {
+          "left": 297,
+          "right": 341,
+          "top": 34,
+          "bottom": 78,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 34,
+          "right": 94,
+          "top": 44.75,
+          "bottom": 67.25,
+          "width": 60,
+          "height": 22.5
+        },
+        "footer": {
+          "left": 34,
+          "right": 341,
+          "top": 455.5,
+          "bottom": 512.5,
+          "width": 307,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 515,
+        "clientHeight": 515,
+        "scrollWidth": 343,
+        "clientWidth": 343
+      },
+      "scroll": {
+        "headerTop": 34,
+        "footerBottom": 512.5
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/categories-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "habits",
+      "width": 375,
+      "layout": {
+        "title": "新的行为目标创建习惯",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 796,
+          "width": 343,
+          "height": 780
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 33,
+          "right": 97,
+          "top": 50.25,
+          "bottom": 74.25,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 722,
+          "bottom": 779,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [
+          {
+            "input": {
+              "left": 33,
+              "right": 49,
+              "top": 679.6875,
+              "bottom": 695.6875,
+              "width": 16,
+              "height": 16
+            },
+            "label": {
+              "left": 33,
+              "right": 342,
+              "top": 665.6875,
+              "bottom": 709.6875,
+              "width": 309,
+              "height": 44
+            },
+            "display": "flex"
+          }
+        ],
+        "scrollHeight": 780,
+        "clientHeight": 778,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 778.6875
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/habits-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "hero",
+      "width": 375,
+      "layout": {
+        "title": "EARTH ONLINE欢迎您，Owner",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 18,
+          "right": 361,
+          "top": 161.40625,
+          "bottom": 650.59375,
+          "width": 343,
+          "height": 489.1875
+        },
+        "header": {
+          "left": 36,
+          "right": 343,
+          "top": 179.40625,
+          "bottom": 236.40625,
+          "width": 307,
+          "height": 57
+        },
+        "close": {
+          "left": 299,
+          "right": 343,
+          "top": 179.40625,
+          "bottom": 223.40625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 36,
+          "right": 151.203125,
+          "top": 196.65625,
+          "bottom": 220.65625,
+          "width": 115.203125,
+          "height": 24
+        },
+        "footer": {
+          "left": 36,
+          "right": 343,
+          "top": 547.09375,
+          "bottom": 604.09375,
+          "width": 307,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 485,
+        "clientHeight": 485,
+        "scrollWidth": 339,
+        "clientWidth": 339
+      },
+      "scroll": {
+        "headerTop": 179.40625,
+        "footerBottom": 604.09375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/hero-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "backpack",
+      "width": 375,
+      "layout": {
+        "title": "新建里程碑",
+        "viewport": {
+          "width": 379,
+          "height": 821,
+          "scrollWidth": 379
+        },
+        "form": {
+          "left": 18,
+          "right": 361,
+          "top": 16,
+          "bottom": 386.4375,
+          "width": 343,
+          "height": 370.4375
+        },
+        "header": {
+          "left": 34,
+          "right": 345,
+          "top": 32,
+          "bottom": 89,
+          "width": 311,
+          "height": 57
+        },
+        "close": {
+          "left": 301,
+          "right": 345,
+          "top": 32,
+          "bottom": 76,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 34,
+          "right": 114,
+          "top": 42,
+          "bottom": 66,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 34,
+          "right": 345,
+          "top": 313.4375,
+          "bottom": 370.4375,
+          "width": 311,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 370,
+        "clientHeight": 370,
+        "scrollWidth": 343,
+        "clientWidth": 343
+      },
+      "scroll": {
+        "headerTop": 32,
+        "footerBottom": 370.4375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/backpack-375.png",
+        "innerWidth": 379,
+        "innerHeight": 821,
+        "scrollWidth": 379
+      }
+    },
+    {
+      "name": "backpack-detail",
+      "width": 375,
+      "layout": {
+        "title": "首个里程碑",
+        "viewport": {
+          "width": 379,
+          "height": 821,
+          "scrollWidth": 379
+        },
+        "form": {
+          "left": 18,
+          "right": 361,
+          "top": 16,
+          "bottom": 237.34375,
+          "width": 343,
+          "height": 221.34375
+        },
+        "header": {
+          "left": 34,
+          "right": 345,
+          "top": 32,
+          "bottom": 89,
+          "width": 311,
+          "height": 57
+        },
+        "close": {
+          "left": 301,
+          "right": 345,
+          "top": 32,
+          "bottom": 76,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 34,
+          "right": 114,
+          "top": 42,
+          "bottom": 66,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 34,
+          "right": 345,
+          "top": 164.34375,
+          "bottom": 221.34375,
+          "width": 311,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 221,
+        "clientHeight": 221,
+        "scrollWidth": 343,
+        "clientWidth": 343
+      },
+      "scroll": {
+        "headerTop": 32,
+        "footerBottom": 221.34375
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/backpack-detail-375.png",
+        "innerWidth": 379,
+        "innerHeight": 821,
+        "scrollWidth": 379
+      }
+    },
+    {
+      "name": "library",
+      "width": 375,
+      "layout": {
+        "title": "添加作品",
+        "viewport": {
+          "width": 379,
+          "height": 821,
+          "scrollWidth": 379
+        },
+        "form": {
+          "left": 18,
+          "right": 361,
+          "top": 16,
+          "bottom": 576.75,
+          "width": 343,
+          "height": 560.75
+        },
+        "header": {
+          "left": 34,
+          "right": 345,
+          "top": 32,
+          "bottom": 89,
+          "width": 311,
+          "height": 57
+        },
+        "close": {
+          "left": 301,
+          "right": 345,
+          "top": 32,
+          "bottom": 76,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 34,
+          "right": 98,
+          "top": 42,
+          "bottom": 66,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 34,
+          "right": 345,
+          "top": 503.75,
+          "bottom": 560.75,
+          "width": 311,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 561,
+        "clientHeight": 561,
+        "scrollWidth": 343,
+        "clientWidth": 343
+      },
+      "scroll": {
+        "headerTop": 32,
+        "footerBottom": 560.75
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/library-375.png",
+        "innerWidth": 379,
+        "innerHeight": 821,
+        "scrollWidth": 379
+      }
+    },
+    {
+      "name": "onboarding",
+      "width": 375,
+      "layout": {
+        "title": "✨ 养成系统欢迎来到养成系统",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 20,
+          "right": 363,
+          "top": 256.90625,
+          "bottom": 555.078125,
+          "width": 343,
+          "height": 298.171875
+        },
+        "header": {
+          "left": 37,
+          "right": 346,
+          "top": 273.90625,
+          "bottom": 330.90625,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 302,
+          "right": 346,
+          "top": 273.90625,
+          "bottom": 317.90625,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 37,
+          "right": 165,
+          "top": 291.15625,
+          "bottom": 315.15625,
+          "width": 128,
+          "height": 24
+        },
+        "footer": {
+          "left": 37,
+          "right": 346,
+          "top": 429.078125,
+          "bottom": 538.078125,
+          "width": 309,
+          "height": 109
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 296,
+        "clientHeight": 296,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 273.90625,
+        "footerBottom": 538.078125
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/onboarding-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "feedback",
+      "width": 375,
+      "layout": {
+        "title": "确认操作",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 208.25,
+          "width": 343,
+          "height": 192.25
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 78.5,
+          "right": 142.5,
+          "top": 37.125,
+          "bottom": 61.125,
+          "width": 64,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 134.25,
+          "bottom": 191.25,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 190,
+        "clientHeight": 190,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 191.25
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/feedback-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    },
+    {
+      "name": "reward",
+      "width": 375,
+      "layout": {
+        "title": "日记已保存",
+        "viewport": {
+          "width": 375,
+          "height": 812,
+          "scrollWidth": 375
+        },
+        "form": {
+          "left": 16,
+          "right": 359,
+          "top": 16,
+          "bottom": 303.5,
+          "width": 343,
+          "height": 287.5
+        },
+        "header": {
+          "left": 33,
+          "right": 342,
+          "top": 33,
+          "bottom": 90,
+          "width": 309,
+          "height": 57
+        },
+        "close": {
+          "left": 298,
+          "right": 342,
+          "top": 33,
+          "bottom": 77,
+          "width": 44,
+          "height": 44
+        },
+        "heading": {
+          "left": 78.5,
+          "right": 158.5,
+          "top": 37.125,
+          "bottom": 61.125,
+          "width": 80,
+          "height": 24
+        },
+        "footer": {
+          "left": 33,
+          "right": 342,
+          "top": 229.5,
+          "bottom": 286.5,
+          "width": 309,
+          "height": 57
+        },
+        "display": "flex",
+        "checkboxes": [],
+        "scrollHeight": 286,
+        "clientHeight": 286,
+        "scrollWidth": 341,
+        "clientWidth": 341
+      },
+      "scroll": {
+        "headerTop": 33,
+        "footerBottom": 286.5
+      },
+      "screenshot": {
+        "file": "docs/reports/WB-DIALOG-VISUAL-POLISH-evidence/reward-375.png",
+        "innerWidth": 375,
+        "innerHeight": 812,
+        "scrollWidth": 375
+      }
+    }
+  ]
+}

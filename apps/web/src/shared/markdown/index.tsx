@@ -14,7 +14,7 @@ export function MarkdownContent({ content }: { content: string }) {
 export function MarkdownInput(props: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
   const [preview, setPreview] = useState(false);
   return <div className="markdown-input">
-    <div className="markdown-input-toolbar"><span>{tx("支持 Markdown")}</span><Button type="button" aria-pressed={preview} onClick={() => setPreview(!preview)}>{preview ? tx("继续编辑") : tx("预览")}</Button></div>
+    <div className="markdown-input-toolbar"><span>{tx("支持 Markdown")}</span><Button variant="ghost" size="sm" type="button" aria-pressed={preview} onClick={() => setPreview(!preview)}>{preview ? tx("继续编辑") : tx("预览")}</Button></div>
     <textarea {...props} hidden={preview} onInvalid={(event) => {
       props.onInvalid?.(event);
       if (preview) { event.preventDefault(); const field = event.currentTarget; setPreview(false); requestAnimationFrame(() => field.focus()); }
