@@ -1,4 +1,4 @@
-import { IconButton } from "../shared/ui";
+import { Button, IconButton } from "../shared/ui";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Coins, Gift, Sparkles, X } from "lucide-react";
@@ -33,9 +33,10 @@ export function useFeedbackPresentation() { return useContext(FeedbackPresentati
 
 export function ApplicationFeedback({ children }: { children: (actions: FeedbackActions) => ReactNode }) {
   const [popup, setPopup] = useState<Popup | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<{ id: number; message: string } | null>(null);
+  const successSequence = useRef(0);
   const notice = useCallback((message: string, title = "需要看一下") => setPopup({ kind: "notice", title, message }), []);
-  const success = useCallback((message = "操作已完成") => setSuccessMessage(message), []);
+  const success = useCallback((message = "操作已完成") => setSuccessMessage({ id: ++successSequence.current, message }), []);
   const confirm = useCallback((title: string, message: string, onConfirm: () => void | Promise<void>, confirmText = "确认") => {
     setPopup({ kind: "confirm", title, message, confirmText, onConfirm });
   }, []);
@@ -53,20 +54,20 @@ export function ApplicationFeedback({ children }: { children: (actions: Feedback
   const recordReward = useCallback((label: string, reward: RewardGrant | null | undefined) => {
     setPopup({
       kind: "reward",
-      title: `${label}已保存`,
+      title: tx("{value0}已保存", { value0: tx(label) }),
       message: "这条记录也计入成长。",
       rewards: reward ? [reward] : []
     });
   }, []);
   useEffect(() => {
     if (!successMessage) return;
-    const timer = window.setTimeout(() => setSuccessMessage(null), 2600);
+    const timer = window.setTimeout(() => setSuccessMessage(null), 4000);
     return () => window.clearTimeout(timer);
   }, [successMessage]);
 
   return <FeedbackPresentation.Provider value={popup !== null}>
     {children({ notice, success, confirm, taskReward, recordReward })}
-    {successMessage ? <div className="app-success-toast" role="status" aria-live="polite"><Check size={16} />{tx(successMessage)}</div> : null}
+    {successMessage ? createPortal(<div key={successMessage.id} className="app-success-toast" role="status" aria-live="polite"><span className="app-success-check"><Check size={20} /></span><strong>{tx(successMessage.message)}</strong><i className="app-success-lifetime" aria-hidden="true" /></div>, document.body) : null}
     {popup && <FeedbackPopup popup={popup} onClose={() => setPopup(null)} />}
   </FeedbackPresentation.Provider>;
 }
@@ -118,8 +119,8 @@ function FeedbackPopup({ popup, onClose }: { popup: Popup; onClose: () => void }
             <div className="grid grid-cols-2 gap-2"><div className="reward-pop-card"><Sparkles size={17} /><span>+{totalXp} XP</span></div><div className="reward-pop-card"><Coins size={17} /><span>+{totalCoins} {tx("金币")}</span></div></div>
           ) : <p className="rounded-card border border-white/80 bg-white/65 p-3 text-xs text-soft">{tx("这次奖励之前已经发放过，不会重复计算。")}</p>)}
           <footer>{popup.kind === "confirm" ? (
-            <><button className="icon-button px-4" type="button" aria-label={tx("取消")} onClick={onClose}>{tx("取消")}</button><button className="primary-button px-4" type="button" onClick={confirm}>{popup.confirmText}</button></>
-          ) : <button className="primary-button" type="button" onClick={onClose}>{tx("收下")}</button>}</footer>
+            <><Button type="button" onClick={onClose}>{tx("取消")}</Button><Button variant="primary" type="button" onClick={confirm}>{popup.confirmText}</Button></>
+          ) : <Button variant="primary" type="button" onClick={onClose}>{tx("收下")}</Button>}</footer>
         </article>
       </div>
     </div>,

@@ -26,7 +26,7 @@ import { ProjectDetailPage, ProjectsPage, type ProjectSummary, useProjects } fro
 import { TrashPage } from "../../features/trash";
 import { HabitDailyQuests, RoutinesFeature } from "../../features/habits";
 import { FinancePage, useFinanceUpcomingReminders } from "../../features/finance";
-import { TodayReminders } from "../../features/reminders";
+import { DeadlineCountdown, ReminderBell } from "../../features/reminders";
 import type { AuthSession } from "../../features/auth";
 import { GrowthPage } from "../../features/growth";
 import { InspirationLibraryPage } from "../../features/inspirations";
@@ -227,6 +227,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.today(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: ["growth-overview", session.user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["hero", session.user.id] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks(session.user.id) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments(session.user.id, date) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.continuations(session.user.id, date) }),
@@ -287,6 +288,8 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
 function AppShell({ context }: { context: WorkspaceContext }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const businessToday = todayString(context.session.user.timezone);
+  const recurringReminders = useFinanceUpcomingReminders(context.request, context.session.user.id, businessToday);
   const mainRef = useRef<HTMLElement>(null);
   const title = routeTitle(location.pathname);
   useEffect(() => { document.title = `${tx(title)} · ${tx(APP_BRAND.name)}`; mainRef.current?.focus({ preventScroll: true }); }, [location.pathname, title]);
@@ -337,6 +340,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
       <header className="app-topbar">
         <div className="app-heading"><HeroHud request={context.request} userId={context.session.user.id} date={context.date} /><HeroDailyStatus request={context.request} userId={context.session.user.id} date={context.date} onError={context.feedback.notice} /></div>
         <div className="app-top-actions">
+          <ReminderBell tasks={context.tasks} recurring={recurringReminders.data ?? []} date={businessToday} loading={recurringReminders.isPending} error={recurringReminders.isError} onRetry={() => void recurringReminders.refetch()} />
           <QuickNoteCaptureButton compact iconOnly label={tx("随手记")} request={context.request} userId={context.session.user.id} selectedDate={context.date} onCreated={context.refresh} icon={<Feather size={17} />} />
           <Link className="topbar-search" aria-label={tx("全局搜索")} title={tx("全局搜索")} to={link("/search")}><Search size={17} /></Link>
           <input aria-label={tx("工作日期")} type="date" value={context.date} onChange={(event) => { const next = new URLSearchParams(location.pathname === "/growth" ? location.search : ""); next.set("date", event.target.value); next.delete("cursor"); navigate(`${location.pathname}?${next}${location.pathname === "/growth" ? location.hash : ""}`); }} />
@@ -344,7 +348,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
       </header>
       {moduleLinks.length ? <nav className="app-module-nav" aria-label={tx("主导航")}>{moduleLinks.map((item) => <NavLink key={item.path} end={item.path === "/today" || item.path === "/growth"} to={link(item.path)}>{tx(item.label)}</NavLink>)}</nav> : null}
       <div className={`quick-add-wrap ${(location.pathname.startsWith("/settings") || (location.pathname === "/finance" && new URLSearchParams(location.search).get("tab") === "maintenance")) ? "is-mobile-hidden" : ""}`} ref={quickMenuRef}>
-        <button data-guide-anchor="quick-action.task.publish.entry" type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label={tx("打开快捷操作")} onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>Quick Action</span></button>
+        <button data-guide-anchor="quick-action.task.publish.entry" type="button" className="quick-action" aria-controls="quick-add-menu" aria-expanded={quickOpen} aria-label={tx("打开快捷操作")} onClick={() => { setQuickOpen((value) => !value); setQuickMoreOpen(false); }}><Plus size={16} /><span>{tx("快捷操作")}</span></button>
         {quickOpen ? <div className={`quick-add-menu ${quickMoreOpen ? "is-more-open" : ""}`} id="quick-add-menu" role="menu">
           <strong>{quickMoreOpen ? tx("更多操作") : tx("快捷操作")}</strong>
           <div className="quick-add-primary">
@@ -381,7 +385,6 @@ function TodayRoute() {
   const [continuationPending, setContinuationPending] = useState(false);
   const dashboard = value.dashboard;
   const businessToday = todayString(value.session.user.timezone);
-  const recurringReminders = useFinanceUpcomingReminders(value.request, value.session.user.id, businessToday);
   const sleep = dashboard?.sleepRecord ?? null;
   const [sleepEditorSignal, setSleepEditorSignal] = useState(0);
   const timelineItems = useMemo(() => {
@@ -392,14 +395,16 @@ function TodayRoute() {
     <div data-guide-anchor="onboarding.checklist" />
     {value.date !== todayString(value.session.user.timezone) ? <div className="historical-banner"><strong>{tx("查看")} {formatBusinessDate(value.date)}</strong><span>{tx("当前计时仍属于真实今天；从历史页开始会接取到今天并启动。")}</span><Link to="/today">{tx("回到今天")}</Link></div> : null}
     <div className="today-grid">
-      <div className="today-current">
-        <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
+      <div className="today-context-row">
+        <div className="today-current">
+          <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
+        </div>
+        <DeadlineCountdown tasks={value.tasks} date={businessToday} />
+        <aside className="today-status-surface" aria-label={tx("饮水与睡眠")}>
+          <div className="today-status-block today-water-block"><WaterFeature compact request={value.request} selectedDate={value.date} record={dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /></div>
+          <div className="today-status-block today-sleep-block"><SleepFeature compact request={value.request} selectedDate={value.date} record={sleep} snapshotReady={Boolean(dashboard)} recordTimezone={value.session.user.timezone} openEditorSignal={sleepEditorSignal} onError={value.feedback.notice} onChanged={value.refresh} /></div>
+        </aside>
       </div>
-      {value.date === businessToday ? <TodayReminders tasks={value.tasks} recurring={recurringReminders.data ?? []} date={businessToday} /> : null}
-      <aside className="today-status-surface" aria-label={tx("饮水与睡眠")}>
-        <div className="today-status-block today-water-block"><WaterFeature compact request={value.request} selectedDate={value.date} record={dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /></div>
-        <div className="today-status-block today-sleep-block"><SleepFeature compact request={value.request} selectedDate={value.date} record={sleep} snapshotReady={Boolean(dashboard)} recordTimezone={value.session.user.timezone} openEditorSignal={sleepEditorSignal} onError={value.feedback.notice} onChanged={value.refresh} /></div>
-      </aside>
       <div className="today-quests">
         <TasksPanel dailyQuests={<><ContinuationPanel candidates={value.continuations} targetDate={value.date} timezone={value.session.user.timezone} request={value.request} pending={continuationPending} onPending={setContinuationPending} onError={value.feedback.notice} onChanged={value.refresh} /><HabitDailyQuests request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} onError={value.feedback.notice} /></>} />
       </div>

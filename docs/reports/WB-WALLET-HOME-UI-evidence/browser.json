@@ -1,0 +1,242 @@
+{
+  "kind": "isolated public Web component fixture; no API/MySQL writes",
+  "evidence": [
+    {
+      "layout": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "current": {
+          "x": 165,
+          "y": 97.5,
+          "width": 358.140625,
+          "height": 104,
+          "bottom": 201.5
+        },
+        "countdown": {
+          "x": 531.265625,
+          "y": 97.5,
+          "width": 311.4375,
+          "height": 86.5,
+          "bottom": 184
+        },
+        "water": {
+          "x": 850.828125,
+          "y": 97.5,
+          "width": 309.828125,
+          "height": 77.5,
+          "bottom": 175
+        },
+        "sleep": {
+          "x": 1168.78125,
+          "y": 97.5,
+          "width": 258.203125,
+          "height": 67,
+          "bottom": 164.5
+        },
+        "quickText": "快捷操作",
+        "bellInHeader": true,
+        "closed": true
+      },
+      "focused": {
+        "overflow": false,
+        "card": {
+          "left": 165,
+          "right": 523.140625,
+          "height": 126.6875
+        },
+        "copyWidth": 268.21875,
+        "controls": [
+          {
+            "left": 179,
+            "right": 247.375
+          },
+          {
+            "left": 253.875,
+            "right": 320.875
+          },
+          {
+            "left": 327.375,
+            "right": 423.625
+          }
+        ]
+      },
+      "popover": {
+        "left": 754.25,
+        "right": 1144.25,
+        "bottom": 197.296875,
+        "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
+      },
+      "feedback": {
+        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "rewardAnimation": "reward-arrive",
+        "toastAnimation": "success-arrive",
+        "progressTransition": "width"
+      },
+      "steps": [
+        "1周期模板",
+        "2选择模板并生成",
+        "3待确认发生项"
+      ],
+      "reducedMotion": "1e-05s"
+    },
+    {
+      "layout": {
+        "width": 1024,
+        "height": 900,
+        "scrollWidth": 1024,
+        "current": {
+          "x": 165,
+          "y": 97.5,
+          "width": 238.546875,
+          "height": 104,
+          "bottom": 201.5
+        },
+        "countdown": {
+          "x": 411.671875,
+          "y": 97.5,
+          "width": 207.421875,
+          "height": 86.5,
+          "bottom": 184
+        },
+        "water": {
+          "x": 627.21875,
+          "y": 97.5,
+          "width": 204.890625,
+          "height": 108.375,
+          "bottom": 205.875
+        },
+        "sleep": {
+          "x": 840.234375,
+          "y": 97.5,
+          "width": 170.734375,
+          "height": 67,
+          "bottom": 164.5
+        },
+        "quickText": "快捷操作",
+        "bellInHeader": true,
+        "closed": true
+      },
+      "focused": {
+        "overflow": false,
+        "card": {
+          "left": 165,
+          "right": 403.546875,
+          "height": 178.375
+        },
+        "copyWidth": 148.625,
+        "controls": [
+          {
+            "left": 179,
+            "right": 247.375
+          },
+          {
+            "left": 253.875,
+            "right": 320.875
+          },
+          {
+            "left": 179,
+            "right": 275.25
+          }
+        ]
+      },
+      "popover": {
+        "left": 338.25,
+        "right": 728.25,
+        "bottom": 197.296875,
+        "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
+      },
+      "feedback": {
+        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "rewardAnimation": "reward-arrive",
+        "toastAnimation": "success-arrive",
+        "progressTransition": "width"
+      },
+      "steps": [
+        "1周期模板",
+        "2选择模板并生成",
+        "3待确认发生项"
+      ],
+      "reducedMotion": "1e-05s"
+    },
+    {
+      "layout": {
+        "width": 375,
+        "height": 812,
+        "scrollWidth": 375,
+        "current": {
+          "x": 8.125,
+          "y": 142.09375,
+          "width": 358.75,
+          "height": 104,
+          "bottom": 246.09375
+        },
+        "countdown": {
+          "x": 8.125,
+          "y": 254.21875,
+          "width": 358.75,
+          "height": 86.5,
+          "bottom": 340.71875
+        },
+        "water": {
+          "x": 8.125,
+          "y": 348.84375,
+          "width": 236.28125,
+          "height": 123.125,
+          "bottom": 471.96875
+        },
+        "sleep": {
+          "x": 252.53125,
+          "y": 348.84375,
+          "width": 114.328125,
+          "height": 67,
+          "bottom": 415.84375
+        },
+        "quickText": "快捷操作",
+        "bellInHeader": true,
+        "closed": true
+      },
+      "focused": {
+        "overflow": false,
+        "card": {
+          "left": 8.125,
+          "right": 366.875,
+          "height": 141.4375
+        },
+        "copyWidth": 268.828125,
+        "controls": [
+          {
+            "left": 22.125,
+            "right": 90.5
+          },
+          {
+            "left": 97,
+            "right": 164
+          },
+          {
+            "left": 170.5,
+            "right": 266.75
+          }
+        ]
+      },
+      "popover": {
+        "left": 12,
+        "right": 363,
+        "bottom": 267.875,
+        "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
+      },
+      "feedback": {
+        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "rewardAnimation": "reward-arrive",
+        "toastAnimation": "success-arrive",
+        "progressTransition": "width"
+      },
+      "steps": [
+        "1周期模板",
+        "2选择模板并生成",
+        "3待确认发生项"
+      ],
+      "reducedMotion": "1e-05s"
+    }
+  ]
+}

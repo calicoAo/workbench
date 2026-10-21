@@ -12,6 +12,7 @@ import { Budgets } from "./budgets";
 import { Overview } from "./overview";
 import { Recurring } from "./recurring";
 import {
+  financeMonthRange,
   type FinanceAccount,
   type FinanceBudget,
   type FinanceCategory,
@@ -109,7 +110,7 @@ export function FinancePage({
     enabled: tab === "recurring",
     queryFn: () =>
       request<FinanceRecurringOccurrence[]>(
-        `/api/finance/recurring-occurrences?from=${date.slice(0, 7)}-01&to=${date}`,
+        `/api/finance/recurring-occurrences?from=${financeMonthRange(date).from}&to=${financeMonthRange(date).to}`,
       ),
   });
   const reports = useQuery({
@@ -169,6 +170,7 @@ export function FinancePage({
         queryKey: ["finance-recurring-occurrences", userId],
       }),
       queryClient.invalidateQueries({ queryKey: ["finance-reports", userId] }),
+      queryClient.invalidateQueries({ queryKey: ["finance-reminders", userId] }),
     ]);
   }
   async function initialize() {
@@ -301,6 +303,7 @@ export function FinancePage({
       ) : null}
       {tab === "recurring" ? (
         <Recurring
+          key={`${userId}:${date.slice(0, 7)}`}
           request={request}
           date={date}
           accounts={accounts.data ?? []}

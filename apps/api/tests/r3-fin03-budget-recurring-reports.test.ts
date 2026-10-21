@@ -29,3 +29,71 @@ test("budget total/category uses effective posted expense and update is idempote
 test("recurring preparation creates pending only, confirm posts once, skip has no balance effect", async () => { await initialize(); const category = (await categories()).find((item) => item.kind === "EXPENSE")!; const source = await account(); const template = await api<{ id: number }>("/finance/recurring-templates", { method: "POST", body: JSON.stringify({ operationId: op(), type: "EXPENSE", name: "房租", amountCents: "2000", accountId: source.data.id, categoryId: category.id, frequency: "MONTHLY", scheduleValue: 5, startDate: "2026-09-01" }) }); assert.equal(template.response.status, 200); await api("/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId: op(), from: "2026-09-01", to: "2026-09-10" }) }); const pending = await api<Array<{ id: number; status: string; version: number }>>("/finance/recurring-occurrences?from=2026-09-01&to=2026-09-10"); assert.equal(pending.data[0].status, "PENDING"); const before = await api<Array<{ id: number; balanceCents: string }>>("/finance/accounts?view=all"); const posted = await api<{ transactionId: number }>(`/finance/recurring-occurrences/${pending.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: pending.data[0].version }) }); assert.equal(posted.response.status, 200); const replay = await api<{ transactionId: number }>(`/finance/recurring-occurrences/${pending.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 2 }) }); assert.equal(replay.response.status, 200); assert.equal(replay.data.transactionId, posted.data.transactionId); const after = await api<Array<{ id: number; balanceCents: string }>>("/finance/accounts?view=all"); assert.equal(BigInt(after.data[0].balanceCents), BigInt(before.data[0].balanceCents) - 2000n); const occurrence = await api<Array<{ id: number; status: string; version: number }>>("/finance/recurring-occurrences?from=2026-09-01&to=2026-09-10"); await api(`/finance/recurring-occurrences/${occurrence.data[0].id}/skip`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: occurrence.data[0].version }) }).then((result) => assert.equal(result.response.status, 409)); });
 
 test("report returns monthly flow, category breakdown, account movement and reconciliation", async () => { await initialize(); const category = (await categories()).find((item) => item.kind === "EXPENSE")!; const source = await account(); await api("/finance/expenses", { method: "POST", body: JSON.stringify({ operationId: op(), accountId: source.data.id, categoryId: category.id, amountCents: "1200", occurredDate: "2026-09-10", occurredTime: "12:00" }) }); const report = await api<{ monthly: { expenseCents: string; netCashflowCents: string }; categories: Array<{ netExpenseCents: string }>; reconciliation: boolean }>("/finance/reports?month=2026-09"); assert.deepEqual([report.data.monthly.expenseCents, report.data.monthly.netCashflowCents, report.data.categories[0].netExpenseCents, report.data.reconciliation], ["1200", "-1200", "1200", true]); });
+
+test("selected recurring generation is scoped, retry-safe, and never reposts resolved occurrences", async () => {
+  await initialize();
+  const category = (await categories()).find((item) => item.kind === "EXPENSE")!;
+  const source = await account();
+  async function template(name: string, scheduleValue: number, startDate = "2026-10-01") {
+    const result = await api<{ id: number }>("/finance/recurring-templates", { method: "POST", body: JSON.stringify({ operationId: op(), type: "EXPENSE", name, amountCents: "2000", accountId: source.data.id, categoryId: category.id, frequency: "MONTHLY", scheduleValue, scheduledTime: "09:45", startDate }) });
+    assert.equal(result.response.status, 200);
+    return result.data.id;
+  }
+  const selected = await template("selected", 26);
+  const unselected = await template("unselected", 27);
+  const noDate = await template("future", 1, "2026-11-01");
+  const generate = (ids: number[], operationId = op()) => api<{ created: number; existing: number }>("/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId, from: "2026-10-01", to: "2026-10-31", templateIds: ids }) });
+  const identity = op();
+  const first = await generate([selected], identity);
+  assert.deepEqual(first.data, { created: 1, existing: 0 });
+  assert.deepEqual((await generate([selected], identity)).data, first.data);
+  assert.deepEqual((await generate([selected])).data, { created: 0, existing: 1 });
+  assert.equal((await generate([unselected], identity)).response.status, 409);
+  assert.deepEqual((await generate([noDate])).data, { created: 0, existing: 0 });
+  assert.equal(await scalar("SELECT COUNT(*) value FROM finance_recurring_occurrences WHERE template_id=?", [unselected]), 0);
+  const rows = (await api<Array<{ id: number; templateId: number; status: string; version: number; scheduledTime: string }>>("/finance/recurring-occurrences?from=2026-10-01&to=2026-10-31")).data;
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].templateId, rows[0].status, rows[0].scheduledTime], [selected, "PENDING", "09:45"]);
+  assert.equal(await scalar("SELECT COUNT(*) value FROM finance_transactions WHERE type IN (1,2)"), 0);
+  const balance = async () => (await api<Array<{ balanceCents: string }>>("/finance/accounts")).data[0].balanceCents;
+  assert.equal(await balance(), "100000");
+  const confirmed = await api(`/finance/recurring-occurrences/${rows[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 1 }) });
+  assert.equal(confirmed.response.status, 200);
+  assert.equal(await balance(), "98000");
+  assert.deepEqual((await generate([selected])).data, { created: 0, existing: 1 });
+  await generate([unselected]);
+  const [skippable] = (await api<Array<{ id: number; templateId: number }>>("/finance/recurring-occurrences?from=2026-10-01&to=2026-10-31")).data.filter((row) => row.templateId === unselected);
+  assert.equal((await api(`/finance/recurring-occurrences/${skippable.id}/skip`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 1 }) })).response.status, 200);
+  assert.deepEqual((await generate([selected, unselected])).data, { created: 0, existing: 2 });
+  assert.equal(await balance(), "98000");
+  assert.equal(await scalar("SELECT COUNT(*) value FROM finance_transactions WHERE type=2"), 1);
+  const statuses = (await api<Array<{ status: string }>>("/finance/recurring-occurrences?from=2026-10-01&to=2026-10-31")).data.map((row) => row.status);
+  assert.deepEqual(statuses, ["POSTED", "SKIPPED"]);
+});
+
+test("selected recurring generation rejects empty, disabled, missing and foreign selections atomically", async () => {
+  await initialize();
+  const category = (await categories()).find((item) => item.kind === "EXPENSE")!;
+  const source = await account();
+  const ids: number[] = [];
+  for (const name of ["enabled", "disabled"]) {
+    const result = await api<{ id: number }>("/finance/recurring-templates", { method: "POST", body: JSON.stringify({ operationId: op(), type: "EXPENSE", name, amountCents: "2000", accountId: source.data.id, categoryId: category.id, frequency: "MONTHLY", scheduleValue: 26, startDate: "2026-10-01" }) });
+    ids.push(result.data.id);
+  }
+  await pool.query("UPDATE finance_recurring_templates SET enabled=0 WHERE id=?", [ids[1]]);
+  await pool.query("INSERT INTO users (id,username,display_name) VALUES (935,'selected-foreign','Other user') ON DUPLICATE KEY UPDATE deleted_at=NULL");
+  const ownerToken = token;
+  token = signToken({ id: 935, username: "selected-foreign", displayName: "Other user" });
+  await initialize();
+  const otherCategory = (await categories()).find((item) => item.kind === "EXPENSE")!;
+  const otherAccount = await account("Other account");
+  const foreign = await api<{ id: number }>("/finance/recurring-templates", { method: "POST", body: JSON.stringify({ operationId: op(), type: "EXPENSE", name: "foreign", amountCents: "2000", accountId: otherAccount.data.id, categoryId: otherCategory.id, frequency: "MONTHLY", scheduleValue: 26, startDate: "2026-10-01" }) });
+  assert.equal(foreign.response.status, 200);
+  ids.push(foreign.data.id);
+  token = ownerToken;
+  for (const [templateIds, status] of [[[], 400], [[ids[0], ids[1]], 409], [[ids[0], ids[2]], 409], [[ids[0], 9999999], 409]] as Array<[number[], number]>) {
+    const result = await api("/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId: op(), from: "2026-10-01", to: "2026-10-31", templateIds }) });
+    assert.equal(result.response.status, status);
+    assert.equal(await scalar("SELECT COUNT(*) value FROM finance_recurring_occurrences"), 0);
+  }
+});

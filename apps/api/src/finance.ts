@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, like, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, lt, sql } from "drizzle-orm";
 import { db, type DatabaseClient } from "./db/index.js";
 import { financeAccounts, financeBudgets, financeCategories, financeEntries, financeRecurringOccurrences, financeRecurringTemplates, financeTransactions, users } from "./db/schema.js";
 import { FinanceAccountType, FinanceCategoryKind, FinanceTransactionSource, FinanceTransactionStatus, FinanceTransactionType } from "./enums.js";
@@ -543,8 +543,24 @@ export async function updateFinanceRecurringTemplate(input: { userId: number; op
   });
 }
 
-export async function prepareFinanceRecurringOccurrences(input: { userId: number; operationId: string; from: string; to: string }) {
-  return runMutation({ userId: input.userId, operationId: input.operationId, commandType: "FINANCE_PREPARE_RECURRING", request: input }, async (tx) => { const timezone = await timezoneFor(tx, input.userId); const templates = await tx.select().from(financeRecurringTemplates).where(and(eq(financeRecurringTemplates.userId, input.userId), eq(financeRecurringTemplates.enabled, 1))); let created = 0; for (const template of templates) for (const scheduledDate of scheduledDates(template, input.from, input.to)) { const [result] = await tx.insert(financeRecurringOccurrences).values({ userId: input.userId, templateId: template.id, scheduledDate, scheduledTimeSnapshot: template.scheduledTime, recordTimezone: timezone, status: 0, amountCentsSnapshot: template.amountCents, accountIdSnapshot: template.accountId, categoryIdSnapshot: template.categoryId, postedTransactionId: null, version: 1, createdAt: new Date(), updatedAt: new Date() }).onDuplicateKeyUpdate({ set: { updatedAt: sql`${financeRecurringOccurrences.updatedAt}` } }); if (Number(result.insertId) > 0) created += 1; } return { created }; });
+export async function prepareFinanceRecurringOccurrences(input: { userId: number; operationId: string; from: string; to: string; templateIds?: number[] }) {
+  return runMutation({ userId: input.userId, operationId: input.operationId, commandType: "FINANCE_PREPARE_RECURRING", request: input }, async (tx) => {
+    const timezone = await timezoneFor(tx, input.userId);
+    const templates = await tx.select().from(financeRecurringTemplates).where(and(
+      eq(financeRecurringTemplates.userId, input.userId),
+      input.templateIds ? inArray(financeRecurringTemplates.id, input.templateIds) : eq(financeRecurringTemplates.enabled, 1),
+    )).orderBy(asc(financeRecurringTemplates.id)).for("update");
+    if (input.templateIds && (templates.length !== new Set(input.templateIds).size || templates.some((template) => !template.enabled))) {
+      throw new BusinessError(ErrorCode.CONFLICT, "selected recurring templates are unavailable", 409);
+    }
+    let created = 0;
+    let existing = 0;
+    for (const template of templates) for (const scheduledDate of scheduledDates(template, input.from, input.to)) {
+      const [result] = await tx.insert(financeRecurringOccurrences).values({ userId: input.userId, templateId: template.id, scheduledDate, scheduledTimeSnapshot: template.scheduledTime, recordTimezone: timezone, status: 0, amountCentsSnapshot: template.amountCents, accountIdSnapshot: template.accountId, categoryIdSnapshot: template.categoryId, postedTransactionId: null, version: 1, createdAt: new Date(), updatedAt: new Date() }).onDuplicateKeyUpdate({ set: { updatedAt: sql`${financeRecurringOccurrences.updatedAt}` } });
+      if (Number(result.insertId) > 0) created += 1; else existing += 1;
+    }
+    return { created, existing };
+  });
 }
 
 export async function financeUpcomingRecurringForUser(userId: number, from: string, to: string) {

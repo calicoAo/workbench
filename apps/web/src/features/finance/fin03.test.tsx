@@ -15,8 +15,61 @@ function request(): Request { return vi.fn(async (path: string, init?: RequestIn
 function renderPage(entry: string) { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[entry]}><FinancePage request={request()} userId={1} date="2026-09-21" timezone="Asia/Shanghai" onError={vi.fn()} /></MemoryRouter></QueryClientProvider>); }
 
 describe("FIN-03 Finance surfaces", () => {
+  it("requires a saved template before preparing the full month without posting a transaction", async () => {
+    const request = vi.fn(async () => ({ id: 9, version: 1, created: 1, existing: 0 })) as Request;
+    const onChanged = vi.fn(async () => undefined);
+    const props = { request, date: "2026-10-21", accounts: [base], categories: [category], occurrences: [], onChanged, onError: vi.fn() };
+    const view = render(<Recurring {...props} templates={[]} />);
+    expect((screen.getByRole("button", { name: "生成本月待确认项" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("模板名称"), { target: { value: "网费" } });
+    fireEvent.change(screen.getByLabelText("金额"), { target: { value: "99" } });
+    fireEvent.change(screen.getByLabelText("账户"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("分类"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("发生日"), { target: { value: "26" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建模板" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(request).toHaveBeenCalledTimes(1);
+    view.rerender(<Recurring {...props} templates={[{ id: 9, type: "EXPENSE", name: "网费", amountCents: "9900", accountId: 1, accountName: "主账户", categoryId: 2, categoryName: "餐饮", frequency: "MONTHLY", scheduleValue: 26, scheduledTime: "09:00", startDate: "2026-10-21", endDate: null, enabled: true, version: 1 }]} />);
+    expect((screen.getByRole("button", { name: "生成本月待确认项" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择模板：网费" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成本月待确认项" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/recurring-occurrences/prepare", expect.objectContaining({ body: expect.stringContaining('"to":"2026-10-31"') })));
+    expect(JSON.parse(vi.mocked(request).mock.calls[1][1]!.body as string).templateIds).toEqual([9]);
+    expect(await screen.findByRole("status")).toHaveProperty("textContent", expect.stringContaining("新增 1 项"));
+    expect(request).not.toHaveBeenCalledWith(expect.stringMatching(/\/confirm$/), expect.anything());
+  });
+
+  it("generates only selected templates, explains existing/no-date outcomes, and preserves selection on retry", async () => {
+    const template = { id: 9, type: "EXPENSE" as const, name: "网费", amountCents: "9900", accountId: 1, accountName: "主账户", categoryId: 2, categoryName: "餐饮", frequency: "MONTHLY" as const, scheduleValue: 26, scheduledTime: "09:00", startDate: "2026-10-01", endDate: null, enabled: true, version: 1 };
+    const request = vi.fn().mockResolvedValueOnce({ created: 0, existing: 1 }).mockResolvedValueOnce({ created: 0, existing: 0 }).mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValueOnce({ created: 1, existing: 0 });
+    const onError = vi.fn();
+    render(<Recurring request={request} date="2026-10-21" accounts={[base]} categories={[category]} templates={[template, { ...template, id: 10, name: "房租" }, { ...template, id: 11, name: "旧模板", enabled: false }]} occurrences={[]} onChanged={vi.fn(async () => undefined)} onError={onError} />);
+    expect((screen.getByRole("checkbox", { name: "选择模板：旧模板" }) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择模板：网费" }));
+    const generate = screen.getByRole("button", { name: "生成本月待确认项" });
+    fireEvent.click(generate);
+    expect(await screen.findByRole("status")).toHaveProperty("textContent", expect.stringContaining("已有 1 项未重复生成"));
+    expect(JSON.parse(request.mock.calls[0][1].body).templateIds).toEqual([9]);
+    await waitFor(() => expect((generate as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(generate);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("本月没有匹配的发生日期"));
+    await waitFor(() => expect((generate as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(generate);
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("temporary failure", "周期发生项没有准备"));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect((screen.getByRole("checkbox", { name: "选择模板：网费" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(generate);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("新增 1 项"));
+    expect(request.mock.calls.every(([path]) => path === "/api/finance/recurring-occurrences/prepare")).toBe(true);
+  });
+
+  it("queries the whole selected month including entries after the selected date", async () => {
+    const api = request();
+    render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={["/finance?tab=recurring"]}><FinancePage request={api} userId={1} date="2026-02-10" timezone="Asia/Shanghai" onError={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/api/finance/recurring-occurrences?from=2026-02-01&to=2026-02-28"));
+  });
   it("renders the budget tab with category spend and remaining amount", async () => { renderPage("/finance?date=2026-09-21&tab=budgets"); expect(await screen.findByText("2026-09 预算")).toBeTruthy(); expect(await screen.findByText(/已用 ¥12.00/)).toBeTruthy(); expect(screen.getByText(/剩余 ¥38.00/)).toBeTruthy(); });
-  it("keeps recurring actions explicit and pending occurrences non-posting", async () => { renderPage("/finance?date=2026-09-21&tab=recurring"); expect(await screen.findByText("周期收支")).toBeTruthy(); expect(screen.getByRole("button", { name: "准备本月发生项" })).toBeTruthy(); expect(screen.getByText(/不会自动影响余额/)).toBeTruthy(); expect(screen.queryByText("Explicit preparation and confirmation")).toBeNull(); });
+  it("keeps recurring actions explicit and pending occurrences non-posting", async () => { renderPage("/finance?date=2026-09-21&tab=recurring"); expect(await screen.findByText("周期收支")).toBeTruthy(); expect(screen.getByRole("button", { name: "生成本月待确认项" })).toBeTruthy(); expect(screen.getByText(/不会自动影响余额/)).toBeTruthy(); expect(screen.queryByText("Explicit preparation and confirmation")).toBeNull(); });
   it("creates a recurring template with a local occurrence time", async () => {
     const request = vi.fn(async () => ({ id: 3, version: 1 })) as Request;
     render(<Recurring request={request} date="2026-10-21" accounts={[base]} categories={[category]} templates={[]} occurrences={[]} onChanged={vi.fn(async () => undefined)} onError={vi.fn()} />);

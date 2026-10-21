@@ -657,11 +657,23 @@ select {
 
   .today-grid {
     @apply grid min-w-0 items-start gap-2.5 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)];
-    grid-template-areas: "current" "reminders" "status" "quests" "timeline";
+    grid-template-areas: "context" "quests" "timeline";
   }
 
-  .today-current { @apply min-w-0 self-stretch; grid-area: current; }
-  .today-reminders { @apply grid min-w-0 gap-2 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; grid-area: reminders; }
+  .today-context-row { @apply grid min-w-0 items-start gap-2.5; grid-area: context; grid-template-areas: "current" "countdown" "status"; }
+  .today-current { @apply min-w-0; grid-area: current; }
+  .today-countdown { @apply grid min-w-0 content-start gap-2 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; grid-area: countdown; }
+  .today-countdown > header { @apply flex items-center gap-2 text-xs font-bold; }
+  .today-countdown > p { @apply text-xs text-soft; }
+  .today-countdown .today-reminder-list { max-height: 180px; overflow-y: auto; }
+  .reminder-bell { @apply relative shrink-0; }
+  .reminder-bell > button { @apply relative; }
+  .reminder-badge { position: absolute; top: 1px; right: 1px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #be4566; color: white; font-size: 9px; font-weight: 700; }
+  .reminder-popover { @apply absolute right-0 top-full z-30 mt-2 grid gap-3 rounded-card border border-mint-100 bg-white p-4 shadow-glass; width: min(390px, calc(100vw - 24px)); max-height: min(65dvh, 480px); overflow-y: auto; animation: soft-enter 180ms ease-out both; }
+  .reminder-popover > header { @apply flex items-center justify-between gap-3; }
+  .reminder-popover h2 { @apply text-sm font-bold; }
+  .reminder-popover > p, .reminder-popover > header small { @apply text-xs text-soft; }
+  .reminder-popover > p button { @apply font-semibold text-mint-700 underline; }
   .today-reminder-list { @apply grid gap-1.5; }
   .today-reminder-row { @apply flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-card border border-white/70 bg-white/60 px-3 py-2 text-left; }
   .today-reminder-row > span { @apply grid min-w-0; }
@@ -669,7 +681,7 @@ select {
   .today-reminder-row small { @apply truncate text-[10px] text-soft; }
   .today-reminder-countdown { @apply shrink-0 text-right text-xs font-bold text-pink-600; }
   .today-quests { @apply grid min-w-0 content-start gap-2.5; grid-area: quests; grid-template-columns: minmax(0,1fr); }
-  .today-status-surface { @apply grid min-w-0 self-stretch gap-2.5; grid-area: status; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); }
+  .today-status-surface { @apply grid min-w-0 items-start gap-2.5; grid-area: status; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); }
   .today-status-block { @apply min-w-0 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; }
   .water-utility { @apply min-w-0; }
   .water-utility > div:first-child { @apply mb-1; }
@@ -856,6 +868,9 @@ select {
   .current-focus-copy > span { @apply mt-1 block text-[11px] text-soft; }
   .current-focus-time { @apply font-mono text-xl font-bold text-mint-700; }
   .current-focus-actions { @apply flex flex-wrap justify-end gap-2; }
+  .today-current .current-focus { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .today-current .current-focus-copy { min-width: 0; }
+  .today-current .current-focus-actions { grid-column: 1 / -1; justify-content: flex-start; }
 
   .panel-header {
     @apply mb-3 flex min-h-8 items-center justify-between gap-2;
@@ -1341,8 +1356,19 @@ select {
   }
 }
 
+@keyframes success-arrive { from { opacity: 0; transform: translate(-50%, -16px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes success-lifetime { to { transform: scaleX(0); } }
+@keyframes reward-arrive { from { opacity: 0; transform: translateY(14px) scale(.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes reward-bounce { 0% { transform: scale(.6); } 55% { transform: scale(1.12); } 78% { transform: scale(.96); } 100% { transform: scale(1); } }
+
+@media (max-width: 767px) {
+  .reminder-popover { position: fixed; top: 116px; left: 12px; right: 12px; margin-top: 0; width: auto; }
+}
+
 @media (min-width: 1024px) {
-  .today-grid { grid-template-areas: "current status" "reminders status" "quests timeline"; }
+  .today-grid { grid-template-areas: "context context" "quests timeline"; }
+  .today-context-row { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.85fr); grid-template-areas: "current countdown status"; }
+  .today-status-surface { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }
 }
 
 @media (max-width: 600px) {
@@ -1523,11 +1549,26 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .finance-chart-track .chart-expense { background: #de7893; }
   .finance-chart-track .chart-neutral { background: #7384bf; }
   .finance-chart-bar > small { @apply text-[9px] text-soft; }
-  .app-success-toast { @apply fixed left-1/2 top-4 z-[90] inline-flex -translate-x-1/2 items-center gap-2 rounded-card border border-mint-100 bg-white px-4 py-2 text-xs font-semibold text-mint-700 shadow-glass; }
+  .app-success-toast { @apply fixed left-1/2 z-[90] inline-flex items-center gap-3 overflow-hidden rounded-card border border-mint-100 bg-white px-5 py-3 text-sm text-ink; top: calc(env(safe-area-inset-top, 0px) + 16px); min-width: 220px; max-width: calc(100vw - 24px); transform: translateX(-50%); box-shadow: 0 8px 32px rgba(32, 108, 94, .2); animation: success-arrive 320ms ease-out both; }
+  .app-success-check { @apply grid h-8 w-8 shrink-0 place-items-center rounded-full bg-mint-100 text-mint-700; animation: reward-bounce 500ms ease-out both; }
+  .app-success-lifetime { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background: #35a993; transform-origin: left; animation: success-lifetime 4s linear forwards; }
+  .finance-step-title { @apply flex items-center gap-2 text-sm font-bold; }
+  .finance-step-title > span { @apply grid h-6 w-6 shrink-0 place-items-center rounded-full bg-mint-100 text-xs text-mint-700; }
+  .finance-prepare-step { @apply grid gap-3 border-y border-mint-100 py-4; }
+  .finance-template-choice { @apply flex min-w-0 flex-1 cursor-pointer items-center gap-3; }
+  .finance-template-choice input, .finance-template-select-all input { @apply h-4 w-4 shrink-0 accent-mint-700; }
+  .finance-template-choice strong { @apply break-words; }
+  .finance-template-select-all { @apply flex items-center gap-3 text-xs; }
+  .finance-prepare-actions { @apply flex flex-wrap items-center justify-end gap-3; }
+  .finance-prepare-actions > span { @apply text-xs text-soft; }
+  .finance-prepare-result { @apply rounded-card border border-mint-100 bg-mint-50 px-3 py-2 text-xs leading-5 text-mint-700; }
+  .finance-prepare-step p { @apply text-xs leading-5 text-soft; }
   @media (max-width: 640px) {
     .finance-form-grid { @apply grid-cols-1; }
     .finance-budget-list article, .finance-occurrence-list article { @apply items-start; }
     .finance-occurrence-list article > div:last-child { @apply flex-wrap justify-end; }
+    .finance-recurring-template { @apply flex-wrap py-2; }
+    .finance-recurring-template-actions { @apply ml-auto; }
     .finance-report-summary { @apply grid-cols-1; }
     .finance-tabs button { @apply px-3; }
   }
@@ -2408,6 +2449,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 
   .feedback-modal-reward {
     @apply border-amber-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(255,245,250,0.9)_48%,rgba(232,255,245,0.92))];
+    animation: reward-arrive 360ms ease-out both;
   }
 
   .feedback-icon {
@@ -2416,11 +2458,14 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 
   .feedback-modal-reward .feedback-icon {
     @apply bg-amber-100 text-amber-600;
+    animation: reward-bounce 650ms ease-out both;
   }
 
   .reward-pop-card {
     @apply flex h-20 flex-col items-center justify-center gap-1 rounded-card border border-white/80 bg-white/70 text-sm font-bold text-ink;
+    animation: reward-arrive 450ms 120ms ease-out both;
   }
+  .reward-pop-card + .reward-pop-card { animation-delay: 220ms; }
 
   .reward-pop-card svg {
     @apply text-amber-500;
@@ -2854,7 +2899,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .hero-hud-copy strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .hero-hud-copy small { color: #566179; font-size: 9px; }
 .hero-hud-xp { height: 4px; overflow: hidden; border-radius: 3px; background: #ECFCF9; }
-.hero-hud-xp i { display: block; height: 100%; border-radius: inherit; background: #78D9D0; }
+.hero-hud-xp i { display: block; height: 100%; border-radius: inherit; background: #78D9D0; transition: width 650ms ease-out; }
 .hero-daily-status { display: grid; min-width: 0; gap: 5px; border-left: 1px solid #DDE3ED; margin-left: 10px; padding-left: 10px; }
 .hero-daily-status-head { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .hero-daily-status-head > span { display: inline-flex; align-items: center; gap: 4px; color: #566179; font-size: 10px; font-weight: 700; white-space: nowrap; }

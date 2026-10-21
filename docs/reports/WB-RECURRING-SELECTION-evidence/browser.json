@@ -1,0 +1,71 @@
+{
+  "pass": true,
+  "kind": "real public Web/API + isolated MySQL",
+  "desktop": {
+    "width": 1440,
+    "height": 900,
+    "scrollWidth": 1429
+  },
+  "mobile": {
+    "width": 375,
+    "height": 812,
+    "scrollWidth": 375
+  },
+  "selectedTemplateId": 1,
+  "initiallyUnselectedTemplateId": 2,
+  "futureTemplateId": 3,
+  "occurrences": [
+    {
+      "id": 1,
+      "templateId": 1,
+      "scheduledDate": "2026-10-26",
+      "scheduledTime": "09:45",
+      "recordTimezone": "Asia/Shanghai",
+      "status": "POSTED",
+      "amountCentsSnapshot": "2000",
+      "accountIdSnapshot": 1,
+      "categoryIdSnapshot": 1,
+      "postedTransactionId": 2,
+      "version": 2,
+      "templateName": "验收房租",
+      "type": "EXPENSE",
+      "accountName": "周期流程验收账户",
+      "categoryName": "餐饮"
+    },
+    {
+      "id": 4,
+      "templateId": 2,
+      "scheduledDate": "2026-10-26",
+      "scheduledTime": "09:45",
+      "recordTimezone": "Asia/Shanghai",
+      "status": "PENDING",
+      "amountCentsSnapshot": "2000",
+      "accountIdSnapshot": 1,
+      "categoryIdSnapshot": 1,
+      "postedTransactionId": null,
+      "version": 1,
+      "templateName": "验收宽带",
+      "type": "EXPENSE",
+      "accountName": "周期流程验收账户",
+      "categoryName": "餐饮"
+    }
+  ],
+  "finalBalanceCents": "98000",
+  "postedExpenses": 1,
+  "confirmBounds": {
+    "top": 608.21875,
+    "bottom": 652.21875,
+    "left": 29.625,
+    "right": 184.25
+  },
+  "assertions": [
+    "explicit selection required",
+    "unselected template excluded",
+    "generation does not post",
+    "repeat generation does not duplicate",
+    "confirm posts exactly once",
+    "posted occurrence never returns to pending",
+    "no matching date has visible feedback",
+    "mobile confirm avoids bottom navigation"
+  ]
+}

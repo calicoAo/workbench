@@ -2232,7 +2232,29 @@ paths:
   /finance/recurring-occurrences:
     get: { summary: List prepared recurring occurrences with snapshotted local time without writing on GET }
   /finance/recurring-occurrences/prepare:
-    post: { summary: Explicitly prepare idempotent pending occurrences for a date range }
+    post:
+      summary: Explicitly prepare pending occurrences for selected enabled templates; no ledger posting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId, from, to]
+              properties:
+                operationId: { type: string, format: uuid }
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+                templateIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { type: integer, minimum: 1 }
+                  description: Same-user enabled template IDs. Omission preserves legacy preparation of all enabled templates; Wallet always sends explicit selections.
+      responses:
+        "200":
+          description: Mutation receipt with data.created and data.existing counts. Both zero means no matching scheduled dates. Existing posted or skipped occurrences are never reset.
+        "409": { description: Selected template missing, disabled or owned by another user; or operationId fingerprint conflict }
   /finance/recurring-occurrences/{id}/confirm:
     post:
       summary: Atomically post one pending occurrence through Finance transaction semantics; defaults to its snapshotted time and grants one finance-entry reward

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import type { Request } from "../../app/api";
 import { Button, IconButton } from "../../shared/ui";
-import { decimalToCents, yuan, type FinanceAccount, type FinanceCategory, type FinanceRecurringOccurrence, type FinanceRecurringTemplate } from "./model";
+import { decimalToCents, financeMonthRange, yuan, type FinanceAccount, type FinanceCategory, type FinanceRecurringOccurrence, type FinanceRecurringTemplate } from "./model";
 import { financeErrorMessage } from "./error";
 import { tx } from "../../app/i18n";
 import { Pencil, X } from "lucide-react";
@@ -50,6 +50,11 @@ export function Recurring({ request, date, accounts, categories, templates, occu
   const [draft, setDraft] = useState(() => emptyDraft(date));
   const [editing, setEditing] = useState<FinanceRecurringTemplate | null>(null);
   const [pending, setPending] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [preparation, setPreparation] = useState<{ created: number; existing: number } | null>(null);
+  const enabledTemplates = templates.filter((item) => item.enabled);
+  const selected = enabledTemplates.filter((item) => selectedIds.includes(item.id)).map((item) => item.id);
   async function save(event: FormEvent) {
     event.preventDefault();
     setPending(true);
@@ -86,17 +91,24 @@ export function Recurring({ request, date, accounts, categories, templates, occu
   async function toggleEnabled(item: FinanceRecurringTemplate) {
     try {
       await request(`/api/finance/recurring-templates/${item.id}`, { method: "PUT", body: JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: item.version, enabled: !item.enabled }) });
+      setSelectedIds((ids) => ids.filter((id) => id !== item.id));
       await onChanged();
     } catch (error) {
       onError(financeErrorMessage(error), tx("周期模板没有更新"));
     }
   }
   async function prepare() {
+    if (preparing || selected.length === 0) return;
+    setPreparing(true);
+    setPreparation(null);
     try {
-      await request("/api/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), from: `${date.slice(0, 7)}-01`, to: date }) });
+      const result = await request<{ created: number; existing: number }>("/api/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), ...financeMonthRange(date), templateIds: selected }) });
+      setPreparation(result);
       await onChanged();
     } catch (error) {
       onError(financeErrorMessage(error), tx("周期发生项没有准备"));
+    } finally {
+      setPreparing(false);
     }
   }
   async function act(item: FinanceRecurringOccurrence, action: "confirm" | "skip") {
@@ -114,8 +126,8 @@ export function Recurring({ request, date, accounts, categories, templates, occu
   return <section className="finance-panel finance-recurring-page">
     <header>
       <div><p className="route-eyebrow">{tx("周期计划")}</p><h2>{tx("周期收支")}</h2><p className="finance-recurring-note">{tx("确认入账后会影响真实余额；跳过不会入账。")}</p></div>
-      <Button aria-label={tx("准备本月发生项")} onClick={() => void prepare()}><span className="finance-prepare-label-full">{tx("准备本月发生项")}</span><span className="finance-prepare-label-mobile">{tx("准备本月")}</span></Button>
     </header>
+    <h3 className="finance-step-title"><span>1</span>{tx("周期模板")}</h3>
     <form className="finance-form-grid finance-recurring-form" onSubmit={save}>
       <input aria-label={tx("模板名称")} className="field" required placeholder={tx("模板名称")} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
       <input aria-label={tx("金额")} className="field" required inputMode="decimal" placeholder={tx("金额")} value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} />
@@ -129,10 +141,22 @@ export function Recurring({ request, date, accounts, categories, templates, occu
       <label>{tx("结束日期")}<input aria-label={tx("结束日期")} className="field" type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label>
       <div className="finance-recurring-form-actions"><Button loading={pending} type="submit">{editing ? tx("保存模板") : tx("创建模板")}</Button>{editing ? <Button type="button" onClick={() => { setEditing(null); setDraft(emptyDraft(date)); }}><X size={14} />{tx("取消")}</Button> : null}</div>
     </form>
-    <h3 className="finance-subheading">{tx("待确认发生项")}</h3>
+    <section className="finance-prepare-step" aria-label={tx("选择模板并生成")}>
+      <h3 className="finance-step-title"><span>2</span>{tx("选择模板并生成")}</h3>
+      <p>{tx("勾选要生成的模板，再生成 {value0} 待确认项；此操作不会入账。", { value0: date.slice(0, 7) })}</p>
+      {enabledTemplates.length > 0 ? <label className="finance-template-select-all"><input type="checkbox" disabled={preparing} checked={selected.length === enabledTemplates.length} onChange={(event) => setSelectedIds(event.target.checked ? enabledTemplates.map((item) => item.id) : [])} />{tx("全选启用模板")}</label> : null}
+      {templates.map((item) => <div className="finance-recurring-template" key={item.id}>
+        <label className="finance-template-choice"><input type="checkbox" aria-label={tx("选择模板：{value0}", { value0: item.name })} disabled={!item.enabled || preparing} checked={selected.includes(item.id)} onChange={(event) => setSelectedIds((ids) => event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} /><span><strong>{item.name}</strong><small>{item.type === "INCOME" ? tx("收入") : tx("支出")} · {recurrenceLabel(item)} · {item.scheduledTime} · {item.accountName}{item.enabled ? null : <> · {tx("已停用")}</>}</small></span></label>
+        <b>{yuan(item.amountCents)}</b><div className="finance-recurring-template-actions"><IconButton disabled={preparing} label={tx("编辑模板")} onClick={() => edit(item)}><Pencil size={15} /></IconButton><Button disabled={preparing} onClick={() => void toggleEnabled(item)}>{item.enabled ? tx("停用模板") : tx("启用模板")}</Button></div>
+      </div>)}
+      {templates.length === 0 ? <p>{tx("先创建周期模板，再选择要生成的项目。")}</p> : null}
+      <div className="finance-prepare-actions"><span>{tx("已选择 {value0} 个模板", { value0: selected.length })}</span><Button disabled={selected.length === 0} loading={preparing} onClick={() => void prepare()}>{tx("生成本月待确认项")}</Button></div>
+    </section>
+    <h3 className="finance-step-title"><span>3</span>{tx("待确认发生项")}</h3>
+    {preparation ? <p className="finance-prepare-result" role="status">{preparation.created + preparation.existing === 0
+      ? tx("所选模板本月没有匹配的发生日期，请检查发生日和起止日期。")
+      : tx("新增 {value0} 项，已有 {value1} 项未重复生成。请在下方待确认项中确认入账；已入账或跳过的项目不会再次出现。", { value0: preparation.created, value1: preparation.existing })}</p> : null}
     <div className="finance-occurrence-list">{occurrences.filter((item) => item.status === "PENDING").map((item) => <article key={item.id}><div><strong>{item.templateName}</strong><small>{tx("预计入账 · 未入账 ·")} {item.scheduledDate} {item.scheduledTime} · {item.categoryName} · {yuan(item.amountCentsSnapshot)}</small></div><div><Button onClick={() => void act(item, "confirm")}>{tx("确认入账")}</Button><Button onClick={() => void act(item, "skip")}>{tx("跳过")}</Button></div></article>)}</div>
     {occurrences.filter((item) => item.status === "PENDING").length === 0 ? <p className="finance-empty">{tx("没有待确认发生项。准备后才会出现，不会自动影响余额。")}</p> : null}
-    <h3 className="finance-subheading">{tx("模板")}</h3>
-    {templates.map((item) => <div className="finance-recurring-template" key={item.id}><span><strong>{item.name}</strong><small>{item.type === "INCOME" ? tx("收入") : tx("支出")} · {recurrenceLabel(item)} · {item.scheduledTime} · {item.accountName}{item.enabled ? null : <> · {tx("已停用")}</>}</small></span><b>{yuan(item.amountCents)}</b><div className="finance-recurring-template-actions"><IconButton label={tx("编辑模板")} onClick={() => edit(item)}><Pencil size={15} /></IconButton><Button onClick={() => void toggleEnabled(item)}>{item.enabled ? tx("停用模板") : tx("启用模板")}</Button></div></div>)}
   </section>;
 }

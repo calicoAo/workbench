@@ -52,6 +52,11 @@ export function decimalToCents(value: string) {
   return `${negative ? "-" : ""}${BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"))}`;
 }
 
+export function financeMonthRange(date: string) {
+  const [year, month] = date.split("-").map(Number);
+  return { from: `${date.slice(0, 7)}-01`, to: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10) };
+}
+
 export function accountBalanceLabel(account: Pick<FinanceAccount, "type" | "balanceCents">, hidden = false) {
   if (account.type !== "CREDIT") return yuan(account.balanceCents, hidden);
   const balance = BigInt(account.balanceCents);

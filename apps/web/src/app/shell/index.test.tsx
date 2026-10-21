@@ -60,6 +60,35 @@ function renderHistoryShell(request = requestFor()) {
 }
 
 describe("R1C router and AppShell", () => {
+  it("places reminders in the header, keeps countdown separate, and localizes the quick action", async () => {
+    renderShell("/today?date=2026-09-19");
+    await screen.findByRole("heading", { name: "小时记录" });
+    expect(screen.getByRole("button", { name: "主页提醒" }).closest(".app-topbar")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "截止倒数" }).closest(".today-grid")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "打开快捷操作" }).textContent).toContain("快捷操作");
+    expect(screen.queryByText("Quick Action")).toBeNull();
+  });
+
+  it("refreshes canonical Hero EXP immediately after a successful Wallet expense", async () => {
+    let posted = false;
+    const base = requestFor();
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/api/finance/expenses") { posted = true; return { reward: { xp: 5, coins: 2, reason: "财务记录" } }; }
+      if (path.startsWith("/api/hero?date=")) { const hero = await base(path, init) as { progress: { xpInLevel: number } }; return { ...hero, progress: { ...hero.progress, xpInLevel: posted ? 35 : 30 } }; }
+      if (path.startsWith("/api/finance/overview")) return { currency: "CNY", month: "2026-09", recordTimezone: "Asia/Shanghai", totalAssetsCents: "10000", totalLiabilitiesCents: "0", netWorthCents: "10000", monthlyIncomeCents: "0", monthlyExpenseCents: "0", accountCount: 1, accounts: [], recentTransactions: [] };
+      if (path.startsWith("/api/finance/accounts")) return [{ id: 1, name: "Bank", type: "BANK", currency: "CNY", includeInOverview: true, openingDate: "2026-09-01", archivedAt: null, version: 1, balanceCents: "10000" }];
+      if (path.startsWith("/api/finance/categories")) return [{ id: 2, kind: "EXPENSE", name: "Food", sortOrder: 1, enabled: true, version: 1 }];
+      return base(path, init);
+    }) as Request;
+    renderShell("/finance?date=2026-09-19", request);
+    expect(await screen.findByText(/30\/200 EXP/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "记支出" }));
+    fireEvent.change(await screen.findByLabelText("金额"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存支出" }));
+    expect(await screen.findByText(/35\/200 EXP/)).toBeTruthy();
+    expect(feedback.recordReward).toHaveBeenCalledWith("财务记录", { xp: 5, coins: 2, reason: "财务记录" });
+  });
+
   it("keeps a historical writing deep link in reading mode and accepts only an explicit edit intent", async () => {
     const base = requestFor(null, [{ slotKey: "JOURNAL", enabled: true, sortOrder: 0 }]);
     const request = vi.fn(async (path: string, init?: RequestInit) => path.startsWith("/api/dashboard?date=") ? { ...dashboard(path.split("=")[1]), journalRecord: { id: 8, journalDate: "2026-09-17", content: "# Historical journal", moodScore: 3 } } : base(path, init)) as unknown as Request;
@@ -382,10 +411,13 @@ describe("R1C router and AppShell", () => {
     expect(screen.getByRole("button", { name: "收起侧栏" })).toBeTruthy();
   });
 
-  it("places Water and Sleep in separate horizontal status blocks above the hourly record", async () => {
+  it("composes Focus, Countdown, Water and Sleep in one desktop context row above the hourly record", async () => {
     renderShell("/today?date=2026-09-19");
     await screen.findByRole("heading", { name: "小时记录" });
-    const lifestyle = document.querySelector(".today-status-surface");
+    const context = document.querySelector(".today-context-row");
+    expect(context?.querySelector(".today-current")).toBeTruthy();
+    expect(context?.querySelector(".today-countdown")).toBeTruthy();
+    const lifestyle = context?.querySelector(".today-status-surface");
     const timeline = document.querySelector(".today-timeline");
     expect(lifestyle?.querySelectorAll(":scope > .today-status-block")).toHaveLength(2);
     expect(lifestyle?.querySelector(".today-water-block h2")?.textContent).toBe("喝水");
