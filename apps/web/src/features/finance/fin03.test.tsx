@@ -39,5 +39,13 @@ describe("FIN-03 Finance surfaces", () => {
     fireEvent.click(screen.getByRole("button", { name: "停用模板" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/recurring-templates/9", expect.objectContaining({ method: "PUT", body: expect.stringContaining('"enabled":false') })));
   });
+  it("shows and refreshes growth after a recurring occurrence is confirmed", async () => {
+    const occurrence = { id: 8, templateId: 9, scheduledDate: "2026-10-21", scheduledTime: "09:00", recordTimezone: "Asia/Shanghai", status: "PENDING" as const, amountCentsSnapshot: "9900", accountIdSnapshot: 1, categoryIdSnapshot: 2, postedTransactionId: null, version: 1, templateName: "网费", type: "EXPENSE" as const, accountName: "主账户", categoryName: "餐饮" };
+    const request = vi.fn(async () => ({ reward: { xp: 5, coins: 2, reason: "财务记录" } })) as Request; const onReward = vi.fn(); const onGrowthChanged = vi.fn(async () => undefined);
+    render(<Recurring request={request} date="2026-10-21" accounts={[base]} categories={[category]} templates={[]} occurrences={[occurrence]} onChanged={vi.fn(async () => undefined)} onReward={onReward} onGrowthChanged={onGrowthChanged} onError={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "确认入账" }));
+    await waitFor(() => expect(onReward).toHaveBeenCalledWith("财务记录", { xp: 5, coins: 2, reason: "财务记录" }));
+    expect(onGrowthChanged).toHaveBeenCalledTimes(1);
+  });
   it("renders deterministic monthly reconciliation with accessible cashflow and category charts", async () => { renderPage("/finance?date=2026-09-21&tab=reports"); expect(await screen.findByText("2026-09 报表")).toBeTruthy(); expect(screen.getByText("已核对")).toBeTruthy(); expect(screen.getByText("净现金流")).toBeTruthy(); expect(screen.getByRole("heading", { name: "月度收支对比" })).toBeTruthy(); expect(screen.getByRole("heading", { name: "分类支出占比" })).toBeTruthy(); expect(screen.getAllByRole("img")).toHaveLength(2); expect(screen.queryByText("Deterministic read model")).toBeNull(); });
 });

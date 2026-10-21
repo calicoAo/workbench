@@ -48,6 +48,8 @@ export function FinancePage({
   timezone,
   initialAction,
   onError,
+  onReward,
+  onGrowthChanged,
 }: {
   request: Request;
   userId: number;
@@ -55,6 +57,8 @@ export function FinancePage({
   timezone: string;
   initialAction?: "income" | "expense" | "transfer";
   onError: (message: string, title?: string) => void;
+  onReward?: (label: string, reward: { xp: number; coins: number; reason: string } | null) => void;
+  onGrowthChanged?: () => Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -250,7 +254,7 @@ export function FinancePage({
       {tab === "maintenance" ? <section aria-label={tx("数据维护")}>
         <h2>{tx("数据维护")}</h2>
         <p className="settings-note">{tx("财务导出包含敏感数据，只在你主动确认后生成。")}</p>
-        <FinanceDataMaintenance key={userId} request={request} timezone={timezone} onChanged={refresh} onError={onError} />
+        <FinanceDataMaintenance key={userId} request={request} timezone={timezone} onChanged={refresh} onReward={onReward} onGrowthChanged={onGrowthChanged} onError={onError} />
       </section> : null}
       {tab === "overview" && overview.data ? (
         <Overview
@@ -304,6 +308,8 @@ export function FinancePage({
           templates={templates.data ?? []}
           occurrences={occurrences.data ?? []}
           onChanged={refresh}
+          onReward={onReward}
+          onGrowthChanged={onGrowthChanged}
           onError={onError}
         />
       ) : null}
@@ -330,6 +336,8 @@ export function FinancePage({
           categories={categories.data ?? []}
           onClose={() => setRecordKind(null)}
           onSaved={refresh}
+          onReward={onReward}
+          onGrowthChanged={onGrowthChanged}
           onError={onError}
         />
       ) : null}

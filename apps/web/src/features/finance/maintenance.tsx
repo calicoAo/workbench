@@ -16,7 +16,7 @@ const financeImportStatuses = {
   FAILED: { label: "导入失败", tone: "danger" },
 } as const;
 
-export function FinanceDataMaintenance({ request, timezone, onChanged, onError }: { request: Request; timezone: string; onChanged: () => Promise<void>; onError: (message: string, title?: string) => void }) {
+export function FinanceDataMaintenance({ request, timezone, onChanged, onReward, onGrowthChanged, onError }: { request: Request; timezone: string; onChanged: () => Promise<void>; onReward?: (label: string, reward: { xp: number; coins: number; reason: string } | null) => void; onGrowthChanged?: () => Promise<void>; onError: (message: string, title?: string) => void }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const [pending, setPending] = useState(false);
@@ -101,6 +101,10 @@ export function FinanceDataMaintenance({ request, timezone, onChanged, onError }
         }),
       });
       if (!active.current) return;
+      if (result.reward) {
+        onReward?.("财务记录", result.reward);
+        await onGrowthChanged?.();
+      }
       setImportPreview({ ...importPreview, result });
       await onChanged();
     } catch (error) {

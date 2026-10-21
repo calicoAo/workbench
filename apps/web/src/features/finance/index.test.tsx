@@ -29,7 +29,7 @@ function requestFor(options: { accounts?: FinanceAccount[]; categories?: Finance
     throw new Error(`unexpected ${path}`);
   }) as Request;
 }
-function renderPage(request: Request, entry = "/finance?date=2026-09-21", initialAction?: "income" | "expense" | "transfer", onError = vi.fn()) { return render(<QueryClientProvider client={client()}><MemoryRouter initialEntries={[entry]}><FinancePage request={request} userId={7} date="2026-09-21" timezone="Asia/Shanghai" initialAction={initialAction} onError={onError} /></MemoryRouter></QueryClientProvider>); }
+function renderPage(request: Request, entry = "/finance?date=2026-09-21", initialAction?: "income" | "expense" | "transfer", onError = vi.fn(), onReward = vi.fn(), onGrowthChanged = vi.fn(async () => undefined)) { return render(<QueryClientProvider client={client()}><MemoryRouter initialEntries={[entry]}><FinancePage request={request} userId={7} date="2026-09-21" timezone="Asia/Shanghai" initialAction={initialAction} onError={onError} onReward={onReward} onGrowthChanged={onGrowthChanged} /></MemoryRouter></QueryClientProvider>); }
 
 describe("FIN-01 Finance", () => {
   it.each([
@@ -172,9 +172,10 @@ describe("FIN-01 Finance", () => {
   });
 
   it("adds an expense and refreshes account and monthly summaries", async () => {
-    let posted = false; const request = requestFor({ overview: () => overview(posted ? { monthlyExpenseCents: "3000", totalAssetsCents: "97000", netWorthCents: "97000" } : {}), mutate: (path) => { if (path === "/api/finance/expenses") posted = true; return { transactionId: 31 }; } });
-    renderPage(request); fireEvent.click(await screen.findByRole("button", { name: "记支出" })); fireEvent.change(screen.getByLabelText("金额"), { target: { value: "30.00" } }); fireEvent.click(screen.getByRole("button", { name: "保存支出" }));
+    let posted = false; const onReward = vi.fn(); const onGrowthChanged = vi.fn(async () => undefined); const request = requestFor({ overview: () => overview(posted ? { monthlyExpenseCents: "3000", totalAssetsCents: "97000", netWorthCents: "97000" } : {}), mutate: (path) => { if (path === "/api/finance/expenses") posted = true; return { transactionId: 31, reward: { xp: 5, coins: 2, reason: "财务记录" } }; } });
+    renderPage(request, "/finance?date=2026-09-21", undefined, vi.fn(), onReward, onGrowthChanged); fireEvent.click(await screen.findByRole("button", { name: "记支出" })); fireEvent.change(await screen.findByLabelText("金额"), { target: { value: "30.00" } }); fireEvent.click(screen.getByRole("button", { name: "保存支出" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/expenses", expect.objectContaining({ body: expect.stringContaining('"amountCents":"3000"') }))); await screen.findByText("¥30.00");
+    expect(onReward).toHaveBeenCalledWith("财务记录", { xp: 5, coins: 2, reason: "财务记录" }); expect(onGrowthChanged).toHaveBeenCalledTimes(1);
   });
 
   it("adds income through the matching Finance command", async () => {

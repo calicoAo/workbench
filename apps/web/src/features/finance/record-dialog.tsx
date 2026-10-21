@@ -19,6 +19,8 @@ export function RecordDialog({
   categories,
   onClose,
   onSaved,
+  onReward,
+  onGrowthChanged,
   onError,
 }: {
   kind: FinanceCategoryKind;
@@ -28,6 +30,8 @@ export function RecordDialog({
   categories: FinanceCategory[];
   onClose: () => void;
   onSaved: () => Promise<void>;
+  onReward?: (label: string, reward: { xp: number; coins: number; reason: string } | null) => void;
+  onGrowthChanged?: () => Promise<void>;
   onError: (message: string, title?: string) => void;
 }) {
   const availableCategories = categories.filter(
@@ -52,7 +56,7 @@ export function RecordDialog({
     try {
       const amountCents = decimalToCents(draft.amount);
       if (BigInt(amountCents) <= 0n) throw new Error(tx("金额必须大于 0"));
-      await request(
+      const result = await request<{ reward?: { xp: number; coins: number; reason: string } | null }>(
         kind === "EXPENSE" ? "/api/finance/expenses" : "/api/finance/income",
         {
           method: "POST",
@@ -67,6 +71,10 @@ export function RecordDialog({
           }),
         },
       );
+      if (result.reward) {
+        onReward?.("财务记录", result.reward);
+        await onGrowthChanged?.();
+      }
       await onSaved();
       onClose();
     } catch (error) {

@@ -30,7 +30,7 @@ before(async () => {
 });
 beforeEach(async () => {
   await pool.query("SET FOREIGN_KEY_CHECKS=0");
-  for (const table of ["finance_data_audits", "finance_import_rows", "finance_recurring_occurrences", "finance_recurring_templates", "finance_budgets", "finance_entries", "finance_transactions", "finance_import_batches", "finance_accounts", "finance_categories", "mutation_receipts"]) await pool.query(`DELETE FROM ${table}`);
+  for (const table of ["finance_data_audits", "finance_import_rows", "finance_recurring_occurrences", "finance_recurring_templates", "finance_budgets", "finance_entries", "finance_transactions", "finance_import_batches", "finance_accounts", "finance_categories", "mutation_receipts", "reward_events", "user_growth"]) await pool.query(`DELETE FROM ${table}`);
   await pool.query("DELETE FROM users WHERE id > 1"); await pool.query("SET FOREIGN_KEY_CHECKS=1"); await pool.query("UPDATE users SET deleted_at=NULL,timezone='Asia/Shanghai' WHERE id=1");
 });
 after(async () => { await pool?.end(); await admin.query(`DROP DATABASE IF EXISTS \`${fresh}\``); await admin.end(); });
@@ -47,7 +47,8 @@ test("preview is ledger-pure, validates rows, and confirm is source and operatio
   assert.deepEqual(staged.data.rows.map((row: any) => row.status), ["READY", "READY", "INVALID", "INVALID"]);
   assert.deepEqual(staged.data.rows.slice(0, 2).map((row: any) => row.date), ["2026-09-20", "2026-09-21"]);
   const operationId = op(); const first = await api<any>(`/finance/imports/${staged.data.id}/confirm`, { method: "POST", body: JSON.stringify({ operationId }) }); const replay = await api<any>(`/finance/imports/${staged.data.id}/confirm`, { method: "POST", body: JSON.stringify({ operationId }) }); const changed = await api<any>(`/finance/imports/${staged.data.id}/confirm`, { method: "POST", body: JSON.stringify({ operationId, allowPossibleDuplicates: true }) });
-  assert.equal(first.response.status, 200); assert.deepEqual(replay.data, first.data); assert.equal(changed.response.status, 409); assert.equal(await scalar("SELECT COUNT(*) value FROM finance_transactions"), 2); assert.equal(await scalar("SELECT COUNT(*) value FROM finance_entries"), 2);
+  assert.equal(first.response.status, 200); assert.deepEqual(first.data.reward, { xp: 10, coins: 4, reason: "财务记录" }); assert.deepEqual(replay.data, first.data); assert.equal(changed.response.status, 409); assert.equal(await scalar("SELECT COUNT(*) value FROM finance_transactions"), 2); assert.equal(await scalar("SELECT COUNT(*) value FROM finance_entries"), 2);
+  assert.equal(await scalar("SELECT COUNT(*) value FROM reward_events WHERE source_type='finance_entry'"), 2); assert.deepEqual([await scalar("SELECT xp_total value FROM user_growth WHERE user_id=1"), await scalar("SELECT coins value FROM user_growth WHERE user_id=1")], [10, 4]);
   assert.equal(await scalar("SELECT COUNT(*) value FROM finance_transactions WHERE source=1 AND import_batch_id IS NOT NULL AND source_row_fingerprint IS NOT NULL"), 2);
   const uploadedAgain = await preview("renamed.csv", content); assert.equal(uploadedAgain.data.id, staged.data.id); assert.equal(await scalar("SELECT COUNT(*) value FROM finance_import_batches"), 1);
   const overview = await api<{ monthlyIncomeCents: string; monthlyExpenseCents: string }>("/finance/overview?month=2026-09"); const report = await api<{ monthly: { incomeCents: string; expenseCents: string } }>("/finance/reports?month=2026-09"); assert.deepEqual([overview.data.monthlyIncomeCents, overview.data.monthlyExpenseCents, report.data.monthly.incomeCents, report.data.monthly.expenseCents], ["10000", "5000", "10000", "5000"]);

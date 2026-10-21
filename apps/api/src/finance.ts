@@ -4,6 +4,7 @@ import { financeAccounts, financeBudgets, financeCategories, financeEntries, fin
 import { FinanceAccountType, FinanceCategoryKind, FinanceTransactionSource, FinanceTransactionStatus, FinanceTransactionType } from "./enums.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 import { runMutation } from "./mutation-receipt.js";
+import { grantFinanceEntryRewardInClient } from "./rewards.js";
 import { businessDateAt, localDateTimeToUtc } from "./time.js";
 
 const accountTypeNames = ["CASH", "BANK", "PAYMENT", "CREDIT"] as const;
@@ -157,7 +158,8 @@ export async function createFinanceTransaction(input: { userId: number; operatio
     const [transactionResult] = await tx.insert(financeTransactions).values({ userId: input.userId, type, occurredAt: occurredAt(input.occurredDate, input.occurredTime, timezone), recordTimezone: timezone, businessDate: input.occurredDate, categoryId: category.id, note: input.note?.trim() || null, status: FinanceTransactionStatus.POSTED, source: FinanceTransactionSource.MANUAL, version: 1, createdAt: now, updatedAt: now });
     const signedAmount = input.type === "INCOME" ? amount : -amount;
     const [entryResult] = await tx.insert(financeEntries).values({ userId: input.userId, transactionId: transactionResult.insertId, accountId: account.id, amountCents: signedAmount, createdAt: now });
-    return { id: transactionResult.insertId, transactionId: transactionResult.insertId, entryId: entryResult.insertId, version: 1, amountCents: signedAmount.toString(), businessDate: input.occurredDate, recordTimezone: timezone };
+    const reward = await grantFinanceEntryRewardInClient(tx, input.userId, transactionResult.insertId, input.occurredDate);
+    return { id: transactionResult.insertId, transactionId: transactionResult.insertId, entryId: entryResult.insertId, version: 1, amountCents: signedAmount.toString(), businessDate: input.occurredDate, recordTimezone: timezone, reward };
   });
 }
 
@@ -191,7 +193,8 @@ export async function postImportedFinanceTransaction(client: DatabaseClient, inp
     updatedAt: now
   });
   const [entry] = await client.insert(financeEntries).values({ userId: input.userId, transactionId: transaction.insertId, accountId: account.id, amountCents: input.type === "INCOME" ? absoluteAmount : -absoluteAmount, createdAt: now });
-  return { id: transaction.insertId, transactionId: transaction.insertId, entryId: entry.insertId };
+  const reward = await grantFinanceEntryRewardInClient(client, input.userId, transaction.insertId, input.occurredDate);
+  return { id: transaction.insertId, transactionId: transaction.insertId, entryId: entry.insertId, reward };
 }
 
 type FinanceMovement = { accountId: number; amountCents: bigint };
@@ -598,7 +601,8 @@ export async function postFinanceRecurringOccurrence(input: { userId: number; op
     const signed = type === FinanceTransactionType.INCOME ? BigInt(occurrence.amountCentsSnapshot) : -BigInt(occurrence.amountCentsSnapshot);
     await insertFinanceEntries(tx, input.userId, transactionId, [{ accountId: occurrence.accountIdSnapshot, amountCents: signed }], now);
     await tx.update(financeRecurringOccurrences).set({ status: 1, postedTransactionId: transactionId, version: occurrence.version + 1, updatedAt: now }).where(eq(financeRecurringOccurrences.id, occurrence.id));
-    return { id: occurrence.id, status: "POSTED", transactionId };
+    const reward = await grantFinanceEntryRewardInClient(tx, input.userId, transactionId, occurrence.scheduledDate);
+    return { id: occurrence.id, status: "POSTED", transactionId, reward };
   });
 }
 

@@ -558,7 +558,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/CreateFinanceRecordRequest" }
       responses:
-        "200": { description: Transaction, Entry, timezone snapshot and business date }
+        "200": { description: Transaction, Entry, timezone snapshot, business date, and one 5 XP / 2 Coins finance-entry reward }
         "409": { description: Receipt identity, account state or category invariant conflict }
   /finance/expenses:
     post:
@@ -569,11 +569,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/CreateFinanceRecordRequest" }
       responses:
-        "200": { description: Transaction, Entry, timezone snapshot and business date }
+        "200": { description: Transaction, Entry, timezone snapshot, business date, and one 5 XP / 2 Coins finance-entry reward }
         "409": { description: Receipt identity, account state or category invariant conflict }
   /finance/transfers:
     post:
-      summary: Atomically transfer CNY between two active accounts, with an optional linked fee expense
+      summary: Atomically transfer CNY between two active accounts, with an optional linked fee expense; transfers do not grant Finance-entry rewards
       requestBody:
         required: true
         content:
@@ -2235,7 +2235,7 @@ paths:
     post: { summary: Explicitly prepare idempotent pending occurrences for a date range }
   /finance/recurring-occurrences/{id}/confirm:
     post:
-      summary: Atomically post one pending occurrence through Finance transaction semantics; defaults to its snapshotted time
+      summary: Atomically post one pending occurrence through Finance transaction semantics; defaults to its snapshotted time and grants one finance-entry reward
       parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
   /finance/recurring-occurrences/{id}/skip:
     post:
@@ -2263,7 +2263,7 @@ paths:
         - { in: path, name: rowId, required: true, schema: { type: integer, format: int64 } }
   /finance/imports/{id}/confirm:
     post:
-      summary: Explicitly post selected ready import rows through the Finance capability
+      summary: Explicitly post selected ready income/expense rows through the Finance capability and grant one reward per newly imported transaction; replayed/exact duplicate rows grant none
       parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
       requestBody:
         required: true

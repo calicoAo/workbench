@@ -24,11 +24,11 @@ function requestFor(mutate: (path: string, init?: RequestInit) => unknown | Prom
   }) as Request;
 }
 function History() { const nav = useNavigate(); const loc = useLocation(); return <><output>{loc.pathname + loc.search}</output><button onClick={() => nav(-1)}>back-test</button><button onClick={() => nav(1)}>forward-test</button></>; }
-function setup(request: Request, userId = 7) {
+function setup(request: Request, userId = 7, onReward = vi.fn(), onGrowthChanged = vi.fn(async () => undefined)) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const error = vi.fn();
-  const node = (id: number) => <QueryClientProvider client={client}><MemoryRouter initialEntries={["/finance?tab=maintenance&date=2026-09-21"]}><History /><FinancePage request={request} userId={id} date="2026-09-21" timezone="Asia/Tokyo" onError={error} /></MemoryRouter></QueryClientProvider>;
-  return { ...render(node(userId)), client, error, node };
+  const node = (id: number) => <QueryClientProvider client={client}><MemoryRouter initialEntries={["/finance?tab=maintenance&date=2026-09-21"]}><History /><FinancePage request={request} userId={id} date="2026-09-21" timezone="Asia/Tokyo" onError={error} onReward={onReward} onGrowthChanged={onGrowthChanged} /></MemoryRouter></QueryClientProvider>;
+  return { ...render(node(userId)), client, error, node, onReward, onGrowthChanged };
 }
 function selectCsv() { fireEvent.change(screen.getByLabelText("导入外部流水 CSV"), { target: { files: [csv] } }); }
 function selectBackup() { fireEvent.change(screen.getByLabelText("恢复 Finance JSON"), { target: { files: [json] } }); }
@@ -71,8 +71,9 @@ describe("Wallet-owned maintenance", () => {
   });
   it.each(["import", "restore"])("refreshes every existing Finance query family after successful %s", async (kind) => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    const request = requestFor((path) => path.endsWith("/preview") ? path.includes("restore") ? { valid: true, schemaVersion: 1, counts: {} } : preview : { summary: { imported: 1 } });
-    const { client } = setup(request); const invalidate = vi.spyOn(client, "invalidateQueries");
+    const onReward = vi.fn(); const onGrowthChanged = vi.fn(async () => undefined);
+    const request = requestFor((path) => path.endsWith("/preview") ? path.includes("restore") ? { valid: true, schemaVersion: 1, counts: {} } : preview : { summary: { imported: 1 }, ...(kind === "import" ? { reward: { xp: 5, coins: 2, reason: "财务记录" } } : {}) });
+    const { client } = setup(request, 7, onReward, onGrowthChanged); const invalidate = vi.spyOn(client, "invalidateQueries");
     client.setQueryData(["finance-recurring-templates", 7], []);
     client.setQueryData(["finance-recurring-occurrences", 7, "2026-09"], []);
     if (kind === "import") { selectCsv(); fireEvent.click(await screen.findByText("确认导入可用行")); }
@@ -80,7 +81,7 @@ describe("Wallet-owned maintenance", () => {
     for (const name of ["overview", "accounts", "categories", "transactions", "budgets", "recurring-templates", "recurring-occurrences", "reports"]) await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: [`finance-${name}`, 7] }));
     expect(client.getQueryState(["finance-recurring-templates", 7])?.isInvalidated).toBe(true);
     expect(client.getQueryState(["finance-recurring-occurrences", 7, "2026-09"])?.isInvalidated).toBe(true);
-    if (kind === "import") expect(request).toHaveBeenCalledWith("/api/finance/imports/1/confirm", expect.objectContaining({ body: expect.stringContaining('"allowPossibleDuplicates":true') }));
+    if (kind === "import") { expect(request).toHaveBeenCalledWith("/api/finance/imports/1/confirm", expect.objectContaining({ body: expect.stringContaining('"allowPossibleDuplicates":true') })); expect(onReward).toHaveBeenCalledWith("财务记录", { xp: 5, coins: 2, reason: "财务记录" }); expect(onGrowthChanged).toHaveBeenCalledTimes(1); }
     else expect(request).toHaveBeenCalledWith("/api/finance/maintenance/restore/confirm", expect.objectContaining({ body: expect.stringContaining(JSON.stringify(backup)) }));
   });
   it("retains import preview on failure and allows explicit retry", async () => {

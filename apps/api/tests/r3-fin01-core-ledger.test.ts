@@ -26,7 +26,7 @@ async function api<T>(path: string, init: RequestInit = {}, userId = 1) { const 
 async function initialize(userId = 1) { return api<{ categoryCount: number }>("/finance/initialize", { method: "POST", body: JSON.stringify({ operationId: op() }) }, userId); }
 async function categories(userId = 1) { return (await api<Array<{ id: number; name: string; kind: string; enabled: boolean; version: number; sortOrder: number }>>("/finance/categories", {}, userId)).data; }
 async function account(input: Record<string, unknown> = {}, userId = 1, operationId = op()) { return api<{ id: number; version: number; balanceCents: string; openingTransactionId: number | null }>("/finance/accounts", { method: "POST", body: JSON.stringify({ operationId, name: "工资卡", type: "BANK", openingDate: "2026-09-01", openingBalanceCents: "100000", includeInOverview: true, ...input }) }, userId); }
-async function record(type: "income" | "expenses", accountId: number, categoryId: number, amountCents: string, operationId = op(), userId = 1, extra: Record<string, unknown> = {}) { return api<{ transactionId: number; entryId: number; amountCents: string; businessDate: string; recordTimezone: string }>(`/finance/${type}`, { method: "POST", body: JSON.stringify({ operationId, accountId, categoryId, amountCents, occurredDate: "2026-09-21", occurredTime: "23:30", note: type, ...extra }) }, userId); }
+async function record(type: "income" | "expenses", accountId: number, categoryId: number, amountCents: string, operationId = op(), userId = 1, extra: Record<string, unknown> = {}) { return api<{ transactionId: number; entryId: number; amountCents: string; businessDate: string; recordTimezone: string; reward: { xp: number; coins: number; reason: string } | null }>(`/finance/${type}`, { method: "POST", body: JSON.stringify({ operationId, accountId, categoryId, amountCents, occurredDate: "2026-09-21", occurredTime: "23:30", note: type, ...extra }) }, userId); }
 
 before(async () => {
   admin = await mysql.createConnection({ host: sourceUrl.hostname, port: Number(sourceUrl.port || 3306), user: decodeURIComponent(sourceUrl.username), password: decodeURIComponent(sourceUrl.password), multipleStatements: true, timezone: "Z" });
@@ -45,6 +45,8 @@ before(async () => {
 beforeEach(async () => {
   await pool.query("UPDATE finance_transactions SET related_transaction_id=NULL, source_account_id=NULL, target_account_id=NULL");
   await pool.query("DROP TRIGGER IF EXISTS fail_finance_entry_insert");
+  await pool.query("DELETE FROM reward_events");
+  await pool.query("DELETE FROM user_growth");
   for (const table of ["finance_recurring_occurrences", "finance_recurring_templates", "finance_budgets", "finance_entries", "finance_transactions", "finance_accounts", "finance_categories", "mutation_receipts"]) await pool.query(`DELETE FROM ${table}`);
   await pool.query("INSERT INTO users (id,username,display_name,timezone,created_at,updated_at) VALUES (934,'fin-isolation','Finance Isolation','Asia/Shanghai',NOW(),NOW()) ON DUPLICATE KEY UPDATE deleted_at=NULL,timezone='Asia/Shanghai'");
   await pool.query("UPDATE users SET timezone='Asia/Shanghai' WHERE id=1");
@@ -108,7 +110,12 @@ test("recurring reminder time is projected, snapshotted at preparation, and used
   const prepared = await api<Array<{ id: number; scheduledTime: string; status: string }>>("/finance/recurring-occurrences?from=2026-10-01&to=2026-10-21");
   assert.deepEqual(prepared.data.map((row) => [row.scheduledTime, row.status]), [["19:30", "PENDING"]]);
   await api(`/finance/recurring-templates/${created.data.id}`, { method: "PUT", body: JSON.stringify({ operationId: op(), expectedVersion: 1, scheduledTime: "08:15" }) });
-  await api(`/finance/recurring-occurrences/${prepared.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 1 }) });
+  const confirmOperation = op();
+  const confirmation = await api<{ reward: { xp: number; coins: number; reason: string } }>(`/finance/recurring-occurrences/${prepared.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: confirmOperation, expectedVersion: 1 }) });
+  assert.deepEqual(confirmation.data.reward, { xp: 5, coins: 2, reason: "财务记录" });
+  const replay = await api(`/finance/recurring-occurrences/${prepared.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: confirmOperation, expectedVersion: 1 }) });
+  assert.deepEqual(replay.data, confirmation.data);
+  assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE source_type='finance_entry'"), 1);
   const [transaction] = await pool.query("SELECT occurred_at FROM finance_transactions WHERE type=2");
   assert.equal(new Date((transaction as Array<{ occurred_at: Date }>)[0].occurred_at).toISOString(), "2026-10-21T11:30:00.000Z");
   const afterPost = await api<Array<{ templateId: number }>>("/finance/reminders?from=2026-10-21&to=2026-10-28");
@@ -123,6 +130,17 @@ test("expense and income update Entry-derived balances and monthly business-date
   await record("income", bank.data.id, income.id, "50000");
   accounts = await api<Array<{ balanceCents: string }>>("/finance/accounts"); assert.equal(accounts.data[0].balanceCents, "147000");
   const overview = await api<{ monthlyIncomeCents: string; monthlyExpenseCents: string }>("/finance/overview?month=2026-09"); assert.equal(overview.data.monthlyIncomeCents, "50000"); assert.equal(overview.data.monthlyExpenseCents, "3000");
+});
+
+test("posted income and expense grant one fixed reward per transaction; transfer and edits do not", async () => {
+  await initialize(); const cats = await categories(); const expense = cats.find((item) => item.kind === "EXPENSE")!; const income = cats.find((item) => item.kind === "INCOME")!; const firstAccount = await account({ name: "主账户", openingBalanceCents: "0" }); const secondAccount = await account({ name: "储蓄卡", openingBalanceCents: "0" });
+  const expenseOperation = op(); const spent = await record("expenses", firstAccount.data.id, expense.id, "1000", expenseOperation); const replay = await record("expenses", firstAccount.data.id, expense.id, "1000", expenseOperation);
+  assert.deepEqual(spent.data.reward, { xp: 5, coins: 2, reason: "财务记录" }); assert.deepEqual(replay.data, spent.data);
+  const earned = await record("income", firstAccount.data.id, income.id, "2000"); assert.deepEqual(earned.data.reward, { xp: 5, coins: 2, reason: "财务记录" });
+  await api("/finance/transfers", { method: "POST", body: JSON.stringify({ operationId: op(), sourceAccountId: firstAccount.data.id, targetAccountId: secondAccount.data.id, amountCents: "500", occurredDate: "2026-09-21", occurredTime: "23:40" }) });
+  await api(`/finance/transactions/${spent.data.transactionId}`, { method: "PUT", body: JSON.stringify({ expectedVersion: 1, note: "edited" }) });
+  assert.equal(await scalar("SELECT COUNT(*) FROM reward_events WHERE source_type='finance_entry'"), 2);
+  assert.deepEqual([await scalar("SELECT xp_total FROM user_growth WHERE user_id=1"), await scalar("SELECT coins FROM user_growth WHERE user_id=1")], [10, 4]);
 });
 
 test("credit expense becomes negative balance, explicit liability, and remains a real expense", async () => {

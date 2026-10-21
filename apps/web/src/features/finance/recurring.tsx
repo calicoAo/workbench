@@ -35,7 +35,7 @@ function recurrenceLabel(item: FinanceRecurringTemplate) {
   return tx("每周 {value0}", { value0: weekdays[item.scheduleValue] ?? weekdays[1] });
 }
 
-export function Recurring({ request, date, accounts, categories, templates, occurrences, onChanged, onError }: {
+export function Recurring({ request, date, accounts, categories, templates, occurrences, onChanged, onReward, onGrowthChanged, onError }: {
   request: Request;
   date: string;
   accounts: FinanceAccount[];
@@ -43,6 +43,8 @@ export function Recurring({ request, date, accounts, categories, templates, occu
   templates: FinanceRecurringTemplate[];
   occurrences: FinanceRecurringOccurrence[];
   onChanged: () => Promise<void>;
+  onReward?: (label: string, reward: { xp: number; coins: number; reason: string } | null) => void;
+  onGrowthChanged?: () => Promise<void>;
   onError: (message: string, title?: string) => void;
 }) {
   const [draft, setDraft] = useState(() => emptyDraft(date));
@@ -99,7 +101,11 @@ export function Recurring({ request, date, accounts, categories, templates, occu
   }
   async function act(item: FinanceRecurringOccurrence, action: "confirm" | "skip") {
     try {
-      await request(`/api/finance/recurring-occurrences/${item.id}/${action}`, { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: item.version }) });
+      const result = await request<{ reward?: { xp: number; coins: number; reason: string } | null }>(`/api/finance/recurring-occurrences/${item.id}/${action}`, { method: "POST", body: JSON.stringify({ operationId: crypto.randomUUID(), expectedVersion: item.version }) });
+      if (action === "confirm" && result.reward) {
+        onReward?.("财务记录", result.reward);
+        await onGrowthChanged?.();
+      }
       await onChanged();
     } catch (error) {
       onError(financeErrorMessage(error), tx("周期发生项操作失败"));

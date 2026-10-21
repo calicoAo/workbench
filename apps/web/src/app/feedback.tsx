@@ -54,7 +54,7 @@ export function ApplicationFeedback({ children }: { children: (actions: Feedback
     setPopup({
       kind: "reward",
       title: `${label}已保存`,
-      message: "这次整理也计入成长记录。能把模糊的东西写清楚，本身就是一种推进。",
+      message: "这条记录也计入成长。",
       rewards: reward ? [reward] : []
     });
   }, []);

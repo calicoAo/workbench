@@ -30,6 +30,7 @@ export const RewardAmount = {
   waterFull: { xp: 12, coins: 4 },
   decision: { xp: 8, coins: 2 },
   bridge: { xp: 12, coins: 4 },
+  financeEntry: { xp: 5, coins: 2 },
   scheduleHour: { xp: 2, coins: 0 }
 } as const;
 
@@ -133,6 +134,20 @@ export async function grantRecordReward(userId: number, sourceType: keyof typeof
     xp: amount.xp,
     coins: amount.coins,
     reason
+  });
+}
+
+export async function grantFinanceEntryRewardInClient(client: DatabaseClient, userId: number, transactionId: number, date: string) {
+  const amount = RewardAmount.financeEntry;
+  return grantRewardInClient(client, {
+    userId,
+    eventKey: `finance_entry:${userId}:${transactionId}`,
+    sourceType: "finance_entry",
+    sourceId: String(transactionId),
+    eventDate: date,
+    xp: amount.xp,
+    coins: amount.coins,
+    reason: "财务记录"
   });
 }
 
