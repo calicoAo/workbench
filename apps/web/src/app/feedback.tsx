@@ -1,7 +1,7 @@
 import { IconButton } from "../shared/ui";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Coins, Gift, Sparkles, X } from "lucide-react";
+import { Check, Coins, Gift, Sparkles, X } from "lucide-react";
 import type { RewardGrant } from "../features/rewards";
 import { tx } from "./i18n";
 
@@ -13,6 +13,7 @@ type Popup =
 
 export type FeedbackActions = {
   notice: (message: string, title?: string) => void;
+  success: (message?: string) => void;
   confirm: (title: string, message: string, onConfirm: () => void | Promise<void>, confirmText?: string) => void;
   taskReward: (task: TaskSummary | null | undefined, rewards: Array<RewardGrant | null | undefined>, mode?: "done" | "partial") => void;
   recordReward: (label: string, reward: RewardGrant | null | undefined) => void;
@@ -32,7 +33,9 @@ export function useFeedbackPresentation() { return useContext(FeedbackPresentati
 
 export function ApplicationFeedback({ children }: { children: (actions: FeedbackActions) => ReactNode }) {
   const [popup, setPopup] = useState<Popup | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const notice = useCallback((message: string, title = "需要看一下") => setPopup({ kind: "notice", title, message }), []);
+  const success = useCallback((message = "操作已完成") => setSuccessMessage(message), []);
   const confirm = useCallback((title: string, message: string, onConfirm: () => void | Promise<void>, confirmText = "确认") => {
     setPopup({ kind: "confirm", title, message, confirmText, onConfirm });
   }, []);
@@ -55,9 +58,15 @@ export function ApplicationFeedback({ children }: { children: (actions: Feedback
       rewards: reward ? [reward] : []
     });
   }, []);
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = window.setTimeout(() => setSuccessMessage(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [successMessage]);
 
   return <FeedbackPresentation.Provider value={popup !== null}>
-    {children({ notice, confirm, taskReward, recordReward })}
+    {children({ notice, success, confirm, taskReward, recordReward })}
+    {successMessage ? <div className="app-success-toast" role="status" aria-live="polite"><Check size={16} />{tx(successMessage)}</div> : null}
     {popup && <FeedbackPopup popup={popup} onClose={() => setPopup(null)} />}
   </FeedbackPresentation.Provider>;
 }

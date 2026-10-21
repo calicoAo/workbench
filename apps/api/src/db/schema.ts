@@ -415,6 +415,7 @@ export const userSettings = mysqlTable("user_settings", {
   userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(),
   reducedMotion: tinyint("reduced_motion").notNull().default(0),
   showRewards: tinyint("show_rewards").notNull().default(1),
+  showSuccessFeedback: tinyint("show_success_feedback").notNull().default(1),
   fontScale: tinyint("font_scale").notNull().default(100),
   locale: varchar("locale", { length: 8 }).notNull().default("zh-CN"),
   updatedAt: datetime("updated_at").notNull()
@@ -784,6 +785,7 @@ export const financeRecurringTemplates = mysqlTable("finance_recurring_templates
   categoryId: bigint("category_id", { mode: "number", unsigned: true }).notNull(),
   frequency: tinyint("frequency").notNull(),
   scheduleValue: tinyint("schedule_value", { unsigned: true }).notNull(),
+  scheduledTime: varchar("scheduled_time", { length: 5 }).notNull().default("09:00"),
   startDate: date("start_date", { mode: "string" }).notNull(),
   endDate: date("end_date", { mode: "string" }),
   enabled: tinyint("enabled").notNull().default(1),
@@ -797,6 +799,7 @@ export const financeRecurringOccurrences = mysqlTable("finance_recurring_occurre
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
   templateId: bigint("template_id", { mode: "number", unsigned: true }).notNull(),
   scheduledDate: date("scheduled_date", { mode: "string" }).notNull(),
+  scheduledTimeSnapshot: varchar("scheduled_time_snapshot", { length: 5 }).notNull().default("09:00"),
   recordTimezone: varchar("record_timezone", { length: 64 }).notNull(),
   status: tinyint("status").notNull().default(0),
   amountCentsSnapshot: bigint("amount_cents_snapshot", { mode: "bigint", unsigned: true }).notNull(),

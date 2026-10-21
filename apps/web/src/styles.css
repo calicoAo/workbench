@@ -657,10 +657,17 @@ select {
 
   .today-grid {
     @apply grid min-w-0 items-start gap-2.5 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)];
-    grid-template-areas: "current" "status" "quests" "timeline";
+    grid-template-areas: "current" "reminders" "status" "quests" "timeline";
   }
 
   .today-current { @apply min-w-0 self-stretch; grid-area: current; }
+  .today-reminders { @apply grid min-w-0 gap-2 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; grid-area: reminders; }
+  .today-reminder-list { @apply grid gap-1.5; }
+  .today-reminder-row { @apply flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-card border border-white/70 bg-white/60 px-3 py-2 text-left; }
+  .today-reminder-row > span { @apply grid min-w-0; }
+  .today-reminder-row strong { @apply truncate text-xs; }
+  .today-reminder-row small { @apply truncate text-[10px] text-soft; }
+  .today-reminder-countdown { @apply shrink-0 text-right text-xs font-bold text-pink-600; }
   .today-quests { @apply grid min-w-0 content-start gap-2.5; grid-area: quests; grid-template-columns: minmax(0,1fr); }
   .today-status-surface { @apply grid min-w-0 self-stretch gap-2.5; grid-area: status; grid-template-columns: minmax(0,1.55fr) minmax(0,.75fr); }
   .today-status-block { @apply min-w-0 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; }
@@ -1335,7 +1342,7 @@ select {
 }
 
 @media (min-width: 1024px) {
-  .today-grid { grid-template-areas: "current status" "quests timeline"; }
+  .today-grid { grid-template-areas: "current status" "reminders status" "quests timeline"; }
 }
 
 @media (max-width: 600px) {
@@ -1488,6 +1495,35 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .finance-report-summary > div { @apply grid gap-1 rounded-card border border-white/80 bg-white/60 p-3; }
   .finance-report-summary small { @apply text-[10px] text-soft; }
   .finance-report-summary strong { @apply font-mono text-lg; }
+  .finance-form-grid > button { @apply justify-self-start; grid-column: 1 / -1; }
+  .finance-recurring-form-actions { @apply flex flex-wrap items-center justify-end gap-2; grid-column: 1 / -1; }
+  .finance-recurring-template-actions { @apply flex shrink-0 items-center gap-1; }
+  .finance-chart-grid { @apply grid gap-3 lg:grid-cols-2; }
+  .finance-chart { @apply grid min-w-0 gap-2 rounded-card border border-white/80 bg-white/60 p-3; }
+  .finance-chart h3 { @apply text-xs font-bold; }
+  .finance-chart svg { width: 100%; height: 180px; overflow: visible; }
+  .finance-chart svg text { fill: var(--text-secondary); font-size: 3px; }
+  .finance-chart svg .chart-axis { stroke: var(--border-subtle); stroke-width: .6; }
+  .finance-chart svg .chart-income { fill: #41b894; }
+  .finance-chart svg .chart-expense { fill: #de7893; }
+  .finance-chart svg .chart-neutral { fill: #7384bf; }
+  .finance-chart-legend { @apply flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-soft; }
+  .finance-chart-legend span { @apply inline-flex items-center gap-1; }
+  .finance-chart-legend i { @apply h-2 w-2 rounded-full; }
+  .finance-chart-legend .chart-income { background: #41b894; }
+  .finance-chart-legend .chart-expense { background: #de7893; }
+  .finance-chart-bars { @apply grid content-start gap-3; }
+  .finance-chart-bar { @apply grid min-w-0 gap-1; }
+  .finance-chart-bar > div:first-child { @apply flex min-w-0 items-center justify-between gap-2 text-[10px]; }
+  .finance-chart-bar > div:first-child span { @apply truncate; }
+  .finance-chart-bar > div:first-child b { @apply shrink-0 font-mono text-soft; }
+  .finance-chart-track { @apply h-2 overflow-hidden rounded-full bg-slate-100; }
+  .finance-chart-track i { @apply block h-full rounded-full; }
+  .finance-chart-track .chart-income { background: #41b894; }
+  .finance-chart-track .chart-expense { background: #de7893; }
+  .finance-chart-track .chart-neutral { background: #7384bf; }
+  .finance-chart-bar > small { @apply text-[9px] text-soft; }
+  .app-success-toast { @apply fixed left-1/2 top-4 z-[90] inline-flex -translate-x-1/2 items-center gap-2 rounded-card border border-mint-100 bg-white px-4 py-2 text-xs font-semibold text-mint-700 shadow-glass; }
   @media (max-width: 640px) {
     .finance-form-grid { @apply grid-cols-1; }
     .finance-budget-list article, .finance-occurrence-list article { @apply items-start; }

@@ -25,7 +25,8 @@ import { SettingsFeature, type SettingsSnapshot, useSettings } from "../../featu
 import { ProjectDetailPage, ProjectsPage, type ProjectSummary, useProjects } from "../../features/projects";
 import { TrashPage } from "../../features/trash";
 import { HabitDailyQuests, RoutinesFeature } from "../../features/habits";
-import { FinancePage } from "../../features/finance";
+import { FinancePage, useFinanceUpcomingReminders } from "../../features/finance";
+import { TodayReminders } from "../../features/reminders";
 import type { AuthSession } from "../../features/auth";
 import { GrowthPage } from "../../features/growth";
 import { InspirationLibraryPage } from "../../features/inspirations";
@@ -210,11 +211,17 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
   const settingsQuery = useSettings(request, session.user.id);
   const projectsQuery = useProjects(request, session.user.id);
   const onboarding = useCoreOnboardingResolved(request, session.user.id);
+  const operationRequest = useMemo<Request>(() => async <T,>(path: string, init?: RequestInit) => {
+    const result = await request<T>(path, init);
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method !== "GET" && settingsQuery.data?.feedback.showSuccess !== false) feedback.success();
+    return result;
+  }, [feedback.success, request, settingsQuery.data?.feedback.showSuccess]);
   useEffect(() => { if (settingsQuery.data?.appearance.locale) setLocale(settingsQuery.data.appearance.locale); }, [setLocale, settingsQuery.data?.appearance.locale]);
   const dashboard = dashboardQuery.data?.date === date ? dashboardQuery.data : null;
   const tasks = tasksQuery.data ?? [];
   const currentSession = currentQuery.data ?? null;
-  const timer = useTimerCommands({ request, userId: session.user.id, selectedDate: date, executionDate: currentBusinessDate, timezone: session.user.timezone, onError: feedback.notice });
+  const timer = useTimerCommands({ request: operationRequest, userId: session.user.id, selectedDate: date, executionDate: currentBusinessDate, timezone: session.user.timezone, onError: feedback.notice });
   const timelineQuery = useTimeline(request, session.user.id, date, session.user.timezone, dashboard?.schedules ?? [], Boolean(dashboard));
   const refresh = async () => {
     await Promise.all([
@@ -236,7 +243,7 @@ function WorkspaceRoot({ request, session, feedback }: { request: Request; sessi
     document.documentElement.dataset.reducedMotion = settingsQuery.data?.appearance?.reducedMotion ? "true" : "false";
     document.documentElement.dataset.fontScale = String(settingsQuery.data?.appearance?.fontScale ?? 100);
   }, [settingsQuery.data?.appearance?.fontScale, settingsQuery.data?.appearance?.reducedMotion]);
-  const appContext: WorkspaceContext = { request, session, feedback, date, dashboard, tasks, assignments: assignmentsQuery.data?.taskIds ?? [], assignmentRows: assignmentsQuery.data?.assignments ?? [], continuations: continuationQuery.data ?? [], currentSession, timeline: timelineQuery.data?.items ?? [], summary: timelineQuery.data?.summary ?? null, loading: dashboardQuery.isPending || tasksQuery.isPending, queryError: queryErrorValue instanceof Error ? queryErrorValue.message : null, timer, settings: settingsQuery.data ?? null, projects: projectsQuery.data ?? [], refresh };
+  const appContext: WorkspaceContext = { request: operationRequest, session, feedback, date, dashboard, tasks, assignments: assignmentsQuery.data?.taskIds ?? [], assignmentRows: assignmentsQuery.data?.assignments ?? [], continuations: continuationQuery.data ?? [], currentSession, timeline: timelineQuery.data?.items ?? [], summary: timelineQuery.data?.summary ?? null, loading: dashboardQuery.isPending || tasksQuery.isPending, queryError: queryErrorValue instanceof Error ? queryErrorValue.message : null, timer, settings: settingsQuery.data ?? null, projects: projectsQuery.data ?? [], refresh };
 
   return <WritingReflectionFeature
     key={`${session.user.id}:${date}:${dashboard ? "ready" : "loading"}`}
@@ -373,6 +380,8 @@ function TodayRoute() {
   const value = useWorkspace();
   const [continuationPending, setContinuationPending] = useState(false);
   const dashboard = value.dashboard;
+  const businessToday = todayString(value.session.user.timezone);
+  const recurringReminders = useFinanceUpcomingReminders(value.request, value.session.user.id, businessToday);
   const sleep = dashboard?.sleepRecord ?? null;
   const [sleepEditorSignal, setSleepEditorSignal] = useState(0);
   const timelineItems = useMemo(() => {
@@ -386,6 +395,7 @@ function TodayRoute() {
       <div className="today-current">
         <CurrentFocusCard session={value.currentSession} taskTitle={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.title} taskVersion={value.tasks.find((item) => item.id === value.currentSession?.taskId)?.version} commands={value.timer} />
       </div>
+      {value.date === businessToday ? <TodayReminders tasks={value.tasks} recurring={recurringReminders.data ?? []} date={businessToday} /> : null}
       <aside className="today-status-surface" aria-label={tx("饮水与睡眠")}>
         <div className="today-status-block today-water-block"><WaterFeature compact request={value.request} selectedDate={value.date} record={dashboard?.waterRecord ?? null} sleep={sleep} onError={value.feedback.notice} onChanged={value.refresh} /></div>
         <div className="today-status-block today-sleep-block"><SleepFeature compact request={value.request} selectedDate={value.date} record={sleep} snapshotReady={Boolean(dashboard)} recordTimezone={value.session.user.timezone} openEditorSignal={sleepEditorSignal} onError={value.feedback.notice} onChanged={value.refresh} /></div>

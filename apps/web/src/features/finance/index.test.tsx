@@ -68,6 +68,28 @@ describe("FIN-01 Finance", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/initialize", expect.objectContaining({ method: "POST" })));
   });
 
+  it("creates an income or expense category and displays it after the canonical list refresh", async () => {
+    let current = [...categories];
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (init?.method === "POST" && path === "/api/finance/categories") {
+        const body = JSON.parse(String(init.body)) as { kind: FinanceCategory["kind"]; name: string; sortOrder: number };
+        current = [...current, { id: 42, ...body, enabled: true, version: 1 }];
+        return { id: 42, version: 1 };
+      }
+      if (path.startsWith("/api/finance/overview")) return overview();
+      if (path.startsWith("/api/finance/accounts")) return [bank];
+      if (path.startsWith("/api/finance/categories")) return current;
+      if (path.startsWith("/api/finance/transactions")) return { items: [], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    }) as Request;
+    renderPage(request, "/finance?date=2026-09-21&tab=accounts");
+    await screen.findByRole("heading", { name: "收支分类" });
+    fireEvent.change(screen.getByLabelText("新财务分类"), { target: { value: "宠物医疗" } });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+    expect(await screen.findByText("宠物医疗")).toBeTruthy();
+    expect(request).toHaveBeenCalledWith("/api/finance/categories", expect.objectContaining({ method: "POST", body: expect.stringContaining('"kind":"EXPENSE"') }));
+  });
+
   it("keeps account title and close in its header and makes the inclusion label clickable", async () => {
     const request = requestFor(); renderPage(request, "/finance?date=2026-09-21&tab=accounts");
     fireEvent.click(await screen.findByRole("button", { name: "创建账户" }));

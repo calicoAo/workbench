@@ -19,3 +19,10 @@ it.each(["notice", "confirm", "reward"] as const)("owns focus/dismiss for %s wit
   expect(screen.getByRole("dialog", { name: "Task parent" })).toBeTruthy();
   if (kind === "confirm") { fireEvent.click(trigger); fireEvent.click(screen.getByRole("button", { name: "确认" })); expect(confirmed).toHaveBeenCalledOnce(); }
 });
+
+it("shows successful-operation feedback as a non-modal status", () => {
+  render(<ApplicationFeedback>{(feedback) => <button onClick={() => feedback.success("Saved")}>save</button>}</ApplicationFeedback>);
+  fireEvent.click(screen.getByRole("button", { name: "save" }));
+  expect(screen.getByRole("status").textContent).toContain("Saved");
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

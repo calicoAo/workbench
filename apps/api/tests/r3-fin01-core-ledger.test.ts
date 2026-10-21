@@ -19,12 +19,12 @@ const op = () => `93000000-0000-4000-8000-${String(++counter).padStart(12, "0")}
 
 function version(name: string) { const match = /^V(\d+)(?:_(\d+))?__/.exec(name)!; return [Number(match[1]), Number(match[2] ?? 0)]; }
 async function migrations() { return (await readdir(migrationDirectory)).filter((name) => /^V\d+(?:_\d+)?__.*\.sql$/.test(name)).sort((a, b) => version(a)[0] - version(b)[0] || version(a)[1] - version(b)[1]); }
-async function migrate(connection: Connection, database: string, from = 1, through = 31) { await connection.query(`USE \`${database}\``); for (const name of await migrations()) { const major = version(name)[0]; if (major >= from && major <= through) await connection.query(await readFile(resolve(migrationDirectory, name), "utf8")); } }
+async function migrate(connection: Connection, database: string, from = 1, through = 42) { await connection.query(`USE \`${database}\``); for (const name of await migrations()) { const major = version(name)[0]; if (major >= from && major <= through) await connection.query(await readFile(resolve(migrationDirectory, name), "utf8")); } }
 async function scalar(sql: string, values: unknown[] = []) { const [rows] = await pool.query(sql, values); return Number(Object.values((rows as Record<string, unknown>[])[0])[0]); }
 function headers(userId = 1) { return { Authorization: `Bearer ${signToken({ id: userId, username: `user-${userId}`, displayName: `User ${userId}` })}`, "Content-Type": "application/json" }; }
 async function api<T>(path: string, init: RequestInit = {}, userId = 1) { const response = await app.request(`/api${path}`, { ...init, headers: { ...headers(userId), ...(init.headers ?? {}) } }); const body = await response.json() as { data: T; message: string }; return { response, data: body.data, message: body.message }; }
 async function initialize(userId = 1) { return api<{ categoryCount: number }>("/finance/initialize", { method: "POST", body: JSON.stringify({ operationId: op() }) }, userId); }
-async function categories(userId = 1) { return (await api<Array<{ id: number; name: string; kind: string; enabled: boolean; version: number }>>("/finance/categories", {}, userId)).data; }
+async function categories(userId = 1) { return (await api<Array<{ id: number; name: string; kind: string; enabled: boolean; version: number; sortOrder: number }>>("/finance/categories", {}, userId)).data; }
 async function account(input: Record<string, unknown> = {}, userId = 1, operationId = op()) { return api<{ id: number; version: number; balanceCents: string; openingTransactionId: number | null }>("/finance/accounts", { method: "POST", body: JSON.stringify({ operationId, name: "工资卡", type: "BANK", openingDate: "2026-09-01", openingBalanceCents: "100000", includeInOverview: true, ...input }) }, userId); }
 async function record(type: "income" | "expenses", accountId: number, categoryId: number, amountCents: string, operationId = op(), userId = 1, extra: Record<string, unknown> = {}) { return api<{ transactionId: number; entryId: number; amountCents: string; businessDate: string; recordTimezone: string }>(`/finance/${type}`, { method: "POST", body: JSON.stringify({ operationId, accountId, categoryId, amountCents, occurredDate: "2026-09-21", occurredTime: "23:30", note: type, ...extra }) }, userId); }
 
@@ -36,7 +36,7 @@ before(async () => {
   await migrate(admin, upgradeDatabase, 1, 27);
   await admin.query(`USE \`${upgradeDatabase}\``);
   await admin.query("INSERT INTO quick_notes (user_id,note_date,content,created_at,updated_at) VALUES (1,'2026-09-20','preserve before finance',NOW(),NOW())");
-  await migrate(admin, upgradeDatabase, 28, 31);
+  await migrate(admin, upgradeDatabase, 28, 42);
   const appUrl = new URL(testDatabaseUrl); appUrl.pathname = `/${freshDatabase}`;
   process.env.NODE_ENV = "test"; process.env.DATABASE_URL = appUrl.toString(); process.env.JWT_SECRET = "fin01-tests-only-secret";
   [{ pool }, { app }, { signToken }] = await Promise.all([import("../src/db/index.js"), import("../src/app.js"), import("../src/auth.js")]);
@@ -45,7 +45,7 @@ before(async () => {
 beforeEach(async () => {
   await pool.query("UPDATE finance_transactions SET related_transaction_id=NULL, source_account_id=NULL, target_account_id=NULL");
   await pool.query("DROP TRIGGER IF EXISTS fail_finance_entry_insert");
-  for (const table of ["finance_entries", "finance_transactions", "finance_accounts", "finance_categories", "mutation_receipts"]) await pool.query(`DELETE FROM ${table}`);
+  for (const table of ["finance_recurring_occurrences", "finance_recurring_templates", "finance_budgets", "finance_entries", "finance_transactions", "finance_accounts", "finance_categories", "mutation_receipts"]) await pool.query(`DELETE FROM ${table}`);
   await pool.query("INSERT INTO users (id,username,display_name,timezone,created_at,updated_at) VALUES (934,'fin-isolation','Finance Isolation','Asia/Shanghai',NOW(),NOW()) ON DUPLICATE KEY UPDATE deleted_at=NULL,timezone='Asia/Shanghai'");
   await pool.query("UPDATE users SET timezone='Asia/Shanghai' WHERE id=1");
 });
@@ -72,6 +72,47 @@ test("opening balance is one OPENING transaction and Entry while monthly flow st
   const overview = await api<{ monthlyIncomeCents: string; monthlyExpenseCents: string; netWorthCents: string }>("/finance/overview?month=2026-09");
   assert.deepEqual([overview.data.monthlyIncomeCents, overview.data.monthlyExpenseCents, overview.data.netWorthCents], ["0", "0", "100000"]);
   assert.equal(await scalar("SELECT COUNT(*) FROM finance_transactions WHERE type=0"), 1); assert.equal(await scalar("SELECT COUNT(*) FROM finance_entries WHERE amount_cents=100000"), 1);
+});
+
+test("custom Finance categories persist, appear in the canonical list, and remain user-owned", async () => {
+  const created = await api<{ id: number; version: number }>("/finance/categories", { method: "POST", body: JSON.stringify({ kind: "EXPENSE", name: "宠物医疗", sortOrder: 20 }) });
+  assert.equal(created.response.status, 200);
+  assert.deepEqual(created.data.version, 1);
+  const own = await categories();
+  const persisted = own.find((item) => item.id === created.data.id);
+  assert.ok(persisted);
+  assert.deepEqual({ id: persisted.id, name: persisted.name, kind: persisted.kind, enabled: persisted.enabled, version: persisted.version, sortOrder: persisted.sortOrder }, { id: created.data.id, name: "宠物医疗", kind: "EXPENSE", enabled: true, version: 1, sortOrder: 20 });
+  assert.equal((await categories(934)).some((item) => item.id === created.data.id), false);
+  assert.equal(await scalar("SELECT COUNT(*) FROM finance_categories WHERE id=? AND user_id=1", [created.data.id]), 1);
+});
+
+test("global success feedback preference defaults on and persists per user", async () => {
+  const initial = await api<{ feedback: { showSuccess: boolean } }>("/settings");
+  assert.equal(initial.data.feedback.showSuccess, true);
+  const updated = await api<{ feedback: { showSuccess: boolean } }>("/settings", { method: "PATCH", body: JSON.stringify({ showSuccessFeedback: false }) });
+  assert.equal(updated.response.status, 200);
+  assert.equal(updated.data.feedback.showSuccess, false);
+  assert.equal((await api<{ feedback: { showSuccess: boolean } }>("/settings", {}, 934)).data.feedback.showSuccess, true);
+});
+
+test("recurring reminder time is projected, snapshotted at preparation, and used when posted", async () => {
+  await initialize();
+  const expense = (await categories()).find((item) => item.kind === "EXPENSE")!;
+  const bank = await account({ openingBalanceCents: "0" });
+  const created = await api<{ id: number; version: number }>("/finance/recurring-templates", { method: "POST", body: JSON.stringify({ operationId: op(), type: "EXPENSE", name: "房租", amountCents: "300000", accountId: bank.data.id, categoryId: expense.id, frequency: "MONTHLY", scheduleValue: 21, scheduledTime: "19:30", startDate: "2026-10-01" }) });
+  assert.equal(created.response.status, 200);
+  const projected = await api<Array<{ templateId: number; scheduledDate: string; scheduledTime: string; dueAt: string }>>("/finance/reminders?from=2026-10-21&to=2026-10-28");
+  assert.deepEqual(projected.data.map(({ templateId, scheduledDate, scheduledTime }) => ({ templateId, scheduledDate, scheduledTime })), [{ templateId: created.data.id, scheduledDate: "2026-10-21", scheduledTime: "19:30" }]);
+  assert.equal(projected.data[0].dueAt, "2026-10-21T11:30:00.000Z");
+  await api("/finance/recurring-occurrences/prepare", { method: "POST", body: JSON.stringify({ operationId: op(), from: "2026-10-01", to: "2026-10-21" }) });
+  const prepared = await api<Array<{ id: number; scheduledTime: string; status: string }>>("/finance/recurring-occurrences?from=2026-10-01&to=2026-10-21");
+  assert.deepEqual(prepared.data.map((row) => [row.scheduledTime, row.status]), [["19:30", "PENDING"]]);
+  await api(`/finance/recurring-templates/${created.data.id}`, { method: "PUT", body: JSON.stringify({ operationId: op(), expectedVersion: 1, scheduledTime: "08:15" }) });
+  await api(`/finance/recurring-occurrences/${prepared.data[0].id}/confirm`, { method: "POST", body: JSON.stringify({ operationId: op(), expectedVersion: 1 }) });
+  const [transaction] = await pool.query("SELECT occurred_at FROM finance_transactions WHERE type=2");
+  assert.equal(new Date((transaction as Array<{ occurred_at: Date }>)[0].occurred_at).toISOString(), "2026-10-21T11:30:00.000Z");
+  const afterPost = await api<Array<{ templateId: number }>>("/finance/reminders?from=2026-10-21&to=2026-10-28");
+  assert.equal(afterPost.data.length, 0);
 });
 
 test("expense and income update Entry-derived balances and monthly business-date totals", async () => {

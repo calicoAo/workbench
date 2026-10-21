@@ -28,17 +28,18 @@ function requestFor(active: boolean | null = null, writingSlots: Array<{ slotKey
     if (path.startsWith("/api/task-days?")) return { taskDate: "2026-09-19", taskIds: [11] };
     if (path === "/api/timer-sessions/current") return active ? current : null;
     if (path.startsWith("/api/timer-sessions/actual-time")) return { date: "2026-09-19", timezone: "Asia/Shanghai", entries: [] };
-    if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false, fontScale: 100, locale: "zh-CN" }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
+    if (path === "/api/settings") return { profile: session.user, appearance: { theme: "light", reducedMotion: false, fontScale: 100, locale: "zh-CN" }, feedback: { showSuccess: true }, rewards: { show: true }, continuation: { mode: "manual", automaticAvailable: false }, categories: [], writingSlots };
     if (path.startsWith("/api/hero?date=")) return { businessDate: "2026-09-19", timezone: "Asia/Shanghai", profile: { userId: 7, displayName: "Owner", avatarRef: null, portraitRef: null, title: null, birthDate: null, visualPreferences: null, version: 1 }, progress: { level: 2, xpTotal: 130, coins: 0, xpInLevel: 30, xpForNextLevel: 200 }, dailyStatus: null, earthOnlineDay: null };
     if (path === "/api/rewards") return { growth: dashboard("2026-09-19").growth, items: [], events: [], redemptions: [] };
     if (path.startsWith("/api/growth/overview")) return { period: { days: 30, from: "2026-08-21", to: "2026-09-19", timezone: "Asia/Shanghai" }, hero: dashboard("2026-09-19").growth, summary: { actualMinutes: 0, mappedActualMinutes: 0, completedTaskCount: 0, habitCompletedCount: 0 }, dimensions: [], unmapped: { actualMinutes: 0, completedTaskCount: 0, lastActivityDate: null }, recent: [] };
     if (path === "/api/growth/dimensions") return { dimensions: [], categories: [] };
     if (path.startsWith("/api/morning-writings") || path.startsWith("/api/journals") || path.startsWith("/api/stock-reviews")) return [];
+    if (path.startsWith("/api/finance/reminders")) return [];
     return {};
   }) as unknown as Request;
 }
 
-const feedback: FeedbackActions = { notice: vi.fn(), confirm: vi.fn(), taskReward: vi.fn(), recordReward: vi.fn() };
+const feedback: FeedbackActions = { notice: vi.fn(), success: vi.fn(), confirm: vi.fn(), taskReward: vi.fn(), recordReward: vi.fn() };
 const session = { user: { id: 7, username: "owner", displayName: "Owner", timezone: "Asia/Shanghai" }, logout: vi.fn() };
 
 function renderShell(path: string, request = requestFor(), currentSession = session) {

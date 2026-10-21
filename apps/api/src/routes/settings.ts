@@ -20,6 +20,7 @@ const updateSchema = z.object({
   timezone: z.string().refine(isValidTimezone).optional(),
   reducedMotion: z.boolean().optional(),
   showRewards: z.boolean().optional(),
+  showSuccessFeedback: z.boolean().optional(),
   fontScale: z.union([z.literal(90), z.literal(100), z.literal(110)]).optional(),
   locale: z.enum(["zh-CN", "en"]).optional(),
   writingSlots: z.array(writingSlotSchema).length(3).optional()
@@ -36,6 +37,7 @@ async function settingsFor(userId: number) {
   return {
     profile: user,
     appearance: { theme: "light" as const, reducedMotion: Boolean(preferences?.reducedMotion), fontScale: (preferences?.fontScale ?? 100) as 90 | 100 | 110, locale: (preferences?.locale ?? "zh-CN") as "zh-CN" | "en" },
+    feedback: { showSuccess: preferences ? Boolean(preferences.showSuccessFeedback) : true },
     rewards: { show: preferences ? Boolean(preferences.showRewards) : true },
     continuation: { mode: "manual" as const, automaticAvailable: false },
     categories,
@@ -52,9 +54,9 @@ export const settingsRoute = new Hono()
       if (body.displayName !== undefined || body.timezone !== undefined) {
         await tx.update(users).set({ ...(body.displayName !== undefined ? { displayName: body.displayName } : {}), ...(body.timezone !== undefined ? { timezone: body.timezone } : {}), updatedAt: new Date() }).where(and(eq(users.id, userId), isNull(users.deletedAt)));
       }
-      if (body.reducedMotion !== undefined || body.showRewards !== undefined || body.fontScale !== undefined || body.locale !== undefined) {
+      if (body.reducedMotion !== undefined || body.showRewards !== undefined || body.showSuccessFeedback !== undefined || body.fontScale !== undefined || body.locale !== undefined) {
         const [current] = await tx.select().from(userSettings).where(eq(userSettings.userId, userId)).for("update");
-        const values = { reducedMotion: body.reducedMotion === undefined ? current?.reducedMotion ?? 0 : body.reducedMotion ? 1 : 0, showRewards: body.showRewards === undefined ? current?.showRewards ?? 1 : body.showRewards ? 1 : 0, fontScale: body.fontScale === undefined ? current?.fontScale ?? 100 : body.fontScale, locale: body.locale === undefined ? current?.locale ?? "zh-CN" : body.locale, updatedAt: new Date() };
+        const values = { reducedMotion: body.reducedMotion === undefined ? current?.reducedMotion ?? 0 : body.reducedMotion ? 1 : 0, showRewards: body.showRewards === undefined ? current?.showRewards ?? 1 : body.showRewards ? 1 : 0, showSuccessFeedback: body.showSuccessFeedback === undefined ? current?.showSuccessFeedback ?? 1 : body.showSuccessFeedback ? 1 : 0, fontScale: body.fontScale === undefined ? current?.fontScale ?? 100 : body.fontScale, locale: body.locale === undefined ? current?.locale ?? "zh-CN" : body.locale, updatedAt: new Date() };
         if (current) await tx.update(userSettings).set(values).where(eq(userSettings.userId, userId));
         else await tx.insert(userSettings).values({ userId, ...values });
       }

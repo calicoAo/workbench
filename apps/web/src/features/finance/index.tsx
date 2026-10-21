@@ -20,6 +20,7 @@ import {
   type FinanceReport,
   type FinanceRecurringOccurrence,
   type FinanceRecurringTemplate,
+  type FinanceUpcomingReminder,
 } from "./model";
 import { RecordDialog } from "./record-dialog";
 import { Reports } from "./reports";
@@ -27,6 +28,8 @@ import { TransferDialog, type TransferIntent } from "./transfer-dialog";
 import { Transactions } from "./transactions";
 import { financeErrorMessage } from "./error";
 import { tx } from "../../app/i18n";
+
+export type { FinanceUpcomingReminder } from "./model";
 
 
 type Tab =
@@ -346,4 +349,14 @@ export function FinancePage({
       ) : null}
     </section>
   );
+}
+
+export function useFinanceUpcomingReminders(request: Request, userId: number, from: string) {
+  const end = new Date(`${from}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + 7);
+  const to = end.toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ["finance-reminders", userId, from, to],
+    queryFn: () => request<FinanceUpcomingReminder[]>(`/api/finance/reminders?from=${from}&to=${to}`),
+  });
 }

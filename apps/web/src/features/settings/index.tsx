@@ -27,6 +27,7 @@ export type SettingsSnapshot = {
     fontScale: FontScale;
     locale: Locale;
   };
+  feedback: { showSuccess: boolean };
   rewards: { show: boolean };
   continuation: { mode: "manual"; automaticAvailable: false };
   categories: CategoryEditorCategory[];
@@ -169,6 +170,18 @@ export function SettingsFeature({ request, userId, logout, onProfileChanged, onE
               }
             }}
           />
+          <Toggle
+            checked={data.feedback.showSuccess}
+            label={tx("成功操作后显示反馈")}
+            onChange={async (checked) => {
+              try {
+                await patch({ showSuccessFeedback: checked });
+              } catch (error) {
+                onError(message(error), tx("反馈偏好没有保存"));
+              }
+            }}
+          />
+          <p className="settings-note">{tx("控制成功操作的全局提示；错误与确认仍会照常显示。")}</p>
           <div className="settings-line">
             <span>
               <strong>{tx("日期与时间")}</strong>

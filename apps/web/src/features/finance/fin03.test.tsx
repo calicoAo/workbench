@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FinancePage } from ".";
 import type { Request } from "../../app/api";
+import { Recurring } from "./recurring";
+
+afterEach(cleanup);
 
 const base = { id: 1, name: "主账户", type: "BANK" as const, currency: "CNY" as const, includeInOverview: true, openingDate: "2026-09-01", archivedAt: null, version: 1, balanceCents: "10000" };
 const category = { id: 2, kind: "EXPENSE" as const, name: "餐饮", sortOrder: 1, enabled: true, version: 1 };
@@ -14,5 +17,27 @@ function renderPage(entry: string) { return render(<QueryClientProvider client={
 describe("FIN-03 Finance surfaces", () => {
   it("renders the budget tab with category spend and remaining amount", async () => { renderPage("/finance?date=2026-09-21&tab=budgets"); expect(await screen.findByText("2026-09 预算")).toBeTruthy(); expect(await screen.findByText(/已用 ¥12.00/)).toBeTruthy(); expect(screen.getByText(/剩余 ¥38.00/)).toBeTruthy(); });
   it("keeps recurring actions explicit and pending occurrences non-posting", async () => { renderPage("/finance?date=2026-09-21&tab=recurring"); expect(await screen.findByText("周期收支")).toBeTruthy(); expect(screen.getByRole("button", { name: "准备本月发生项" })).toBeTruthy(); expect(screen.getByText(/不会自动影响余额/)).toBeTruthy(); expect(screen.queryByText("Explicit preparation and confirmation")).toBeNull(); });
-  it("renders deterministic monthly report reconciliation", async () => { renderPage("/finance?date=2026-09-21&tab=reports"); expect(await screen.findByText("2026-09 报表")).toBeTruthy(); expect(screen.getByText("已核对")).toBeTruthy(); expect(screen.getByText("净现金流")).toBeTruthy(); expect(screen.queryByText("Deterministic read model")).toBeNull(); });
+  it("creates a recurring template with a local occurrence time", async () => {
+    const request = vi.fn(async () => ({ id: 3, version: 1 })) as Request;
+    render(<Recurring request={request} date="2026-10-21" accounts={[base]} categories={[category]} templates={[]} occurrences={[]} onChanged={vi.fn(async () => undefined)} onError={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("模板名称"), { target: { value: "网费" } });
+    fireEvent.change(screen.getByLabelText("金额"), { target: { value: "99" } });
+    fireEvent.change(screen.getByLabelText("账户"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("分类"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("发生时间提醒"), { target: { value: "09:45" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建模板" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/recurring-templates", expect.objectContaining({ method: "POST", body: expect.stringContaining('"scheduledTime":"09:45"') })));
+  });
+  it("edits a template time and can disable the recurring reminder", async () => {
+    const template = { id: 9, type: "EXPENSE" as const, name: "网费", amountCents: "9900", accountId: 1, accountName: "主账户", categoryId: 2, categoryName: "餐饮", frequency: "MONTHLY" as const, scheduleValue: 21, scheduledTime: "09:00", startDate: "2026-09-01", endDate: null, enabled: true, version: 1 };
+    const request = vi.fn(async () => ({ id: 9, version: 2 })) as Request;
+    render(<Recurring request={request} date="2026-10-21" accounts={[base]} categories={[category]} templates={[template]} occurrences={[]} onChanged={vi.fn(async () => undefined)} onError={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑模板" }));
+    fireEvent.change(screen.getByLabelText("发生时间提醒"), { target: { value: "20:15" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存模板" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/recurring-templates/9", expect.objectContaining({ method: "PUT", body: expect.stringContaining('"scheduledTime":"20:15"') })));
+    fireEvent.click(screen.getByRole("button", { name: "停用模板" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("/api/finance/recurring-templates/9", expect.objectContaining({ method: "PUT", body: expect.stringContaining('"enabled":false') })));
+  });
+  it("renders deterministic monthly reconciliation with accessible cashflow and category charts", async () => { renderPage("/finance?date=2026-09-21&tab=reports"); expect(await screen.findByText("2026-09 报表")).toBeTruthy(); expect(screen.getByText("已核对")).toBeTruthy(); expect(screen.getByText("净现金流")).toBeTruthy(); expect(screen.getByRole("heading", { name: "月度收支对比" })).toBeTruthy(); expect(screen.getByRole("heading", { name: "分类支出占比" })).toBeTruthy(); expect(screen.getAllByRole("img")).toHaveLength(2); expect(screen.queryByText("Deterministic read model")).toBeNull(); });
 });

@@ -367,7 +367,7 @@ function TaskRow(props: {
       <div className="task-row-main">
         <span className="task-row-leading">
           <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title={tx("拖拽排序")}><GripVertical size={16} /></span>
-          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label={tx("重要标记")} onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
+          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label={props.task.dueAt ? props.task.pinned ? tx("取消主页固定") : tx("固定到主页") : tx("重要标记")} onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
           <label className="task-check-target"><input aria-label={props.activeTimer ? tx("完成悬赏并结束：{value0}", { value0: props.task.title }) : tx("完成{value0}", { value0: props.task.title })} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
         </span>
         <span className="task-row-copy">
