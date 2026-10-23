@@ -68,10 +68,16 @@
         "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
       },
       "feedback": {
-        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "text": "财务记录已保存奖励已到账，无需再次领取。+5 XP+2 金币知道了",
         "rewardAnimation": "reward-arrive",
         "toastAnimation": "success-arrive",
         "progressTransition": "width"
+      },
+      "acknowledgement": {
+        "text": "知道了",
+        "width": 80,
+        "height": 44,
+        "whiteSpace": "nowrap"
       },
       "steps": [
         "1周期模板",
@@ -147,10 +153,16 @@
         "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
       },
       "feedback": {
-        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "text": "财务记录已保存奖励已到账，无需再次领取。+5 XP+2 金币知道了",
         "rewardAnimation": "reward-arrive",
         "toastAnimation": "success-arrive",
         "progressTransition": "width"
+      },
+      "acknowledgement": {
+        "text": "知道了",
+        "width": 80,
+        "height": 44,
+        "whiteSpace": "nowrap"
       },
       "steps": [
         "1周期模板",
@@ -226,10 +238,16 @@
         "text": "主页提醒2026-10-22完成项目验收截止倒数还剩 1天 0小时宽带缴费2026-10-26 09:00 · 日常 · 生活账户还剩 2天 0小时"
       },
       "feedback": {
-        "text": "财务记录已保存这条记录也计入成长。+5 XP+2 金币收下",
+        "text": "财务记录已保存奖励已到账，无需再次领取。+5 XP+2 金币知道了",
         "rewardAnimation": "reward-arrive",
         "toastAnimation": "success-arrive",
         "progressTransition": "width"
+      },
+      "acknowledgement": {
+        "text": "知道了",
+        "width": 80,
+        "height": 44,
+        "whiteSpace": "nowrap"
       },
       "steps": [
         "1周期模板",

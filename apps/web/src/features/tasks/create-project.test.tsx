@@ -46,7 +46,7 @@ const parentDraft = { "任务标题": "完整悬赏", "任务详情": "完成标
 function populate() { Object.entries(parentDraft).forEach(([label, value]) => field(label, value)); }
 function assertDraft(skipProject = false, skipCategory = false) { Object.entries(parentDraft).filter(([label]) => (!skipProject || label !== "所属项目") && (!skipCategory || label !== "事件类型")).forEach(([label, value]) => expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(value)); }
 function openManager() { fireEvent.click(screen.getByRole("button", { name: "新建 / 管理项目" })); }
-async function dismiss(title: string) { const popup = await screen.findByRole("dialog", { name: title }); fireEvent.click(within(popup).getByRole("button", { name: "收下" })); }
+async function dismiss(title: string) { const popup = await screen.findByRole("dialog", { name: title }); fireEvent.click(within(popup).getByRole("button", { name: "知道了" })); }
 
 describe("Bounty Project Quick Manager", () => {
   it.each([false, true])("creates mapped Category then canonical Project in the same intact draft (claim=%s)", async (claim) => {

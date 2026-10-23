@@ -55,7 +55,7 @@ export function ApplicationFeedback({ children }: { children: (actions: Feedback
     setPopup({
       kind: "reward",
       title: tx("{value0}已保存", { value0: tx(label) }),
-      message: "这条记录也计入成长。",
+      message: "奖励已到账，无需再次领取。",
       rewards: reward ? [reward] : []
     });
   }, []);
@@ -120,7 +120,7 @@ function FeedbackPopup({ popup, onClose }: { popup: Popup; onClose: () => void }
           ) : <p className="rounded-card border border-white/80 bg-white/65 p-3 text-xs text-soft">{tx("这次奖励之前已经发放过，不会重复计算。")}</p>)}
           <footer>{popup.kind === "confirm" ? (
             <><Button type="button" onClick={onClose}>{tx("取消")}</Button><Button variant="primary" type="button" onClick={confirm}>{popup.confirmText}</Button></>
-          ) : <Button variant="primary" type="button" onClick={onClose}>{tx("收下")}</Button>}</footer>
+          ) : <Button variant="primary" type="button" onClick={onClose}>{tx("知道了")}</Button>}</footer>
         </article>
       </div>
     </div>,

@@ -1,0 +1,569 @@
+{
+  "environment": "isolated real API + disposable MySQL, no request mocking",
+  "date": "2026-10-23",
+  "assertions": [
+    "Native pointer drag + star persist to canonical daily focus; remount retains both",
+    "Task detail pins deadline; Today countdown visible after refresh independently of daily focus",
+    "UI completion → refresh → accepted-list replacement → refresh retains canonical completion event",
+    "Public expense form → credited reward acknowledgement → newest insertion first despite earlier occurrence",
+    "42-cell monthly calendar shows real execution/completion records, distinguishes plans, expands overflow with full titles",
+    "375/1024/1440 CSS viewports: no page overflow, consistent 0.75rem input/select/textarea shape"
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "fields": {
+        "left": 460,
+        "right": 980,
+        "bottom": 711.75,
+        "expectedRadius": 9.75,
+        "fields": [
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品名称"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "原名（可选）"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品类型"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品状态"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作者、导演或工作室"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "封面 URL（可选）"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "外部链接（可选）"
+          },
+          {
+            "type": "TEXTAREA",
+            "radius": "9.75px",
+            "height": 90,
+            "label": "简短备注（长笔记请写入 Notebook）"
+          }
+        ]
+      },
+      "todayShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/today-1440.png",
+      "monthShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-1440.png",
+      "detailShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-detail-1440.png",
+      "formShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/library-form-1440.png",
+      "adjacentForms": [
+        {
+          "name": "task",
+          "geometry": {
+            "left": 374.5,
+            "right": 1054.5,
+            "height": 594.0625,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "TEXTAREA",
+                "height": 78,
+                "radius": 12
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/task-form-1440.png"
+        },
+        {
+          "name": "wallet",
+          "geometry": {
+            "left": 460,
+            "right": 980,
+            "height": 352.375,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 45.5,
+                "radius": 0
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/wallet-form-1440.png"
+        },
+        {
+          "name": "writing",
+          "geometry": {
+            "left": 394.5,
+            "right": 1034.5,
+            "height": 485,
+            "fields": [
+              {
+                "tag": "TEXTAREA",
+                "height": 208,
+                "radius": 10
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/writing-form-1440.png"
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "height": 900,
+      "scrollWidth": 1024,
+      "fields": {
+        "left": 252,
+        "right": 772,
+        "bottom": 711.75,
+        "expectedRadius": 9.75,
+        "fields": [
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品名称"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "原名（可选）"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品类型"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品状态"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作者、导演或工作室"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "封面 URL（可选）"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "外部链接（可选）"
+          },
+          {
+            "type": "TEXTAREA",
+            "radius": "9.75px",
+            "height": 90,
+            "label": "简短备注（长笔记请写入 Notebook）"
+          }
+        ]
+      },
+      "todayShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/today-1024.png",
+      "monthShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-1024.png",
+      "detailShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-detail-1024.png",
+      "formShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/library-form-1024.png",
+      "adjacentForms": [
+        {
+          "name": "task",
+          "geometry": {
+            "left": 166.5,
+            "right": 846.5,
+            "height": 594.0625,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "TEXTAREA",
+                "height": 78,
+                "radius": 12
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/task-form-1024.png"
+        },
+        {
+          "name": "wallet",
+          "geometry": {
+            "left": 252,
+            "right": 772,
+            "height": 352.375,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 45.5,
+                "radius": 0
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/wallet-form-1024.png"
+        },
+        {
+          "name": "writing",
+          "geometry": {
+            "left": 186.5,
+            "right": 826.5,
+            "height": 485,
+            "fields": [
+              {
+                "tag": "TEXTAREA",
+                "height": 208,
+                "radius": 10
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/writing-form-1024.png"
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "fields": {
+        "left": 16,
+        "right": 359,
+        "bottom": 576.75,
+        "expectedRadius": 9.75,
+        "fields": [
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品名称"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "原名（可选）"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品类型"
+          },
+          {
+            "type": "SELECT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作品状态"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "作者、导演或工作室"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "封面 URL（可选）"
+          },
+          {
+            "type": "INPUT",
+            "radius": "9.75px",
+            "height": 29.25,
+            "label": "外部链接（可选）"
+          },
+          {
+            "type": "TEXTAREA",
+            "radius": "9.75px",
+            "height": 90,
+            "label": "简短备注（长笔记请写入 Notebook）"
+          }
+        ]
+      },
+      "todayShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/today-375.png",
+      "monthShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-375.png",
+      "detailShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/month-detail-375.png",
+      "formShot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/library-form-375.png",
+      "adjacentForms": [
+        {
+          "name": "task",
+          "geometry": {
+            "left": 10.5,
+            "right": 353.5,
+            "height": 780,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "TEXTAREA",
+                "height": 78,
+                "radius": 12
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              },
+              {
+                "tag": "INPUT",
+                "height": 26,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/task-form-375.png"
+        },
+        {
+          "name": "wallet",
+          "geometry": {
+            "left": 13,
+            "right": 351,
+            "height": 407.3125,
+            "fields": [
+              {
+                "tag": "INPUT",
+                "height": 45.5,
+                "radius": 0
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              },
+              {
+                "tag": "SELECT",
+                "height": 29.25,
+                "radius": 9.75
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/wallet-form-375.png"
+        },
+        {
+          "name": "writing",
+          "geometry": {
+            "left": 13,
+            "right": 351,
+            "height": 523.875,
+            "fields": [
+              {
+                "tag": "TEXTAREA",
+                "height": 194.875,
+                "radius": 10
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              },
+              {
+                "tag": "INPUT",
+                "height": 40,
+                "radius": 8
+              }
+            ]
+          },
+          "shot": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/writing-form-375.png"
+        }
+      ]
+    }
+  ]
+}

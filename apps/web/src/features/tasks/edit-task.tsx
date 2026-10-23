@@ -6,10 +6,11 @@ import { CategoryField, CloseButton, DifficultyOptions, ModalActions, ModalPorta
 import { tx } from "../../app/i18n";
 import { useFeedbackPresentation } from "../../app/feedback";
 
-export function EditTaskWorkflow({ children, request, projects, categories, onError, onChanged, userId }: {
+export function EditTaskWorkflow({ children, request, projects, categories, onError, onChanged, userId, timezone }: {
   children: (open: (task: Task) => void) => ReactNode;
   request: Request;
   userId: number;
+  timezone?: string;
   projects: ProjectOption[];
   categories: Category[];
   onError: (message: string, title?: string) => void;
@@ -41,8 +42,8 @@ export function EditTaskWorkflow({ children, request, projects, categories, onEr
     setTask(nextTask);
     setTitle(nextTask.title);
     setDescription(nextTask.description ?? "");
-    setDueDate(dateInput(nextTask.dueAt));
-    setDueTime(timeInput(nextTask.dueAt));
+    setDueDate(dateInput(nextTask.dueAt, timezone));
+    setDueTime(timeInput(nextTask.dueAt, timezone));
     setDifficulty(String(nextTask.difficulty ?? 2));
     setProjectId(nextTask.projectId ? String(nextTask.projectId) : "");
     setCategoryId(nextTask.categoryId ? String(nextTask.categoryId) : "");

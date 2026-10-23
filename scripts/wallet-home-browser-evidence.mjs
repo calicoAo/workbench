@@ -55,7 +55,12 @@ try {
     await click("保存支出"); await wait("document.querySelector('.feedback-modal-reward') && document.querySelector('.hero-hud').textContent.includes('35/200')");
     const feedback = await evaluate(`({ text: document.querySelector('.feedback-modal-reward').textContent, rewardAnimation: getComputedStyle(document.querySelector('.feedback-modal-reward')).animationName, toastAnimation: getComputedStyle(document.querySelector('.app-success-toast')).animationName, progressTransition: getComputedStyle(document.querySelector('.hero-hud-xp i')).transitionProperty })`);
     assert.ok(feedback.text.includes("+5 XP") && feedback.text.includes("+2")); assert.equal(feedback.rewardAnimation, "reward-arrive"); assert.equal(feedback.toastAnimation, "success-arrive"); assert.equal(feedback.progressTransition, "width");
-    await sleep(450); await capture(`expense-feedback-${width}.png`);
+    await sleep(450);
+    const acknowledgement = await evaluate(`(() => { const button = document.querySelector('.feedback-modal footer button'), visual = button.firstElementChild, r = visual.getBoundingClientRect(); return {text:button.textContent,width:r.width,height:r.height,whiteSpace:getComputedStyle(visual).whiteSpace}; })()`);
+    assert.equal(acknowledgement.text, "知道了"); assert.ok(acknowledgement.width >= 80 && acknowledgement.height >= 44); assert.equal(acknowledgement.whiteSpace, "nowrap");
+    await capture(`expense-feedback-${width}.png`);
+    await click("知道了"); await wait("!document.querySelector('.feedback-modal')");
+    assert.ok(await evaluate("document.querySelector('.hero-hud').textContent.includes('35/200')"));
     await navigate("/finance?tab=recurring"); await wait("document.querySelector('.finance-prepare-step')");
     const steps = await evaluate("[...document.querySelectorAll('.finance-step-title')].map(el => el.textContent)");
     assert.deepEqual(steps, ["1周期模板", "2选择模板并生成", "3待确认发生项"]);
@@ -68,7 +73,7 @@ try {
     await evaluate("document.documentElement.dataset.reducedMotion = 'true'");
     const reducedMotion = await evaluate("getComputedStyle(document.querySelector('.hero-hud-xp i')).transitionDuration");
     assert.equal(reducedMotion, "1e-05s");
-    evidence.push({ layout, focused, popover, feedback, steps, reducedMotion });
+    evidence.push({ layout, focused, popover, feedback, acknowledgement, steps, reducedMotion });
   }
   await fs.writeFile(path.join(output, "browser.json"), JSON.stringify({ kind: "isolated public Web component fixture; no API/MySQL writes", evidence }, null, 2));
   console.log(JSON.stringify({ pass: true, viewports: evidence.map(item => item.layout.width), output }));

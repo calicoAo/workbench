@@ -1,16 +1,16 @@
-﻿import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getCurrentUserId } from "../auth.js";
 import { db } from "../db/index.js";
-import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments, timerSessions } from "../db/schema.js";
+import { quickNoteTaskLinks, schedules, taskCategories, taskDailyAssignments, tasks, timerSegments, timerSessions, users } from "../db/schema.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { ActualTimeClass, canTransitTaskStatus, ScheduleKind, ScheduleSource, TaskStatus, TimerSegmentStatus, type TaskStatusValue } from "../enums.js";
 import { splitActualTimeEntry } from "../execution-read-model.js";
 import { ok } from "../http.js";
 import { log } from "../logger.js";
-import { archiveTask, completeTask, removeTask, reopenTask } from "../task-completion.js";
+import { archiveTask, completeTask, completionEventsForRange, removeTask, reopenTask } from "../task-completion.js";
 import { publishTask } from "../task-publishing.js";
 import { requireAssignableProjectInClient } from "../projects.js";
 import { formatUtcDateTime, isValidTimezone, localDateTimeToUtc, parseUtcDateTime } from "../time.js";
@@ -71,8 +71,10 @@ const reorderSchema = z.object({
   taskIds: z.array(z.number().int().positive()).min(1)
 });
 
-function localDateTime(value: string) {
-  return new Date(`${value}:00+08:00`);
+async function taskDeadline(userId: number, value: string) {
+  const [user] = await db.select({ timezone: users.timezone }).from(users).where(eq(users.id, userId));
+  if (!user) throw new BusinessError(ErrorCode.NOT_FOUND, "user not found", 404);
+  return localDateTimeToUtc(value.slice(0, 10), value.slice(11, 16), user.timezone);
 }
 
 function parseSessionDate(value: Date | string) {
@@ -88,6 +90,11 @@ export const tasksRoute = new Hono()
       .orderBy(asc(tasks.sortOrder), desc(tasks.updatedAt));
 
     return ok(c, rows);
+  })
+  .get("/completions", async (c) => {
+    const { date } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(c.req.query());
+    const events = await completionEventsForRange(getCurrentUserId(c), date, date);
+    return ok(c, events.map((event) => ({ ...event, occurredAt: parseUtcDateTime(event.occurredAt) })));
   })
   .get("/:id", async (c) => {
     const id = z.coerce.number().int().positive().parse(c.req.param("id"));
@@ -228,7 +235,7 @@ export const tasksRoute = new Hono()
       status: TaskStatus.TODO,
       estimatedMinutes: body.estimatedMinutes,
       dueDate: body.dueAt ? body.dueAt.slice(0, 10) : body.dueDate,
-      dueAt: body.dueAt ? localDateTime(body.dueAt) : null,
+      dueAt: body.dueAt ? await taskDeadline(getCurrentUserId(c), body.dueAt) : null,
       pinned: 0,
       progressPercent: body.progressPercent ?? 0,
       sortOrder: existingTasks.length + 1,
@@ -292,7 +299,7 @@ export const tasksRoute = new Hono()
       const difficulty = body.difficulty ?? task.difficulty;
       const priority = body.priority ?? task.priority;
       const estimatedMinutes = body.estimatedMinutes === undefined ? task.estimatedMinutes : body.estimatedMinutes;
-      const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? localDateTime(body.dueAt) : null;
+      const dueAt = body.dueAt === undefined ? task.dueAt : body.dueAt ? await taskDeadline(getCurrentUserId(c), body.dueAt) : null;
       const dueDate = body.dueAt === undefined ? task.dueDate : body.dueAt ? body.dueAt.slice(0, 10) : null;
       const progressPercent = body.progressPercent ?? task.progressPercent;
       const version = task.version + 1;

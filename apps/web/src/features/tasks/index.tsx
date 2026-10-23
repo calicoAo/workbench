@@ -9,6 +9,8 @@ import { EditTaskWorkflow } from "./edit-task";
 import { type Confirm, type ProjectOption, type Request, type Schedule, type Task, type TimerSession, difficultyLabel, formatDateTime, perform } from "./model";
 import { SelectDailyTasksWorkflow } from "./select-daily-tasks";
 import { CategoryOptions, CategoryTag, CloseButton, EmptyText, ModalPortal } from "./task-ui";
+import { useDailyFocus } from "./daily-focus";
+import { CompletedDay } from "./completed-day";
 import { tx } from "../../app/i18n";
 
 export { BountyBoard } from "./bounty-board";
@@ -22,6 +24,7 @@ type ContextValue = {
   openEditor: (task: Task) => void;
   complete: (task: Task) => void | Promise<void>;
   archive: (task: Task) => void;
+  pin: (task: Task) => Promise<void>;
 };
 
 const TasksContext = createContext<ContextValue | null>(null);
@@ -74,6 +77,7 @@ export function TasksFeature({
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [dragOverTaskId, setDragOverTaskId] = useState<number | null>(null);
 
+  const focus = useDailyFocus({ request, date: selectedDate, tasks, dailyTaskIds, focusTaskIds: focusTaskIds ?? [], onError, onChanged });
   const taskPlans = plannedMap(schedules);
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const orderedTasks = useMemo(() => sortTasksForDisplay(tasks, taskPlans), [tasks, taskPlans]);
@@ -174,10 +178,10 @@ export function TasksFeature({
   }
 
   function renderPanel(openCreate: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>, dailyQuests?: ReactNode) {
-    const focusSet = new Set(focusTaskIds ?? []);
+    const focusSet = new Set(focus.focused);
     const focusedTasks = pendingTasks.filter((task) => focusSet.has(task.id));
     const otherTasks = pendingTasks.filter((task) => !focusSet.has(task.id));
-    const completedToday = filteredTasks.filter((task) => task.status === 2);
+
     const renderRow = (task: Task) => <TaskRow
       key={task.id}
       task={task}
@@ -188,7 +192,10 @@ export function TasksFeature({
       dragging={draggingTaskId === task.id}
       dragOver={dragOverTaskId === task.id && draggingTaskId !== task.id}
       onDone={() => void toggleDone(task)}
-      onPinned={() => void updatePinned(task)}
+      focused={focusSet.has(task.id)}
+      focusPending={focus.pending}
+      onFocus={() => void focus.setFocus(task.id, !focusSet.has(task.id))}
+      onPinned={() => task.dueAt ? void updatePinned(task) : openEditor(task)}
       onCategoryChange={(nextCategoryId) => void updateCategory(task, nextCategoryId)}
       onProgressChange={(progress) => void updateProgress(task, progress)}
       onEdit={() => openEditor(task)}
@@ -233,8 +240,9 @@ export function TasksFeature({
         {!loading && !tasks.length && <EmptyText text={tx("任务池还没有任务，先添加一个悬赏。")} />}
         {!loading && tasks.length > 0 && !dailyOrderedTasks.length && <EmptyText text={tx("今天还没有接取任务，点击上方“接取悬赏”开始选择。")} />}
         {!!dailyOrderedTasks.length && (
-          <><TaskSection title={tx("今日重点")} count={focusedTasks.length}>{focusedTasks.length ? focusedTasks.map(renderRow) : <EmptyText text={tx("还没有设置重点；可在接取面选择最多 3 项。")} />}</TaskSection><TaskSection title={tx("其他已接取")} count={otherTasks.length}>{otherTasks.length ? otherTasks.map(renderRow) : <EmptyText text={tx("暂无其他已接取悬赏。")} />}</TaskSection>{completedToday.length ? <TaskSection title={tx("已完成")} count={completedToday.length}>{completedToday.map(renderRow)}</TaskSection> : null}</>
+          <><div className={`task-focus-dropzone ${draggingTaskId ? "is-dragging" : ""}`} data-focus-dropzone aria-label={tx("拖入今日重点")} onDragOver={(event) => { if (draggingTaskId !== null) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } }} onDropCapture={(event) => { if (draggingTaskId !== null && !focus.focused.includes(draggingTaskId)) { event.preventDefault(); event.stopPropagation(); void focus.setFocus(draggingTaskId, true); clearDrag(); } }}><TaskSection title={tx("今日重点")} count={focusedTasks.length}>{focusedTasks.length ? focusedTasks.map(renderRow) : <EmptyText text={tx("拖拽任务到这里，或点击星星设置重点（最多 3 项）。")} />}</TaskSection></div><TaskSection title={tx("其他已接取")} count={otherTasks.length}>{otherTasks.length ? otherTasks.map(renderRow) : <EmptyText text={tx("暂无其他已接取悬赏。")} />}</TaskSection></>
         )}
+        <CompletedDay request={request} userId={userId} date={selectedDate} timezone={timezone ?? "UTC"} categoryFilter={activeFilter} categories={categories} />
       </div>
     </section>
     );
@@ -268,11 +276,11 @@ export function TasksFeature({
       {(openCreate) => (
         <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} focusTaskIds={focusTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
           {(openSelector) => (
-            <EditTaskWorkflow key={userId} userId={userId} request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
+            <EditTaskWorkflow key={userId} userId={userId} timezone={timezone} request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
               {(openEditor) => (
                 <CompleteTaskWorkflow activeTaskId={runningTimers[0]?.taskId} onCompleteAndFinish={onCompleteAndFinish} request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
-                    <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask }}>
+                    <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask, pin: updatePinned }}>
                       {children}
                       {completedOpen && <CompletedTasksModal tasks={completedTasks} categories={categories} rewardsByTaskId={rewardsByTaskId} onClose={() => setCompletedOpen(false)} />}
                     </TasksContext.Provider>
@@ -344,6 +352,7 @@ function TaskSection({ title, count, children }: { title: string; count: number;
 function TaskRow(props: {
   task: Task; category: Category | null; categories: Category[]; plannedSchedule: Schedule | null;
   activeTimer: TimerSession | null; dragging: boolean; dragOver: boolean; onDone: () => void;
+  focused: boolean; focusPending: boolean; onFocus: () => void;
   onPinned: () => void; onCategoryChange: (categoryId: number | null) => void;
   onProgressChange: (progress: number) => void; onEdit: () => void; onStart: () => void;
   onCancel: () => void;
@@ -367,7 +376,7 @@ function TaskRow(props: {
       <div className="task-row-main">
         <span className="task-row-leading">
           <span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(props.task.id)); props.onDragStart(); }} onDragEnd={props.onDragEnd} title={tx("拖拽排序")}><GripVertical size={16} /></span>
-          <button className={`task-pin ${props.task.pinned ? "text-pink-500" : "text-soft"}`} aria-label={props.task.dueAt ? props.task.pinned ? tx("取消主页固定") : tx("固定到主页") : tx("重要标记")} onClick={props.onPinned}><Star size={17} fill={props.task.pinned ? "currentColor" : "none"} /></button>
+          <button type="button" disabled={props.focusPending} className={`task-pin ${props.focused ? "text-pink-500" : "text-soft"}`} aria-label={props.focused ? tx("取消今日重点") : tx("设为今日重点")} aria-pressed={props.focused} onClick={props.onFocus}><Star size={17} fill={props.focused ? "currentColor" : "none"} /></button>
           <label className="task-check-target"><input aria-label={props.activeTimer ? tx("完成悬赏并结束：{value0}", { value0: props.task.title }) : tx("完成{value0}", { value0: props.task.title })} className="task-row-checkbox accent-mint-500" type="checkbox" checked={props.task.status === 2} onChange={props.onDone} /></label>
         </span>
         <span className="task-row-copy">
@@ -387,6 +396,7 @@ function TaskRow(props: {
         <div>
           <button type="button" aria-label={tx("在更多菜单中编辑任务")} onClick={props.onEdit}><Pencil size={15} />{tx("编辑任务")}</button>
           <label>{tx("能力分类")}<select aria-label={tx("移动端修改事件类型")} value={props.task.categoryId ?? ""} onChange={(event) => props.onCategoryChange(event.target.value ? Number(event.target.value) : null)}><option value="">{tx("未分类")}</option><CategoryOptions categories={props.categories} /></select></label>
+          {props.task.status < 2 ? <button type="button" onClick={props.onPinned}>{props.task.dueAt ? props.task.pinned ? tx("取消主页倒计时") : tx("固定倒计时到主页") : tx("设置截止日期")}</button> : null}
           {props.task.status === 2 ? null : <button className="danger-command" type="button" onClick={props.onCancel}><X size={15} />{tx("取消今日")}</button>}
         </div>
       </details>

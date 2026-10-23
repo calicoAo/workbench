@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { dateInput, timeInput } from "./model";
 import { TaskDetailPage, TasksFeature, TasksPanel, type TaskDetailPayload } from ".";
 
 type Props = ComponentProps<typeof TasksFeature>;
@@ -51,6 +52,7 @@ function feature(overrides: Partial<Props> = {}) {
       categories={overrides.categories ?? [category]}
       schedules={overrides.schedules ?? []}
       dailyTaskIds={overrides.dailyTaskIds ?? [task.id]}
+      focusTaskIds={overrides.focusTaskIds ?? []}
       runningTimers={overrides.runningTimers ?? []}
       taskRewardEvents={overrides.taskRewardEvents ?? []}
       onError={overrides.onError ?? vi.fn()}
@@ -147,10 +149,11 @@ describe("TasksFeature ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认接取" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
-    expect(requestMock.mock.calls[0][0]).toBe("/api/task-days");
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toEqual({
+    expect(requestMock.mock.calls.filter((call) => call[1]?.method)[0][0]).toBe("/api/task-days");
+    expect(JSON.parse(String(requestMock.mock.calls.filter((call) => call[1]?.method)[0][1]?.body))).toEqual({
       taskDate: "2026-09-18",
-      taskIds: [task.id, taskB.id]
+      taskIds: [task.id, taskB.id],
+      focusTaskIds: []
     });
   });
 
@@ -196,12 +199,12 @@ describe("TasksFeature ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "直接完成" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
-    expect(requestMock.mock.calls[0][0]).toBe("/api/tasks/1/complete");
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
+    expect(requestMock.mock.calls.filter((call) => call[1]?.method)[0][0]).toBe("/api/tasks/1/complete");
+    expect(JSON.parse(String(requestMock.mock.calls.filter((call) => call[1]?.method)[0][1]?.body))).toMatchObject({
       expectedVersion: 1,
       completionNote: "完成得很扎实"
     });
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(JSON.parse(String(requestMock.mock.calls.filter((call) => call[1]?.method)[0][1]?.body)).operationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(onReward).toHaveBeenCalledWith(task, { xp: 12, coins: 3 });
   });
 
@@ -217,9 +220,9 @@ describe("TasksFeature ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "完成并记录时间" }));
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
-    expect(requestMock).toHaveBeenCalledOnce();
-    expect(requestMock.mock.calls[0][0]).toBe("/api/schedules");
-    expect(JSON.parse(String(requestMock.mock.calls[0][1]?.body))).toMatchObject({
+    expect(requestMock.mock.calls.filter((call) => call[1]?.method)).toHaveLength(1);
+    expect(requestMock.mock.calls.filter((call) => call[1]?.method)[0][0]).toBe("/api/schedules");
+    expect(JSON.parse(String(requestMock.mock.calls.filter((call) => call[1]?.method)[0][1]?.body))).toMatchObject({
       taskId: task.id,
       expectedTaskVersion: task.version,
       kind: 1,
@@ -228,5 +231,73 @@ describe("TasksFeature ownership", () => {
       startTime: "09:00",
       endTime: "10:00"
     });
+  });
+});
+
+
+describe("daily focus and historical completions", () => {
+  it("star uses daily focus rather than global countdown pin", async () => {
+    const request = vi.fn(async () => ({}));
+    const changed = vi.fn();
+    render(feature({ request: request as Props["request"], onChanged: changed }));
+    fireEvent.click(screen.getByRole("button", { name: "设为今日重点" }));
+    await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    const writes = request.mock.calls as unknown as [string, RequestInit][];
+    const write = writes.find(([, init]) => init?.method === "PUT")!;
+    expect(write[0]).toBe("/api/task-days");
+    expect(JSON.parse(String(write[1].body))).toEqual({ taskDate: "2026-09-18", taskIds: [1], focusTaskIds: [1] });
+    expect(writes.some(([url]) => url.includes("/pinned"))).toBe(false);
+  });
+  it("drag into the empty focus zone saves focus once", async () => {
+    const request = vi.fn(async () => ({})); const changed = vi.fn();
+    const { container } = render(feature({ request: request as Props["request"], onChanged: changed }));
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+    fireEvent.dragStart(container.querySelector(".drag-handle")!, { dataTransfer });
+    fireEvent.dragOver(container.querySelector("[data-focus-dropzone]")!, { dataTransfer });
+    fireEvent.drop(container.querySelector("[data-focus-dropzone]")!, { dataTransfer });
+    await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    const writes = (request.mock.calls as unknown as [string, RequestInit][]).filter(([, init]) => init?.method);
+    expect(writes).toHaveLength(1);
+    expect(JSON.parse(String(writes[0][1].body)).focusTaskIds).toEqual([1]);
+  });
+  it("max three prevents a fourth and failures remain retryable", async () => {
+    const four = [task, taskB, { ...task, id: 3, title: "三" }, { ...task, id: 4, title: "四" }];
+    const request = vi.fn(async () => ({})); const onError = vi.fn();
+    const view = render(feature({ tasks: four, dailyTaskIds: [1, 2, 3, 4], focusTaskIds: [1, 2, 3], request: request as Props["request"], onError }));
+    fireEvent.click(screen.getByRole("button", { name: "设为今日重点" }));
+    expect(onError).toHaveBeenCalledWith("今日重点最多 3 项，请先取消一项。");
+    expect((request.mock.calls as unknown as [string, RequestInit][]).filter(([, init]) => init?.method)).toHaveLength(0);
+    let fails = true;
+    const retry = vi.fn(async (_url: string, init?: RequestInit) => { if (init?.method && fails) throw new Error("offline"); return {}; });
+    view.unmount(); render(feature({ request: retry as Props["request"], onError }));
+    fireEvent.click(screen.getByRole("button", { name: "设为今日重点" }));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("offline", "操作没有成功"));
+    fails = false; fireEvent.click(screen.getByRole("button", { name: "设为今日重点" }));
+    await waitFor(() => expect(retry.mock.calls.filter(([, init]) => init?.method)).toHaveLength(2));
+  });
+  it("reordering already-focused rows preserves the existing ordering command", async () => {
+    const request = vi.fn(async (_url: string, _init?: RequestInit) => ({}));
+    const { container } = render(feature({ tasks: [task, taskB], dailyTaskIds: [1, 2], focusTaskIds: [1, 2], request: request as Props["request"] }));
+    const rows = container.querySelectorAll("[data-focus-dropzone] .task-row");
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+    fireEvent.dragStart(rows[0].querySelector(".drag-handle")!, { dataTransfer });
+    fireEvent.drop(rows[1], { dataTransfer });
+    await waitFor(() => expect(request.mock.calls.filter((call) => String(call[0]).includes("/reorder"))).toHaveLength(1));
+    expect(request.mock.calls.some((call) => call[0] === "/api/task-days")).toBe(false);
+  });
+  it("deadline editor values follow authenticated timezone across midnight", () => {
+    const instant = "2026-10-22T15:15:00.000Z";
+    expect(dateInput(instant, "Asia/Tokyo")).toBe("2026-10-23");
+    expect(timeInput(instant, "Asia/Tokyo")).toBe("00:15");
+    expect(dateInput(instant, "America/New_York")).toBe("2026-10-22");
+    expect(timeInput(instant, "America/New_York")).toBe("11:15");
+  });
+  it("completion event survives remount without any accepted tasks", async () => {
+    const request = vi.fn(async () => [{ id: 81, taskId: 1, title: "完成的任务", businessDate: "2026-09-18", occurredAt: "2026-09-18T01:00:00Z", categoryIdAtOccurrence: 10 }]);
+    const view = render(feature({ dailyTaskIds: [], request: request as Props["request"] }));
+    expect(await screen.findByText("完成的任务")).toBeTruthy();
+    view.unmount(); render(feature({ dailyTaskIds: [], request: request as Props["request"] }));
+    expect(await screen.findByText("完成的任务")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /完成的任务/ }).getAttribute("href")).toContain("date=2026-09-18");
   });
 });

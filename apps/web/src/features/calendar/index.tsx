@@ -1,3 +1,4 @@
+export { MonthActivityCalendar } from "./month";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useEffect, useRef, useState } from "react";

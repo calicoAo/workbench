@@ -274,7 +274,7 @@ describe("R1C router and AppShell", () => {
     await screen.findByRole("heading", { name: "日历", level: 1 });
     fireEvent.click(screen.getByRole("button", { name: "月" }));
     const monthGrid = await screen.findByRole("grid", { name: "月视图" });
-    expect(monthGrid.querySelector(".is-selected")?.getAttribute("href")).toBe("/calendar?date=2026-09-19");
+    expect(monthGrid.querySelector(".is-selected button")?.getAttribute("aria-label")).toBe("2026-09-19");
   });
 
   it("shows a yearly heatmap using actual-time minutes without inventing an activity score", async () => {

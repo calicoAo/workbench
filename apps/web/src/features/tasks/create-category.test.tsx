@@ -54,7 +54,7 @@ function assertDraft() {
 function openManager() { fireEvent.click(screen.getByRole("button", { name: "新建 / 管理分类" })); }
 async function dismissNotice(title = "分类已创建") {
   const dialog = await screen.findByRole("dialog", { name: title });
-  fireEvent.click(within(dialog).getByRole("button", { name: "收下" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "知道了" }));
   if (title === "分类已创建" || title === "分类已更新") await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "新建 / 管理分类" })));
 }
 

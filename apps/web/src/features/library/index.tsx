@@ -209,26 +209,26 @@ export function LibraryPage({
             </header>
             <input
               className="field"
-              name="title"
+              aria-label={tx("作品名称")} name="title"
               required
               maxLength={200}
               placeholder={tx("作品名称")}
             />
             <input
               className="field"
-              name="originalTitle"
+              aria-label={tx("原名（可选）")} name="originalTitle"
               maxLength={200}
               placeholder={tx("原名（可选）")}
             />
             <div className="library-form-row">
-              <select className="field" name="type">
+              <select className="field" aria-label={tx("作品类型")} name="type">
                 {Object.entries(typeLabels).map(([key, label]) => (
                   <option key={key} value={key}>
                     {tx(label)}
                   </option>
                 ))}
               </select>
-              <select className="field" name="status">
+              <select className="field" aria-label={tx("作品状态")} name="status">
                 {statuses.slice(1).map((item) => (
                   <option key={item.key} value={item.key}>
                     {tx(item.label)}
@@ -238,25 +238,25 @@ export function LibraryPage({
             </div>
             <input
               className="field"
-              name="creator"
+              aria-label={tx("作者、导演或工作室")} name="creator"
               maxLength={160}
               placeholder={tx("作者、导演或工作室")}
             />
             <input
               className="field"
-              name="coverRef"
+              aria-label={tx("封面 URL（可选）")} name="coverRef"
               type="url"
               placeholder={tx("封面 URL（可选）")}
             />
             <input
               className="field"
-              name="externalRef"
+              aria-label={tx("外部链接（可选）")} name="externalRef"
               type="url"
               placeholder={tx("外部链接（可选）")}
             />
             <textarea
               className="field"
-              name="shortNote"
+              aria-label={tx("简短备注（长笔记请写入 Notebook）")} name="shortNote"
               maxLength={1000}
               placeholder={tx("简短备注（长笔记请写入 Notebook）")}
             />
@@ -380,7 +380,7 @@ export function LibraryDetailPage({
             {tx("标题")}
             <input
               className="field"
-              name="title"
+              aria-label={tx("作品名称")} name="title"
               defaultValue={item.title}
               required
             />
@@ -389,14 +389,14 @@ export function LibraryDetailPage({
             {tx("原名")}
             <input
               className="field"
-              name="originalTitle"
+              aria-label={tx("原名（可选）")} name="originalTitle"
               defaultValue={item.originalTitle ?? ""}
             />
           </label>
           <div className="library-form-row">
             <label>
               {tx("类型")}
-              <select className="field" name="type" defaultValue={item.type}>
+              <select className="field" aria-label={tx("作品类型")} name="type" defaultValue={item.type}>
                 {Object.entries(typeLabels).map(([key, label]) => (
                   <option key={key} value={key}>
                     {tx(label)}
@@ -408,7 +408,7 @@ export function LibraryDetailPage({
               {tx("状态")}
               <select
                 className="field"
-                name="status"
+                aria-label={tx("作品状态")} name="status"
                 defaultValue={item.status}
               >
                 {statuses.slice(1).map((entry) => (
@@ -423,7 +423,7 @@ export function LibraryDetailPage({
             {tx("创作者")}
             <input
               className="field"
-              name="creator"
+              aria-label={tx("作者、导演或工作室")} name="creator"
               defaultValue={item.creator ?? ""}
             />
           </label>
@@ -467,7 +467,7 @@ export function LibraryDetailPage({
             <input
               className="field"
               type="url"
-              name="coverRef"
+              aria-label={tx("封面 URL（可选）")} name="coverRef"
               defaultValue={item.coverRef ?? ""}
             />
           </label>
@@ -476,7 +476,7 @@ export function LibraryDetailPage({
             <input
               className="field"
               type="url"
-              name="externalRef"
+              aria-label={tx("外部链接（可选）")} name="externalRef"
               defaultValue={item.externalRef ?? ""}
             />
           </label>
@@ -484,7 +484,7 @@ export function LibraryDetailPage({
             {tx("简短备注")}
             <textarea
               className="field"
-              name="shortNote"
+              aria-label={tx("简短备注（长笔记请写入 Notebook）")} name="shortNote"
               defaultValue={item.shortNote ?? ""}
             />
           </label>

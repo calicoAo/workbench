@@ -1865,7 +1865,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   }
 
   .field {
-    @apply h-9 w-full rounded-full border border-white/80 bg-white/75 px-3 text-[13px] outline-none transition duration-150 focus:border-mint-300 focus:bg-white/90 focus:ring-4 focus:ring-mint-100/60;
+    @apply h-9 w-full rounded-xl border border-white/80 bg-white/75 px-3 text-[13px] outline-none transition duration-150 focus:border-mint-300 focus:bg-white/90 focus:ring-4 focus:ring-mint-100/60;
   }
 
   .primary-button {
@@ -3382,6 +3382,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .earth-entry > .pixel-icon-slot { align-self: center; }
 .earth-entry { --dialog-surface: #ECFCF9; }
 .feedback-modal-reward > :is(header, footer) { background: transparent; }
+.feedback-modal > footer .ui-button-visual { min-height: 44px; min-width: 80px; white-space: nowrap; }
 
 .ui-dialog.quick-note-capture-dialog {
   --dialog-width: 640px;
@@ -3436,4 +3437,31 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .quick-note-capture-dialog > footer { flex-direction: row; align-items: center; }
   .quick-note-capture-dialog > footer > div { width: auto; }
   .quick-note-capture-dialog > footer .ui-button { flex: initial; }
+}
+
+textarea.field { height: auto; min-height: 90px; padding-block: .65rem; resize: vertical; }
+.task-focus-dropzone { border: 1px solid transparent; border-radius: 12px; padding: 2px; }
+.task-focus-dropzone.is-dragging { border-color: #70c9ba; background: #ecfaf6; }
+.completed-task-row small { display: block; color: #6b7280; font-size: 11px; }
+
+.activity-month-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.activity-month-heading a { padding:8px 16px; border-radius:12px; background:white; }
+.activity-month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid #dce3ed; border-left:1px solid #dce3ed; margin-top:14px; }
+.activity-weekday { text-align:center; padding:8px 0; font-size:12px; }
+.activity-day { min-width:0; min-height:148px; border-right:1px solid #dce3ed; border-bottom:1px solid #dce3ed; padding:6px; background:#ffffffb3; }
+.activity-day.is-outside { background:#edf1f7; color:#6b7280; }
+.activity-day.is-selected { box-shadow:inset 0 0 0 2px #8888ed; }
+.activity-day > button { display:flex; justify-content:space-between; width:100%; min-height:30px; font-size:12px; }
+.activity-day > button small { color:#616b82; }
+.activity-chip { display:block; min-width:0; margin-top:4px; padding:4px 6px; border-left:3px solid; border-radius:5px; background:#eaf4f0; font-size:12px; }
+.activity-chip span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.activity-chip small { display:block; color:#536178; font-size:10px; }
+.activity-chip.is-planned { background:#f3f3fa; border:1px dashed #a0a8bb; border-left:3px solid; }
+.activity-day-detail { margin-top:18px; }
+.activity-day-detail .activity-chip { padding:10px; }
+@media(max-width:600px) {
+ .activity-day { min-height:94px; padding:3px; }
+ .activity-day .activity-chip { padding:2px; font-size:10px; }
+ .activity-day .activity-chip small { display:none; }
+ .activity-weekday { font-size:10px; }
 }

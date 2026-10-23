@@ -51,6 +51,14 @@ it("localizes Wallet reward feedback using the selected interface language", () 
   fireEvent.click(screen.getByText("English"));
   fireEvent.click(screen.getByText("save"));
   expect(screen.getByRole("heading", { name: "Financial record saved" })).toBeTruthy();
-  expect(screen.getByText("This record also contributes to your growth.")).toBeTruthy();
+  expect(screen.getByText("Rewards have been credited. No additional claim is needed.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.click(screen.getByText("Chinese"));
+  fireEvent.click(screen.getByText("save"));
+  expect(screen.getByText("+5 XP")).toBeTruthy();
+  expect(screen.getByText("+2 金币")).toBeTruthy();
+  expect(screen.getByText("奖励已到账，无需再次领取。")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "知道了" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

@@ -1,0 +1,20 @@
+{
+  "root": "/Users/lijingru/Developer/workbench",
+  "config": "/Users/lijingru/Developer/workbench/docs/reports/WB-PRODUCT-BUGS-1-5-evidence/architecture-config.json",
+  "errors": 0,
+  "warnings": 2,
+  "findings": [
+    {
+      "severity": "warn",
+      "rule": "entrypoint-size-smell",
+      "file": "apps/web/src/app/shell/index.tsx",
+      "message": "apps/web/src/app/shell/index.tsx has 579 lines (warning threshold 400). Treat this as an ownership review signal, not an automatic split command."
+    },
+    {
+      "severity": "warn",
+      "rule": "entrypoint-size-smell",
+      "file": "apps/web/src/features/tasks/index.tsx",
+      "message": "apps/web/src/features/tasks/index.tsx has 449 lines (warning threshold 400). Treat this as an ownership review signal, not an automatic split command."
+    }
+  ]
+}

@@ -552,3 +552,62 @@ test("paused history exposes both closed Segments, 53 minutes, while resumed OPE
   const subsequent = await app.request(`/api/tasks/${active.taskId}`, { headers });
   assert.equal((await subsequent.json() as { data: { actualEntries: unknown[] } }).data.actualEntries.length, 2);
 });
+
+test("daily completion read survives assignment release, reopen and another completion without leaking users", async () => {
+  const taskId = await insertTask("Completed independent of selection");
+  await insertAssignment(taskId);
+  await completeTask({ userId: 1, operationId: op(), taskId, expectedVersion: 1, completedAt: at("2026-09-18T15:59:00Z") });
+  await replaceAssignmentsForDate({ userId: 1, taskDate: "2026-09-18", taskIds: [], focusTaskIds: [], recordTimezone: "Asia/Shanghai" });
+  await reopenTask({ userId: 1, operationId: op(), taskId, expectedVersion: 2 });
+  await completeTask({ userId: 1, operationId: op(), taskId, expectedVersion: 3, completedAt: at("2026-09-18T16:01:00Z") });
+  const headers = { Authorization: `Bearer ${signToken({ id: 1, username: "owner", displayName: "Owner" })}` };
+  for (const day of ["2026-09-18", "2026-09-19"]) {
+    const response = await app.request(`/api/tasks/completions?date=${day}`, { headers });
+    assert.equal(response.status, 200);
+    const { data } = await response.json() as { data: { taskId: number; businessDate: string; lifecycleVersion: number; occurredAt: string }[] };
+    assert.equal(data.length, 1); assert.equal(data[0].taskId, taskId); assert.equal(data[0].businessDate, day);
+    assert.equal(data[0].lifecycleVersion, day.endsWith("18") ? 1 : 2);
+    assert.equal(data[0].occurredAt, day.endsWith("18") ? "2026-09-18T15:59:00.000Z" : "2026-09-18T16:01:00.000Z");
+  }
+  const other = await app.request("/api/tasks/completions?date=2026-09-18", { headers: { Authorization: `Bearer ${signToken({ id: 99999, username: "other", displayName: "Other" })}` } });
+  assert.deepEqual((await other.json() as { data: unknown[] }).data, []);
+});
+
+test("month activities composes midnight slices, completion-only and planned facts in a bounded user-owned range", async () => {
+  const taskId = await insertTask("Midnight execution");
+  const started = await acceptAndStartTask({ userId: 1, operationId: op(), taskId, expectedTaskVersion: 1, taskDate: "2026-09-18", now: at("2026-09-18T15:55:00Z") });
+  await finishWorkSession({ userId: 1, operationId: op(), sessionId: started.id, expectedVersion: 1, now: at("2026-09-18T16:15:00Z"), note: "one canonical note" });
+  await completeTask({ userId: 1, operationId: op(), taskId, expectedVersion: await scalar("SELECT version FROM tasks WHERE id = ?", [taskId]), completedAt: at("2026-09-18T16:16:00Z") });
+  const only = await insertTask("Completion without timer");
+  await completeTask({ userId: 1, operationId: op(), taskId: only, expectedVersion: 1, completedAt: at("2026-09-19T01:00:00Z") });
+  const headers = { Authorization: `Bearer ${signToken({ id: 1, username: "owner", displayName: "Owner" })}`, "Content-Type": "application/json" };
+  const planned = await app.request("/api/schedules", { method: "POST", headers, body: JSON.stringify({ operationId: op(), scheduleDate: "2026-09-30", startTime: "11:00", endTime: "12:00", kind: 0, title: "Month plan", recordTimezone: "Asia/Shanghai" }) });
+  assert.equal(planned.status, 200);
+  const url = "/api/schedules/month-activities?from=2026-08-31&to=2026-10-11&timezone=Asia%2FShanghai";
+  const response = await app.request(url, { headers }); assert.equal(response.status, 200);
+  const { data } = await response.json() as { data: { activities: { kind: string; taskId: number; title: string; businessDate: string; durationSeconds: number; sessionNote?: string; completed: boolean; startedAt: string | null }[] } };
+  const actual = data.activities.filter((item) => item.taskId === taskId);
+  assert.deepEqual(actual.map((item) => item.businessDate), ["2026-09-18", "2026-09-19"]);
+  assert.equal(actual.reduce((sum, item) => sum + item.durationSeconds, 0), 1200);
+  assert.ok(actual.every((item) => !("sessionNote" in item)));
+  assert.equal(actual[1].completed, true);
+  assert.ok(actual.every((item) => item.kind === "ACTUAL"));
+  assert.equal(data.activities.filter((item) => item.taskId === only && item.kind === "COMPLETION").length, 1);
+  assert.equal(data.activities.find((item) => item.taskId === only)?.startedAt, "2026-09-19T01:00:00.000Z");
+  assert.deepEqual(data.activities.filter((item) => item.businessDate === "2026-09-19").map((item) => item.taskId), [taskId, only]);
+  assert.ok(data.activities.some((item) => item.kind === "PLANNED" && item.title === "Month plan"));
+  assert.equal((await app.request(url.replace("2026-10-11", "2026-10-12"), { headers })).status, 400);
+  const other = await app.request(url, { headers: { Authorization: `Bearer ${signToken({ id: 99999, username: "other", displayName: "Other" })}` } });
+  assert.deepEqual((await other.json() as { data: { activities: unknown[] } }).data.activities, []);
+});
+
+test("deadline editing uses authenticated timezone and pin does not set daily focus", async () => {
+  const taskId = await insertTask("Tokyo deadline"); await insertAssignment(taskId);
+  await pool.query("UPDATE users SET timezone='Asia/Tokyo' WHERE id=1");
+  const headers = { Authorization: `Bearer ${signToken({ id: 1, username: "owner", displayName: "Owner" })}`, "Content-Type": "application/json" };
+  const edited = await app.request(`/api/tasks/${taskId}`, { method: "PUT", headers, body: JSON.stringify({ expectedVersion: 1, dueAt: "2026-10-23T00:15" }) });
+  assert.equal(edited.status, 200);
+  assert.equal((await edited.json() as { data: { dueAt: string } }).data.dueAt, "2026-10-22T15:15:00.000Z");
+  assert.equal((await app.request(`/api/tasks/${taskId}/pinned`, { method: "PUT", headers, body: JSON.stringify({ pinned: true }) })).status, 200);
+  assert.equal(await scalar("SELECT COUNT(*) FROM task_daily_assignments WHERE focus_rank IS NOT NULL"), 0);
+});

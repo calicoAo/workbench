@@ -191,3 +191,22 @@ test("timezone snapshots, filters, safe metadata and optimistic versions remain 
   assert.equal((await api(`/finance/categories/${expense.id}`, { method: "PUT", body: JSON.stringify({ expectedVersion: expense.version, sortOrder: 1000 }) })).response.status, 409);
   assert.equal((await api(`/finance/transactions/${posted.data.transactionId}`, { method: "PUT", body: JSON.stringify({ expectedVersion: detail.data.version, note: "商务晚餐" }) })).response.status, 200);
 });
+
+test("ledger order follows immutable insertion identity across backdates, pages and metadata edits", async () => {
+  await initialize(); const expense = (await categories()).find((item) => item.kind === "EXPENSE")!;
+  const bank = await account({ openingBalanceCents: "0" });
+  const ids: number[] = [];
+  for (const occurredDate of ["2026-09-23", "2026-09-22", "2026-09-01", "2026-09-01"]) {
+    const created = await record("expenses", bank.data.id, expense.id, "15800", op(), 1, { occurredDate });
+    assert.equal(created.response.status, 200); ids.push(created.data.transactionId);
+  }
+  const url = "/finance/transactions?type=EXPENSE&limit=2";
+  const first = await api<{ items: { id: number }[]; nextCursor: number }>(url);
+  const second = await api<{ items: { id: number }[]; nextCursor: number | null }>(`${url}&cursor=${first.data.nextCursor}`);
+  assert.deepEqual([...first.data.items, ...second.data.items].map((item) => item.id), [...ids].reverse());
+  assert.equal(second.data.nextCursor, null);
+  const edit = await api(`/finance/transactions/${ids[0]}`, { method: "PUT", body: JSON.stringify({ expectedVersion: 1, note: "edited oldest insertion" }) });
+  assert.equal(edit.response.status, 200);
+  assert.deepEqual((await api<{ items: { id: number }[] }>(url)).data.items.map((item) => item.id), ids.slice(2).reverse());
+  assert.deepEqual((await api<{ items: unknown[] }>(url, {}, 934)).data.items, []);
+});

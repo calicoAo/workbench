@@ -65,20 +65,18 @@ export function dueAtPayload(date: string, time: string) {
   return date ? `${date}T${time || "18:00"}` : null;
 }
 
-export function dateInput(value?: string | null) {
+export function dateInput(value?: string | null, timezone?: string) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  return ["year", "month", "day"].map((key) => parts.find((part) => part.type === key)!.value).join("-");
 }
 
-export function timeInput(value?: string | null) {
+export function timeInput(value?: string | null, timezone?: string) {
   if (!value) return "18:00";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value.slice(0, 5) : date.toTimeString().slice(0, 5);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 5) : new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
 }
 
 export function currentTimeInput() {

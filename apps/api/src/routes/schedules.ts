@@ -1,6 +1,7 @@
 import { and, between, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { calendarActivities } from "../calendar-activities.js";
 import { getCurrentUserId } from "../auth.js";
 import { db, type DatabaseClient } from "../db/index.js";
 import { schedules, tasks, users } from "../db/schema.js";
@@ -108,7 +109,13 @@ function rangeDatesLong(from: string, to: string) {
   return Array.from({ length: daysBetween(from, to) + 1 }, (_, index) => new Date(start.getTime() + index * 86400000).toISOString().slice(0, 10));
 }
 
+const activityRangeSchema = rangeSchema.refine((value) => Number.isFinite(daysBetween(value.from, value.to)) && daysBetween(value.from, value.to) >= 0 && daysBetween(value.from, value.to) < 42, "calendar activities range must contain 1-42 days");
+
 export const schedulesRoute = new Hono()
+  .get("/month-activities", async (c) => {
+    const query = activityRangeSchema.parse(c.req.query());
+    return ok(c, { ...query, activities: await calendarActivities(getCurrentUserId(c), query.from, query.to, query.timezone) });
+  })
   .get("/summary", async (c) => {
     const query = summaryRangeSchema.parse(c.req.query());
     const userId = getCurrentUserId(c);
