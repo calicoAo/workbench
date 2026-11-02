@@ -1,6 +1,7 @@
 import https from "node:https";
 import { lookup, Resolver } from "node:dns";
 import { isIP } from "node:net";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { z } from "zod";
 import { env } from "../env.js";
 import { BusinessError, ErrorCode } from "../errors.js";
@@ -47,6 +48,7 @@ const resolver = new Resolver({ timeout: 3000, tries: 1 });
 if (env.MEDIA_PUBLIC_DNS)
     resolver.setServers(env.MEDIA_PUBLIC_DNS.split(","));
 const hosts = new Set(["api.themoviedb.org", "openlibrary.org"]);
+const tmdbProxyAgent = env.TMDB_PROXY_URL ? new HttpsProxyAgent(env.TMDB_PROXY_URL) : undefined;
 export function publicAddress(ip: string) {
     if (isIP(ip) === 4) {
         const [a, b] = ip.split(".").map(Number);
@@ -64,6 +66,7 @@ export function sourceJson(url: URL, redirects = 0): Promise<{
     return new Promise((resolve, reject) => {
         const req = https.get(url, {
             headers: { Accept: "application/json", "Accept-Encoding": "identity", "User-Agent": env.OPEN_LIBRARY_USER_AGENT, ...(url.hostname === "api.themoviedb.org" ? { Authorization: `Bearer ${env.TMDB_API_READ_ACCESS_TOKEN ?? ""}` } : {}) },
+            ...(url.hostname === "api.themoviedb.org" && tmdbProxyAgent ? { agent: tmdbProxyAgent } : {}),
             lookup: (host, options, callback) => {
                 const done = (error: NodeJS.ErrnoException | null, addresses: Array<{
                     address: string;

@@ -19,6 +19,10 @@ const envSchema = z.object({
   DEEPSEEK_BASE_URL: z.string().url().default("https://api.deepseek.com"),
   DEEPSEEK_MODEL: z.string().default("deepseek-flash"),
   TMDB_API_READ_ACCESS_TOKEN: z.string().optional(),
+  TMDB_PROXY_URL: z.preprocess(value => value === "" ? undefined : value, z.string().url().refine(value => {
+    const url = new URL(value);
+    return url.protocol === "http:" && !url.username && !url.password && !url.pathname.replace(/\/$/, "") && !url.search && !url.hash;
+  }, "TMDB_PROXY_URL must be a plain HTTP CONNECT proxy URL").optional()),
   MEDIA_PUBLIC_DNS: z.string().optional(),
   MEDIA_IMPORT_TOKEN_SECRET: z.string().min(32).optional(),
   OPEN_LIBRARY_USER_AGENT: z.string().default("PersonalWorkbench/0.1")

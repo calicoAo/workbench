@@ -11,6 +11,11 @@ test -f "$release/deploy/docker-compose.yml"
 test -f "$current/deploy/.env"
 cp "$current/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
+if grep -q '^TMDB_PROXY_URL=' "$release/deploy/.env"; then
+  sed -i 's#^TMDB_PROXY_URL=.*#TMDB_PROXY_URL=http://172.20.0.1:17890#' "$release/deploy/.env"
+else
+  printf '\nTMDB_PROXY_URL=http://172.20.0.1:17890\n' >> "$release/deploy/.env"
+fi
 cd "$release"
 
 $compose up -d mysql
@@ -21,6 +26,14 @@ while [ "$i" -lt 60 ]; do
   sleep 2
 done
 test "$(docker inspect --format '{{.State.Health.Status}}' personal-workbench-mysql)" = healthy
+
+# TMDB only: a private CONNECT bridge reaches the user's Clash through SSH.
+install -d -m 755 /opt/personal-workbench-proxy
+install -m 644 "$release/deploy/tmdb-connect-bridge.py" /opt/personal-workbench-proxy/tmdb-connect-bridge.py
+install -m 644 "$release/deploy/workbench-tmdb-connect-bridge.service" /etc/systemd/system/workbench-tmdb-connect-bridge.service
+systemctl daemon-reload
+systemctl enable workbench-tmdb-connect-bridge.service
+systemctl restart workbench-tmdb-connect-bridge.service
 
 old_api_image=$(docker inspect --format '{{.Image}}' personal-workbench-api 2>/dev/null || true)
 old_web_image=$(docker inspect --format '{{.Image}}' personal-workbench-web 2>/dev/null || true)
