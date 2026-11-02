@@ -1,0 +1,22 @@
+{
+  "databaseFullRegression": {
+    "passed": 235,
+    "failed": 0
+  },
+  "newDatabaseAndAdapterCases": {
+    "passed": 9,
+    "failed": 0
+  },
+  "webFullRegression": {
+    "files": 42,
+    "passed": 423,
+    "failed": 0
+  },
+  "lint": "PASS",
+  "build": "PASS (existing large chunk warning)",
+  "openapiYaml": "PASS (165 paths)",
+  "browser": "PASS; real public paths; 1280x900 and 390x844",
+  "deploymentEgress": "NOT_RUN",
+  "igdb": "DEFERRED",
+  "productionDatabase": "UNTOUCHED"
+}

@@ -1,0 +1,37 @@
+{
+  "representativeInputs": 25,
+  "userAttachmentInputs": 1,
+  "repetitions": 3,
+  "qualityRuns": 78,
+  "browserGenerations": 1,
+  "totalProviderCalls": 79,
+  "costUpperRmb": 0.25791599999999987,
+  "budgetRmb": 8,
+  "pricingBasis": "2026-11-02 peak prices, input RMB2/M, output RMB8/M; cache discounts ignored",
+  "representativeQuality": {
+    "runs": 75,
+    "errors": 0,
+    "inventedDates": 0,
+    "inventedDurations": 0,
+    "coverage": 1,
+    "countPassRate": 1,
+    "extraction": 1,
+    "pendingDatePassRate": 1,
+    "reasoningZero": true,
+    "spentUpperRmb": 0.24113599999999985
+  },
+  "attachmentQuality": {
+    "runs": 3,
+    "errors": 0,
+    "inventedDates": 0,
+    "inventedDurations": 0,
+    "coverage": 1,
+    "countPassRate": 1,
+    "extraction": 1,
+    "pendingDatePassRate": 1,
+    "reasoningZero": true,
+    "spentUpperRmb": 0.25791599999999987
+  },
+  "strictSchemaConclusion": "Observed successful JSON shape and local validation; does not prove the provider can never ignore schema parameters.",
+  "humanReview": "Reviewed relative dates, negations, injection, overflow boundaries, all task titles and suggested duration ranges. Samples are representative, plus the attachment example; not a 26-example user-authored corpus."
+}

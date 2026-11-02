@@ -16,6 +16,11 @@ import type { Request } from "../../app/api";
 import { tx } from "../../app/i18n";
 import { Button, IconButton } from "../../shared/ui";
 
+import { LibrarySourcePanel } from "./source-panel";
+import tmdbLogo from "./assets/tmdb.svg";
+import { MediaImportWorkflow, type LibrarySource } from "./import-workflow";
+export { clearLibraryImportDrafts } from "./import-workflow";
+
 type LibraryType = "BOOK" | "MOVIE" | "SERIES" | "GAME";
 type LibraryStatus = "WANT" | "IN_PROGRESS" | "FINISHED" | "DROPPED";
 type LibraryItem = {
@@ -31,6 +36,8 @@ type LibraryItem = {
   finishedOn: string | null;
   externalRef: string | null;
   shortNote: string | null;
+  description: string | null;
+  releaseYear: number | null;
   version: number;
   relationCount?: number;
 };
@@ -75,6 +82,7 @@ export function LibraryPage({
   const [type, setType] = useState<"ALL" | LibraryType>("ALL");
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importing,setImporting]=useState(false);
   const query = useQuery({
     queryKey: ["library", userId, status, type, q],
     queryFn: () =>
@@ -97,6 +105,8 @@ export function LibraryPage({
           coverRef: String(data.get("coverRef") || "").trim() || null,
           externalRef: String(data.get("externalRef") || "").trim() || null,
           shortNote: String(data.get("shortNote") || "").trim() || null,
+          releaseYear:data.get("releaseYear") ? Number(data.get("releaseYear")) : null,
+          description:String(data.get("description") || "").trim() || null,
         }),
       });
       await client.invalidateQueries({ queryKey: ["library", userId] });
@@ -115,11 +125,13 @@ export function LibraryPage({
           <h1>{tx("图书馆")}</h1>
           <p>{tx("记录读过、看过、玩过和想体验的作品。")}</p>
         </div>
-        <Button variant="primary" onClick={() => setAdding(true)}>
+        <div className="flex gap-2"><Button onClick={()=>setImporting(!importing)}>{tx("导入资料")}</Button><Button variant="primary" onClick={() => setAdding(true)}>
           <Plus size={15} />
           {tx("添加作品")}
-        </Button>
+        </Button></div>
       </header>
+      {importing?<MediaImportWorkflow key={userId} request={request} userId={userId} onSaved={async id=>{await client.invalidateQueries({queryKey:["library",userId]});navigate(`/library/${id}`);}}/>:null}
+      <details className="media-source"><summary>{tx("资料来源与致谢")}</summary><img src={tmdbLogo} alt="TMDB" width={150}/><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a><a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer">Open Library / Internet Archive</a></details>
       <nav className="library-status-tabs" aria-label={tx("作品状态")}>
         {statuses.map((item) => (
           <button
@@ -164,7 +176,7 @@ export function LibraryPage({
               to={`/library/${item.id}`}
               className="library-item-card"
             >
-              <Cover item={item} />
+              <Cover key={item.coverRef} item={item} />
               <span>
                 <small>
                   {tx(typeLabels[item.type])} · {tx(statusLabels[item.status])}
@@ -254,6 +266,8 @@ export function LibraryPage({
               type="url"
               placeholder={tx("外部链接（可选）")}
             />
+            <input className="field" aria-label={tx("发行年份")} name="releaseYear" type="number" min={1} max={9999} placeholder={tx("发行年份")}/>
+            <textarea className="field" aria-label={tx("作品简介")} name="description" maxLength={10000} rows={4} placeholder={tx("作品简介")}/>
             <textarea
               className="field"
               aria-label={tx("简短备注（长笔记请写入 Notebook）")} name="shortNote"
@@ -285,7 +299,7 @@ export function LibraryDetailPage({
   const query = useQuery({
     queryKey: ["library-item", userId, itemId],
     queryFn: () =>
-      request<{ item: LibraryItem; relations: Relation[] }>(
+      request<{ item: LibraryItem; relations: Relation[]; sources:LibrarySource[] }>(
         `/api/library/items/${itemId}`,
       ),
   });
@@ -331,6 +345,8 @@ export function LibraryDetailPage({
           coverRef: String(data.get("coverRef") || "").trim() || null,
           externalRef: String(data.get("externalRef") || "").trim() || null,
           shortNote: String(data.get("shortNote") || "").trim() || null,
+          releaseYear:data.get("releaseYear") ? Number(data.get("releaseYear")) : null,
+          description:String(data.get("description") || "").trim() || null,
         }),
       });
       await client.invalidateQueries({
@@ -366,16 +382,19 @@ export function LibraryDetailPage({
         {tx("返回图书馆")}
       </Link>
       <header className="library-detail-head">
-        <Cover item={item} />
+        <Cover key={item.coverRef} item={item} />
         <div>
           <p className="route-eyebrow">{tx(typeLabels[item.type])}</p>
           <h1>{item.title}</h1>
           <p>{item.creator || tx("创作者未填写")}</p>
         </div>
       </header>
+      <LibrarySourcePanel key={`${userId}:${itemId}:${query.data.sources?.[0]?.id ?? "manual"}`} request={request} userId={userId} item={item} source={query.data.sources?.[0]} onSaved={async()=>{await client.invalidateQueries({queryKey:["library-item",userId,itemId]});await client.invalidateQueries({queryKey:["library",userId]});}}/>
       <div className="library-detail-grid">
         <form className="library-editor" onSubmit={save}>
           <h2>{tx("作品信息")}</h2>
+          <label>{tx("发行年份")}<input className="field" name="releaseYear" type="number" min={1} max={9999} defaultValue={item.releaseYear ?? ""}/></label>
+          <label>{tx("作品简介")}<textarea key={`description:${item.version}`} className="field" name="description" rows={7} maxLength={10000} defaultValue={item.description ?? ""}/></label>
           <label>
             {tx("标题")}
             <input
@@ -482,6 +501,8 @@ export function LibraryDetailPage({
           </label>
           <label>
             {tx("简短备注")}
+            <input className="field" aria-label={tx("发行年份")} name="releaseYear" type="number" min={1} max={9999} placeholder={tx("发行年份")}/>
+            <textarea className="field" aria-label={tx("作品简介")} name="description" maxLength={10000} rows={4} placeholder={tx("作品简介")}/>
             <textarea
               className="field"
               aria-label={tx("简短备注（长笔记请写入 Notebook）")} name="shortNote"
@@ -548,6 +569,7 @@ export function LibraryDetailPage({
 }
 
 function Cover({ item }: { item: LibraryItem }) {
+  const [failed,setFailed]=useState(false);
   const Icon =
     item.type === "BOOK"
       ? BookOpen
@@ -558,8 +580,8 @@ function Cover({ item }: { item: LibraryItem }) {
           : Gamepad2;
   return (
     <span className="library-cover">
-      {item.coverRef ? (
-        <img src={item.coverRef} alt="" />
+      {item.coverRef && !failed ? (
+        <img src={item.coverRef} referrerPolicy="no-referrer" onError={()=>setFailed(true)} alt="" />
       ) : (
         <Icon size={30} aria-hidden="true" />
       )}

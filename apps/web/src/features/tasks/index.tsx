@@ -446,3 +446,5 @@ function elapsedText(start: string) {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 1000));
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
+
+export {clearTaskSplitDrafts} from "./split-draft";

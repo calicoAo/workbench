@@ -14,7 +14,14 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
-  OPENAI_MODEL: z.string().default("gpt-4o-mini")
+  OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().url().default("https://api.deepseek.com"),
+  DEEPSEEK_MODEL: z.string().default("deepseek-flash"),
+  TMDB_API_READ_ACCESS_TOKEN: z.string().optional(),
+  MEDIA_PUBLIC_DNS: z.string().optional(),
+  MEDIA_IMPORT_TOKEN_SECRET: z.string().min(32).optional(),
+  OPEN_LIBRARY_USER_AGENT: z.string().default("PersonalWorkbench/0.1")
 });
 
 export const env = envSchema.parse(process.env);

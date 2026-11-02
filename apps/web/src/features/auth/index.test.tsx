@@ -66,3 +66,11 @@ describe("AuthGate ownership", () => {
     expect(storage.clear).toHaveBeenCalledOnce();
   });
 });
+
+describe("Draft session boundary",()=>{
+  it("authentication expiry does not invoke explicit draft cleanup",async()=>{
+    const changed=vi.fn();const request=vi.fn(async()=>{throw new Error("expired");}) as unknown as Request;
+    render(<AuthGate request={request} tokenStorage={tokenStorage("expired")} onError={vi.fn()} onExplicitSessionChange={changed}>{()=> <p>workspace</p>}</AuthGate>);
+    expect(await screen.findByRole("heading",{name:"登录工作台"})).toBeTruthy();expect(changed).not.toHaveBeenCalled();
+  });
+});

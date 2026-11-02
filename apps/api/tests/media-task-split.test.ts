@@ -1,0 +1,200 @@
+import assert from "node:assert/strict";
+import { readFile, readdir } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { resolve } from "node:path";
+import { before, after, test } from "node:test";
+import mysql, { type Connection, type Pool } from "mysql2/promise";
+const sourceUrl = process.env.TEST_DATABASE_URL;
+if (!sourceUrl || !new URL(sourceUrl).pathname.endsWith("_test"))
+    throw Error("Isolated TEST_DATABASE_URL ending _test required");
+const source = new URL(sourceUrl), fresh = `wb_media_split_${process.pid}_test`, upgrade = `wb_media_upgrade_${process.pid}_test`;
+let admin: Connection, pool: Pool, app: typeof import('../src/app.js').app, signToken: typeof import('../src/auth.js').signToken, provider: Server, calls = 0;
+let providerMode="success";
+let commands: typeof import('../src/library-import/commands.js'), split: typeof import('../src/task-split/index.js');
+const candidate = { title: "整理材料", description: "检查数据", priority: 3, difficulty: 2, categoryId: null, projectId: null, categorySuggestion: "资料", projectSuggestion: null, dueAtLocal: null, dueEvidence: null, estimatedMinutes: 30, durationEvidence: "整理材料30分钟", suggestedMinutes: 40 };
+const sourceFixture = { provider: "TMDB" as const, entityType: "MOVIE" as const, stableSourceId: "550", canonicalUrl: "https://www.themoviedb.org/movie/550", attribution: "TMDB", metadata: { title: "Fight Club", originalTitle: "Fight Club", creator: "David Fincher", creatorRole: "director", releaseYear: 1999, description: "Original overview", descriptionLanguage: "en-US", coverRef: "https://image.tmdb.org/t/p/w500/a.jpg", isAnimation: false } };
+async function api(path: string, body?: unknown, userId = 1, method = body ? "POST" : "GET") { const response = await app.request(`http://localhost/api${path}`, { method, headers: { Authorization: `Bearer ${signToken({ id: userId, username: "qa", displayName: "QA" })}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) }); const json = await response.json() as any; return { status: response.status, data: json.data, message: json.message }; }
+const operation = () => crypto.randomUUID();
+async function scalar(sql: string, values: unknown[] = []) { const [rows] = await pool.query(sql, values); return Number(Object.values((rows as any[])[0])[0]); }
+async function migrate(name: string, from = 0, to = 1000) { await admin.query(`USE \`${name}\``); const dir = resolve(process.cwd().endsWith('/apps/api') ? '../../db/migration' : 'db/migration'); const version = (n: string) => { const m = /^V(\d+)(?:_(\d+))?__/.exec(n)!; return [+m[1], +(m[2] ?? 0)]; }; for (const file of (await readdir(dir)).filter(n => /^V\d+(?:_\d+)?__/.test(n)).sort((a, b) => version(a)[0] - version(b)[0] || version(a)[1] - version(b)[1]))
+    if (version(file)[0] >= from && version(file)[0] <= to)
+        await admin.query(await readFile(resolve(dir, file), 'utf8')); }
+before(async () => {
+    provider = createServer(async (req, res) => { calls++; let raw = ''; for await (const chunk of req)
+        raw += chunk; const body = JSON.parse(raw); assert.equal(req.url, '/responses'); assert.equal(body.reasoning.effort, 'none'); assert.equal(body.stream, false); assert.equal(body.text.format.type, 'json_schema'); res.setHeader('Content-Type', 'application/json');
+        if(providerMode==="rate"){res.statusCode=429;res.end(JSON.stringify({error:"limited"}));return;}
+        if(providerMode==="invalid"){res.end(JSON.stringify({status:"completed",output:[{type:"message",role:"assistant",content:[{type:"output_text",text:"not JSON"}]}]}));return;}
+        if(providerMode==="incomplete"){res.end(JSON.stringify({status:"incomplete",output:[],usage:{input_tokens:20,output_tokens:8192}}));return;} res.end(JSON.stringify({ status: 'completed', output: [{ type: 'reasoning', content: [{ type: 'summary_text', text: 'DO NOT PARSE' }] }, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify({ candidates: [candidate], hasMore: false, unprocessedTextSpans: [] }) }] }], usage: { input_tokens: 300, output_tokens: 100, output_tokens_details: { reasoning_tokens: 0 } } })); });
+    await new Promise<void>(r => provider.listen(0, '127.0.0.1', r));
+    const addr = provider.address();
+    if (!addr || typeof addr === 'string')
+        throw Error();
+    admin = await mysql.createConnection({ host: source.hostname, port: Number(source.port || 3306), user: decodeURIComponent(source.username), password: decodeURIComponent(source.password), multipleStatements: true });
+    for (const name of [fresh, upgrade])
+        await admin.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await migrate(fresh);
+    await migrate(upgrade, 0, 42);
+    await admin.query("INSERT INTO library_items (user_id,type,title,status,version,created_at,updated_at) VALUES (1,'BOOK','Retained book','WANT',1,NOW(),NOW())");
+    await migrate(upgrade, 43, 43);
+    const url = new URL(sourceUrl);
+    url.pathname = '/' + fresh;
+    process.env.DATABASE_URL = url.toString();
+    process.env.JWT_SECRET = 'media-task-tests-only';
+    process.env.NODE_ENV = 'test';
+    process.env.MEDIA_IMPORT_TOKEN_SECRET = 'test-preview-key-32-characters-minimum';
+    process.env.DEEPSEEK_API_KEY = 'test-key';
+    process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${addr.port}`;
+    [{ pool }, { app }, { signToken }, commands, split] = await Promise.all([import('../src/db/index.js'), import('../src/app.js'), import('../src/auth.js'), import('../src/library-import/commands.js'), import('../src/task-split/index.js')]);
+    await pool.query("INSERT INTO users (id,username,display_name,timezone,created_at,updated_at) VALUES (992,'media-other','Other','Asia/Shanghai',NOW(),NOW())");
+});
+after(async () => { await pool?.end(); for (const name of [fresh, upgrade])
+    await admin?.query(`DROP DATABASE IF EXISTS \`${name}\``); await admin?.end(); await new Promise<void>(r => provider?.close(() => r())); });
+test('V43 fresh and V42 upgrade preserve existing item, default permission off', async () => { const [rows] = await admin.query(`SELECT title,description,release_year FROM \`${upgrade}\`.library_items`); assert.deepEqual(JSON.parse(JSON.stringify(rows)), [{ title: 'Retained book', description: null, release_year: null }]); assert.equal((await api('/ai/settings')).data.allowTasks, 0); });
+test('signed previews, source identity isolation, concurrent confirms, replay after expiry, edit preservation and unlink', async () => {
+    const preview = await commands.resolvePreview(1, { provider: 'TMDB', entityType: 'MOVIE', sourceIdOrInput: '550' }, async () => sourceFixture);
+    const body = { previewToken: preview.previewToken, fingerprint: preview.fingerprint, operationId: operation(), mode: 'create' as const, edits: { title: 'My title', description: '<b>My overview</b>' } };
+    const tampered = await api('/library/import/confirm', { ...body, edits: { coverRef: 'https://tracker.invalid/x' } });
+    assert.equal(tampered.status, 400);
+    assert.equal((await api('/library/import/confirm', body, 992)).status, 404);
+    const [a, b] = await Promise.all([api('/library/import/confirm', body), api('/library/import/confirm', { ...body, operationId: operation() })]);
+    assert.equal(a.status, 200);
+    assert.equal(b.status, 200);
+    assert.equal(a.data.id, b.data.id);
+    assert.equal(await scalar('SELECT COUNT(*) FROM library_items'), 1);
+    assert.equal(await scalar('SELECT COUNT(*) FROM library_item_sources'), 1);
+    const id = a.data.id;
+    assert.equal((await api(`/library/items/${id}`,{expectedVersion:1,type:"BOOK"},1,"PUT")).status,409);
+    const detail = await api(`/library/items/${id}`);
+    assert.equal(detail.data.item.description, 'My overview');
+    assert.equal(detail.data.sources[0].stableSourceId, '550');
+    assert.equal((await api('/library/items')).data.items[0].description, undefined);
+    const receipt = await api(`/library/import/operations/${body.operationId}`);
+    assert.equal(receipt.data.itemId, id);
+    assert.equal((await api(`/library/import/operations/${body.operationId}`, undefined, 992)).data.status, 'not_found');
+    const realNow = Date.now;
+    Date.now = () => realNow() + 11 * 60000;
+    try {
+        assert.equal((await commands.confirmImport(1, body) as any).id, id);
+    }
+    finally {
+        Date.now = realNow;
+    }
+    await api(`/library/items/${id}`, { expectedVersion: 1, shortNote: 'Personal opinion', creator: 'My creator' }, 1, 'PUT');
+    const changed = { ...sourceFixture, metadata: { ...sourceFixture.metadata, title: 'New source title', creator: 'New source creator', description: 'New source overview' } };
+    const refresh = await commands.resolvePreview(1, { provider: 'TMDB', entityType: 'MOVIE', sourceIdOrInput: '550', targetItemId: id }, async () => changed);
+    assert.equal(refresh.defaults.description, 'My overview');
+    assert.equal(refresh.defaults.creator, 'My creator');
+    await commands.confirmImport(1, { previewToken: refresh.previewToken, fingerprint: refresh.fingerprint, operationId: operation(), mode: 'refresh', targetItemId: id, expectedVersion: 2, edits: {} });
+    const latest = await api(`/library/items/${id}`);
+    assert.equal(latest.data.item.shortNote, 'Personal opinion');
+    assert.equal(latest.data.item.creator, 'My creator');
+    const unlink = await api(`/library/items/${id}/sources/${latest.data.sources[0].id}`, { operationId: operation(), expectedVersion: 3 }, 1, 'DELETE');
+    assert.equal(unlink.status, 200);
+    assert.equal((await api(`/library/items/${id}`)).data.sources.length, 0);
+});
+test('DeepSeek adapter contract, permission, generation identity and real transactional publication replay', async () => {
+    const input = { operationId: operation(), draftId: operation(), text: '整理材料30分钟' };
+    assert.equal((await api('/tasks/split/preview', input)).status, 403);
+    assert.equal(calls, 0);
+    const settings = (await api('/ai/settings')).data;
+    await api('/ai/settings', { expectedVersion: settings.version, enabled: true, allowTasks: true }, 1, 'PUT');
+    const [a, b] = await Promise.all([api('/tasks/split/preview', input), api('/tasks/split/preview', input)]);
+    assert.ok([200, 202].includes(a.status));
+    assert.ok([200, 202].includes(b.status));
+    assert.equal(calls, 1);
+    const generated = await api(`/tasks/split/preview/${input.operationId}`);
+    assert.equal(generated.data.status, 'SUCCEEDED');
+    assert.equal(generated.data.usage.reasoningTokens, 0);
+    assert.equal(generated.data.result.candidates[0].estimatedMinutes, 30);
+    await api('/tasks/split/preview', input);
+    assert.equal(calls, 1);
+    assert.equal((await api('/tasks/split/preview', { ...input, text: 'Changed' })).status, 409);
+    assert.equal((await api(`/tasks/split/preview/${input.operationId}`, undefined, 992)).status, 403);
+    const payload = { operationId: operation(), recordTimezone: 'Asia/Shanghai', title: 'Published split draft', priority: 3, difficulty: 2, estimatedMinutes: 30 };
+    const [published, replayed] = await Promise.all([api('/tasks', payload), api('/tasks', payload)]);
+    assert.equal(published.status, 200);
+    assert.equal(replayed.status, 200);
+    assert.equal(published.data.id, replayed.data.id);
+    assert.equal((await api(`/tasks/split/publish-status/${payload.operationId}`)).data.taskId, published.data.id);
+    assert.equal(await scalar("SELECT COUNT(*) FROM tasks WHERE title='Published split draft'"), 1);
+});
+test('expired pending derives unknown without GET writes; explicit POST cleans claim, no paid replay', async () => {
+    const input = { operationId: operation(), draftId: operation(), text: '整理材料30分钟' };
+    let release: () => void = () => { };
+    const wait = new Promise<void>(r => { release = r; });
+    const running = split.generateSplit(1, input, { provider: 'controlled', model: 'stub', generateStructured: async () => { await wait; return { payload: { candidates: [], hasMore: false, unprocessedTextSpans: [] } }; } });
+    for (let i = 0; i < 30 && !(await scalar('SELECT COUNT(*) FROM ai_artifacts WHERE operation_id=?', [input.operationId])); i++)
+        await new Promise(r => setTimeout(r, 10));
+    await pool.query("UPDATE ai_artifacts SET created_at='2000-01-01 00:00:00',generation_context=JSON_SET(generation_context,'$.timeoutAt','2000-01-01T00:00:00.000Z') WHERE operation_id=?", [input.operationId]);
+    assert.equal((await api(`/tasks/split/preview/${input.operationId}`)).data.status, 'FAILED_UNKNOWN');
+    assert.equal(await scalar("SELECT COUNT(*) FROM ai_artifacts WHERE operation_id=? AND status='PENDING'", [input.operationId]), 1);
+    await split.generateSplit(1, { ...input, operationId: operation() }, { provider: 'mock', model: 'stub', generateStructured: async () => ({ payload: { candidates: [], hasMore: false, unprocessedTextSpans: [] } }) });
+    release();
+    await running;
+    assert.equal((await api(`/tasks/split/preview/${input.operationId}`)).data.status, 'FAILED_UNKNOWN');
+});
+test('source URL and IP allowlists, evidence guard, invalid JSON schema', async () => {
+    const { extractIdentity, publicAddress } = await import('../src/library-import/providers.js');
+    for (const ip of ['127.0.0.1', '10.0.0.1', '198.18.4.3', '::1', '::ffff:127.0.0.1', 'fc00::1'])
+        assert.equal(publicAddress(ip), false);
+    assert.equal(publicAddress('207.241.234.205'), true);
+    assert.throws(() => extractIdentity('TMDB', 'MOVIE', 'https://api.themoviedb.org@127.0.0.1/movie/1'));
+    assert.equal(extractIdentity('OPEN_LIBRARY', 'BOOK', '978-0140328721'), '9780140328721');
+    const { validateEvidence } = await import('../src/task-split/contract.js');
+    const c = validateEvidence({ ...candidate, dueAtLocal: '2026-11-03T10:00', dueEvidence: '明天10点' }, '明天10点整理材料30分钟', '2026-11-02');
+    assert.equal(c.dueAtLocal, '2026-11-03T10:00');
+    assert.equal(validateEvidence({ ...candidate, dueAtLocal: '2026-12-01', dueEvidence: '明天' }, '明天整理材料30分钟', '2026-11-02').dueAtLocal, null);
+    const bad = await split.generateSplit(1, { operationId: operation(), draftId: operation(), text: 'input' }, { provider: 'mock', model: 'stub', generateStructured: async () => ({ payload: { candidates: [{ title: 'bad' }], hasMore: false, unprocessedTextSpans: [] } }) });
+    assert.equal(bad.status, 'FAILED');
+});
+test('context overflow requires explicit selection; full-directory name checks include unavailable entries', async () => {
+    await pool.query("INSERT INTO projects (user_id,name,status,archived_at,version,created_at,updated_at) VALUES (1,'Existing archived project',0,NOW(),1,NOW(),NOW())");
+    const checked = await api('/tasks/split/name-check?kind=project&name=' + encodeURIComponent('Existing archived project'));
+    assert.equal(checked.data.matches[0].available, false);
+    for (let i = 0; i < 51; i++)
+        await pool.query("INSERT INTO projects (user_id,name,status,version,created_at,updated_at) VALUES (1,?,0,1,NOW(),NOW())", ['Context project ' + i]);
+    const context = await api('/tasks/split/context');
+    assert.equal(context.data.selectionRequired, true);
+    let calls = 0;
+    const gateway = { provider: 'mock', model: 'stub', generateStructured: async () => { calls++; return { payload: { candidates: [], hasMore: false, unprocessedTextSpans: [] } }; } };
+    const input = { operationId: operation(), draftId: operation(), text: 'Plan' };
+    await assert.rejects(() => split.generateSplit(1, input, gateway), /Select at most 50/);
+    assert.equal(calls, 0);
+    const generated = await split.generateSplit(1, { ...input, contextSelectionIds: { projects: [context.data.projects[0].id], categories: [] } }, gateway);
+    assert.equal(generated.status, 'SUCCEEDED');
+    assert.equal(calls, 1);
+    const settings = (await api('/ai/settings', undefined, 992)).data;
+    await api('/ai/settings', { expectedVersion: settings.version, enabled: true, allowTasks: true }, 992, 'PUT');
+    assert.equal((await api(`/tasks/split/preview/${input.operationId}`, undefined, 992)).status, 404);
+});
+test('daily quota rejects before provider call and unchanged operation still replays', async () => {
+    const [rows] = await pool.query("SELECT * FROM ai_artifacts WHERE feature_key='TASK_SPLIT' AND status='SUCCEEDED' LIMIT 1");
+    const template = (rows as any[])[0];
+    for (let i = 0; i < 20; i++)
+        await pool.query("INSERT INTO ai_artifacts (user_id,operation_id,artifact_type,feature_key,source_refs,source_versions,source_fingerprint,provider,model,prompt_version,generation_context,status,stale,created_at,updated_at) VALUES (1,?,'TASK_DRAFTS','TASK_SPLIT',JSON_ARRAY(),JSON_OBJECT(),?,'mock','stub','task-split-v1',?,'FAILED',0,?,?)", [operation(), template.source_fingerprint, JSON.stringify(template.generation_context), new Date(), new Date()]);
+    const context = await split.splitContext(1);
+    let calls = 0;
+    await assert.rejects(() => split.generateSplit(1, { operationId: operation(), draftId: operation(), text: 'Quota', contextSelectionIds: { projects: [context.projects[0].id], categories: [] } }, { provider: 'mock', model: 'stub', generateStructured: async () => { calls++; return { payload: {} }; } }), /Daily generation quota/);
+    assert.equal(calls, 0);
+});
+
+test("DeepSeek rate limits, invalid JSON, truncation and body cap never auto-retry",async()=>{
+ const {deepseekGateway}=await import("../src/deepseek.js");const request={schemaName:"test",schema:{type:"object"},system:"Return JSON",user:"test"};
+ for(const mode of ["rate","invalid","incomplete"]){providerMode=mode;const before=calls;await assert.rejects(()=>deepseekGateway.generateStructured(request));assert.equal(calls,before+1);}
+ const before=calls;await assert.rejects(()=>deepseekGateway.generateStructured({...request,user:"a".repeat(32768)}),/32 KiB/);assert.equal(calls,before);providerMode="success";
+});
+
+test('Open Library editions canonicalize merged works; TV empty creators and Chinese overview have explicit fallbacks',async()=>{
+ const {resolveMedia}=await import('../src/library-import/providers.js');
+ const book=await resolveMedia('OPEN_LIBRARY','BOOK','9780140328721',async(url)=>{
+  const paths:Record<string,unknown>={
+   '/isbn/9780140328721.json':{key:'/books/OL4M',works:[{key:'/works/OL1W'}]},
+   '/works/OL1W.json':{type:{key:'/type/redirect'},location:'/works/OL2W'},
+   '/works/OL2W.json':{key:'/works/OL2W',title:'Merged work',description:{value:'<b>Plain description</b>'},authors:[{author:{key:'/authors/OL3A'}}],covers:[42]},
+   '/authors/OL3A.json':{name:'First Author'},'/search.json':{docs:[{first_publish_year:1970}]}
+  };assert.ok(url.pathname in paths,url.href);return {url,data:paths[url.pathname]};
+ });
+ assert.equal(book.stableSourceId,'OL2W');assert.equal(book.metadata.editionId,'OL4M');assert.equal(book.metadata.releaseYear,1970);assert.equal(book.metadata.creator,'First Author');assert.equal(book.metadata.description,'Plain description');assert.equal(book.metadata.coverRef,'https://covers.openlibrary.org/b/id/42-L.jpg');
+ const tv=await resolveMedia('TMDB','SERIES','1',async(url)=>({url,data:{id:1,name:'Series',original_name:'Original',created_by:[],production_companies:[{name:'Studio'}],overview:url.searchParams.get('language')==='en-US'?'English overview':'',poster_path:'/safe.jpg',first_air_date:'2001-01-01',genres:[{id:16}]}}));
+ assert.equal(tv.metadata.creator,'Studio');assert.equal(tv.metadata.creatorRole,'production_company');assert.equal(tv.metadata.descriptionLanguage,'en-US');assert.equal(tv.metadata.releaseYear,2001);assert.equal(tv.metadata.isAnimation,true);
+});

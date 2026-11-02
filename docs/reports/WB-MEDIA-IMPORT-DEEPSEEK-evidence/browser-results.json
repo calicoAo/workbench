@@ -1,0 +1,10 @@
+[
+  "TMDB real search/resolve, edited preview survives refresh",
+  "TMDB confirmation persists and detail reload preserves description/source",
+  "Open Library real ISBN -> edition -> work import and detail",
+  "390x844 Library no horizontal overflow",
+  "Real DeepSeek Responses through public Tasks UI, two reviewable drafts",
+  "Refresh restores edited candidates; status GET does not overwrite edits",
+  "390x844 task editor and evidence fit viewport",
+  "Lost acknowledgment + partial completion + refresh + receipt recovery create each task once"
+]

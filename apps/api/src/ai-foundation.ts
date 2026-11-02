@@ -6,17 +6,17 @@ import { aiArtifacts, morningWritings, userAiSettings } from "./db/schema.js";
 import { env } from "./env.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 
-export const AI_DOMAINS = ["adventure", "notebook", "growth", "library", "wallet"] as const;
+export const AI_DOMAINS = ["adventure", "notebook", "growth", "library", "wallet", "tasks"] as const;
 export type AiDomain = (typeof AI_DOMAINS)[number];
 export type GatewayResult = {
   payload: unknown;
-  usage?: { inputTokens?: number; outputTokens?: number };
+  usage?: { inputTokens?: number; outputTokens?: number; reasoningTokens?: number };
   costMicrounits?: number | null;
 };
 export type AiGateway = {
   provider: string;
   model: string;
-  generateStructured(input: { schemaName: string; schema: Record<string, unknown>; system: string; user: string }): Promise<GatewayResult>;
+  generateStructured(input: { schemaName: string; schema: Record<string, unknown>; system: string; user: string; signal?: AbortSignal }): Promise<GatewayResult>;
 };
 
 function outputText(payload: unknown) {
@@ -123,6 +123,7 @@ export async function getAiSettings(userId: number) {
       allowGrowth: 0,
       allowLibrary: 0,
       allowWallet: 0,
+      allowTasks: 0,
       version: 0,
       updatedAt: null,
     }
@@ -139,6 +140,7 @@ export async function updateAiSettings(
     allowGrowth: number;
     allowLibrary: number;
     allowWallet: number;
+    allowTasks: number;
   }>,
 ) {
   const current = await getAiSettings(userId);
@@ -150,6 +152,7 @@ export async function updateAiSettings(
     allowGrowth: values.allowGrowth ?? current.allowGrowth,
     allowLibrary: values.allowLibrary ?? current.allowLibrary,
     allowWallet: values.allowWallet ?? current.allowWallet,
+    allowTasks: values.allowTasks ?? current.allowTasks,
     version: expectedVersion + 1,
     updatedAt: new Date(),
   };

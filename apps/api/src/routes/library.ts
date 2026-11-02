@@ -6,7 +6,7 @@ import { addLibraryRelation, createLibraryItem, LIBRARY_RELATION_TYPES, LIBRARY_
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const nullableText = (max: number) => z.string().trim().max(max).nullable().optional();
-const fieldShape = { type: z.enum(LIBRARY_TYPES), title: z.string().trim().min(1).max(200), originalTitle: nullableText(200), creator: nullableText(160), coverRef: nullableText(500), status: z.enum(LIBRARY_STATUSES), rating: z.number().int().min(1).max(5).nullable().optional(), startedOn: date.nullable().optional(), finishedOn: date.nullable().optional(), externalRef: nullableText(500), shortNote: nullableText(1000) };
+const fieldShape = { type: z.enum(LIBRARY_TYPES), title: z.string().trim().min(1).max(200), originalTitle: nullableText(200), creator: nullableText(160), coverRef: nullableText(500), status: z.enum(LIBRARY_STATUSES), rating: z.number().int().min(1).max(5).nullable().optional(), startedOn: date.nullable().optional(), finishedOn: date.nullable().optional(), externalRef: nullableText(500), shortNote: nullableText(1000), releaseYear: z.number().int().min(1).max(9999).nullable().optional(), description: nullableText(10000) };
 const fields = z.object(fieldShape).refine((value) => !value.startedOn || !value.finishedOn || value.finishedOn >= value.startedOn, { path: ["finishedOn"], message: "finished date must not precede started date" });
 const updateFields = z.object(fieldShape).partial().extend({ expectedVersion: z.number().int().positive() });
 

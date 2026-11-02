@@ -1367,8 +1367,8 @@ select {
 
 @media (min-width: 1024px) {
   .today-grid { grid-template-areas: "context context" "quests timeline"; }
-  .today-context-row { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.85fr); grid-template-areas: "current countdown status"; }
-  .today-status-surface { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }
+  .today-context-row { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr) minmax(0,2.1fr); grid-template-areas: "current countdown status"; }
+  .today-status-surface { grid-template-columns: minmax(0,1.25fr) minmax(0,.9fr); }
 }
 
 @media (max-width: 600px) {
@@ -1873,7 +1873,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   }
 
   .task-row {
-    @apply grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-card border border-white/70 bg-white/75 px-2 py-1.5 transition duration-150 hover:-translate-y-0.5 hover:border-mint-100 hover:bg-white/90 hover:shadow-[0_12px_28px_rgba(120,217,208,0.12)];
+    @apply relative grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-card border border-white/70 bg-white/75 px-2 py-1.5 transition duration-150 hover:border-mint-100 hover:bg-white/90 hover:shadow-[0_12px_28px_rgba(120,217,208,0.12)];
   }
 
   .task-row-main {
@@ -1913,6 +1913,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .task-row-more { @apply relative block h-9 w-9; }
   .task-row-more summary { @apply flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-card text-soft hover:bg-white; }
   .task-row-more summary::-webkit-details-marker { display: none; }
+  .task-row:has(.task-row-more[open]) { position: relative; z-index: 50; }
   .task-row-more > div { @apply absolute right-0 top-10 z-40 grid w-48 gap-0.5 rounded-card border border-white/90 bg-white p-1.5 shadow-glass; }
   .task-row-more button { @apply flex min-h-9 items-center gap-2 rounded-card px-2 text-left text-xs hover:bg-mint-50; }
   .task-row-more label { @apply grid gap-1 rounded-card px-2 py-1 text-[10px] text-soft; }
@@ -2348,20 +2349,33 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   }
 
   .task-create-layout {
-    @apply grid gap-3 md:grid-cols-[minmax(0,1fr)_180px];
+    @apply grid gap-3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .task-form-field {
-    @apply min-w-0 space-y-1 text-[11px] font-semibold text-soft;
+    @apply grid min-w-0 content-start gap-1 text-[11px] font-semibold text-soft;
   }
 
   .task-form-field-wide {
-    @apply md:col-span-2;
+    @apply col-span-2;
   }
 
   .task-form-field-due,
   .task-form-field-plan {
-    @apply md:col-span-1;
+    @apply col-span-2;
+  }
+
+  .task-create-layout .category-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .task-create-layout .category-field > .ui-button {
+    justify-self: end;
+    min-height: 36px;
   }
 
   .task-description-field {
@@ -2369,12 +2383,14 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   }
 
   .task-inline-inputs {
-    @apply flex min-w-0 flex-wrap items-center gap-2;
+    @apply grid min-w-0 grid-cols-2 items-center gap-2;
   }
 
   .task-inline-inputs .field {
-    @apply h-8 min-w-0 flex-1 px-2 text-[12px];
+    @apply h-9 min-w-0 px-2 text-[12px];
   }
+
+  .task-inline-inputs > .ui-button { justify-self: start; }
 
   .task-checkbox-label {
     @apply inline-flex items-center gap-2;
@@ -2695,10 +2711,12 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
     gap: 2px;
     border: 1px solid rgba(255, 255, 255, 0.9);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.98);
+    background: #fff;
     padding: 6px;
     box-shadow: 0 18px 40px rgba(38, 50, 56, 0.16);
   }
+
+  .task-row:has(.task-row-more[open]) { position: relative; z-index: 50; }
 
   .task-row-more button,
   .task-row-more label,
@@ -3444,6 +3462,25 @@ textarea.field { height: auto; min-height: 90px; padding-block: .65rem; resize: 
 .task-focus-dropzone.is-dragging { border-color: #70c9ba; background: #ecfaf6; }
 .completed-task-row small { display: block; color: #6b7280; font-size: 11px; }
 
+/* Keep the bounty form aligned and open row menus above neighboring cards. */
+.task-form-field { align-content: start; }
+.task-form-field-wide, .task-form-field-due { grid-column: 1 / -1; }
+.task-create-layout .category-field { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.task-create-layout .category-field > .ui-button { min-height: 36px; white-space: nowrap; }
+.task-inline-inputs .field { min-width: 0; }
+.today-context-row { align-items: stretch; }
+.today-context-row > :is(.today-current, .today-countdown, .today-status-surface) { min-height: 132px; }
+.today-status-surface { align-self: stretch; }
+.today-status-block { height: 100%; }
+.water-progress-wrap { max-width: 100%; overflow-x: auto; }
+.water-progress { flex-wrap: nowrap; min-width: max-content; }
+.water-cup-toggle { flex: 0 0 28px; }
+@media (max-width: 767px) {
+  .task-create-layout { grid-template-columns: minmax(0, 1fr); }
+  .task-form-field-wide, .task-form-field-due { grid-column: 1; }
+  .today-context-row > :is(.today-current, .today-countdown, .today-status-surface) { min-height: 0; }
+}
+
 .activity-month-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .activity-month-heading a { padding:8px 16px; border-radius:12px; background:white; }
 .activity-month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid #dce3ed; border-left:1px solid #dce3ed; margin-top:14px; }
@@ -3464,4 +3501,9 @@ textarea.field { height: auto; min-height: 90px; padding-block: .65rem; resize: 
  .activity-day .activity-chip { padding:2px; font-size:10px; }
  .activity-day .activity-chip small { display:none; }
  .activity-weekday { font-size:10px; }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .today-context-row { grid-template-columns: minmax(0,1.1fr) minmax(0,.75fr) minmax(0,2.25fr); }
+  .today-status-surface { grid-template-columns: minmax(0,1.6fr) minmax(0,.8fr); }
 }

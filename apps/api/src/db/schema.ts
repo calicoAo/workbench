@@ -72,7 +72,16 @@ export const libraryItems = mysqlTable("library_items", {
   originalTitle: varchar("original_title", { length: 200 }), creator: varchar("creator", { length: 160 }), coverRef: varchar("cover_ref", { length: 500 }),
   status: varchar("status", { length: 16 }).notNull(), rating: tinyint("rating", { unsigned: true }),
   startedOn: date("started_on", { mode: "string" }), finishedOn: date("finished_on", { mode: "string" }), externalRef: varchar("external_ref", { length: 500 }), shortNote: varchar("short_note", { length: 1000 }),
+  releaseYear: int("release_year", { unsigned: true }), description: text("description"),
   version: int("version", { unsigned: true }).notNull().default(1), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+});
+
+export const libraryItemSources = mysqlTable("library_item_sources", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), libraryItemId: bigint("library_item_id", { mode: "number", unsigned: true }).notNull(),
+  provider: varchar("provider", { length: 32 }).notNull(), entityType: varchar("entity_type", { length: 16 }).notNull(), stableSourceId: varchar("stable_source_id", { length: 64 }).notNull(),
+  canonicalUrl: varchar("canonical_url", { length: 500 }).notNull(), attribution: varchar("attribution", { length: 500 }).notNull(), language: varchar("language", { length: 32 }),
+  metadataSnapshot: json("metadata_snapshot").notNull(), importedAt: datetime("imported_at").notNull(), metadataUpdatedAt: datetime("metadata_updated_at").notNull()
 });
 
 export const libraryItemRelations = mysqlTable("library_item_relations", {
@@ -97,11 +106,11 @@ export const keepsakeCards = mysqlTable("keepsake_cards", {
 });
 
 export const userAiSettings = mysqlTable("user_ai_settings", {
-  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(), enabled: tinyint("enabled").notNull().default(0), allowAdventure: tinyint("allow_adventure").notNull().default(0), allowNotebook: tinyint("allow_notebook").notNull().default(0), allowGrowth: tinyint("allow_growth").notNull().default(0), allowLibrary: tinyint("allow_library").notNull().default(0), allowWallet: tinyint("allow_wallet").notNull().default(0), version: int("version", { unsigned: true }).notNull().default(1), updatedAt: datetime("updated_at").notNull()
+  userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey(), enabled: tinyint("enabled").notNull().default(0), allowAdventure: tinyint("allow_adventure").notNull().default(0), allowNotebook: tinyint("allow_notebook").notNull().default(0), allowGrowth: tinyint("allow_growth").notNull().default(0), allowLibrary: tinyint("allow_library").notNull().default(0), allowWallet: tinyint("allow_wallet").notNull().default(0), allowTasks: tinyint("allow_tasks").notNull().default(0), version: int("version", { unsigned: true }).notNull().default(1), updatedAt: datetime("updated_at").notNull()
 });
 
 export const aiArtifacts = mysqlTable("ai_artifacts", {
-  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), operationId: char("operation_id", { length: 36 }).notNull(), artifactType: varchar("artifact_type", { length: 64 }).notNull(), featureKey: varchar("feature_key", { length: 64 }).notNull(), sourceRefs: json("source_refs").notNull(), sourceVersions: json("source_versions").notNull(), sourceFingerprint: char("source_fingerprint", { length: 64 }).notNull(), provider: varchar("provider", { length: 64 }).notNull(), model: varchar("model", { length: 120 }).notNull(), promptVersion: varchar("prompt_version", { length: 32 }).notNull(), resultPayload: json("result_payload"), status: varchar("status", { length: 16 }).notNull(), stale: tinyint("stale").notNull().default(0), usageInputTokens: int("usage_input_tokens", { unsigned: true }), usageOutputTokens: int("usage_output_tokens", { unsigned: true }), costMicrounits: bigint("cost_microunits", { mode: "number", unsigned: true }), errorCode: varchar("error_code", { length: 64 }), errorMessage: varchar("error_message", { length: 500 }), generatedAt: datetime("generated_at"), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(), userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(), operationId: char("operation_id", { length: 36 }).notNull(), artifactType: varchar("artifact_type", { length: 64 }).notNull(), featureKey: varchar("feature_key", { length: 64 }).notNull(), sourceRefs: json("source_refs").notNull(), sourceVersions: json("source_versions").notNull(), sourceFingerprint: char("source_fingerprint", { length: 64 }).notNull(), provider: varchar("provider", { length: 64 }).notNull(), model: varchar("model", { length: 120 }).notNull(), promptVersion: varchar("prompt_version", { length: 32 }).notNull(), resultPayload: json("result_payload"), status: varchar("status", { length: 16 }).notNull(), stale: tinyint("stale").notNull().default(0), usageInputTokens: int("usage_input_tokens", { unsigned: true }), usageOutputTokens: int("usage_output_tokens", { unsigned: true }), reasoningTokens: int("reasoning_tokens", { unsigned: true }), generationContext: json("generation_context"), costMicrounits: bigint("cost_microunits", { mode: "number", unsigned: true }), errorCode: varchar("error_code", { length: 64 }), errorMessage: varchar("error_message", { length: 500 }), generatedAt: datetime("generated_at"), createdAt: datetime("created_at").notNull(), updatedAt: datetime("updated_at").notNull()
 });
 
 export const taskCategories = mysqlTable("task_categories", {

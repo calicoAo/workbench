@@ -11,12 +11,12 @@ import { mutateCategory } from "./mutations";
 import { commitCategory } from "./queries";
 
 /** Shared Settings/Quick Manager owner for draft, validation, mutation and confirmed result. */
-export function CategoryEditor({ request, userId, category, allowEnabled = false, onSaved, onClose, onError, onPending }: {
-  request: Request; userId: number; category: CategoryEditorCategory | null; allowEnabled?: boolean;
+export function CategoryEditor({ request, userId, category, allowEnabled = false, onSaved, onClose, onError, onPending, initialName }: {
+  request: Request; userId: number; category: CategoryEditorCategory | null; initialName?:string; allowEnabled?: boolean;
   onSaved: (category: CategoryEditorCategory, created: boolean) => void; onClose: () => void;
   onError: (message: string, title?: string) => void; onPending?: (pending: boolean) => void;
 }) {
-  const [draft, setDraft] = useState(() => ({ name: category?.name ?? "", color: category?.color ?? CATEGORY_PALETTE[0], dimensionKey: category?.dimensionKey ?? "", enabled: category ? Boolean(category.enabled) : true }));
+  const [draft, setDraft] = useState(() => ({ name: category?.name ?? initialName ?? "", color: category?.color ?? CATEGORY_PALETTE[0], dimensionKey: category?.dimensionKey ?? "", enabled: category ? Boolean(category.enabled) : true }));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);

@@ -78,3 +78,16 @@ export async function runMutation<T>(identity: MutationIdentity, execute: (clien
     return result;
   });
 }
+
+/** Narrow receipt read: callers supply their own command type, never expose snapshots. */
+export async function mutationResult(userId: number, operationId: string, commandType: string) {
+  const [row] = await db.select({ result: mutationReceipts.resultMetadata, committedAt: mutationReceipts.committedAt }).from(mutationReceipts)
+    .where(and(eq(mutationReceipts.userId,userId),eq(mutationReceipts.operationId,operationId),eq(mutationReceipts.commandType,commandType)));
+  return row?.committedAt ? row.result : null;
+}
+export async function readMutationResult(userId:number,operationId:string,commandType:string,request:unknown) {
+  const [row]=await db.select().from(mutationReceipts).where(and(eq(mutationReceipts.userId,userId),eq(mutationReceipts.operationId,operationId)));
+  if(!row) return null;
+  if(row.commandType!==commandType || row.requestFingerprint!==mutationFingerprint(commandType,1,request)) throw new BusinessError(ErrorCode.CONFLICT,"operationId is already used with different parameters",409);
+  return row.committedAt ? row.resultMetadata : null;
+}

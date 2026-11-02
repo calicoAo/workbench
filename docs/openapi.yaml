@@ -2372,7 +2372,7 @@ paths:
         - { in: query, name: type, schema: { type: string, enum: [BOOK, MOVIE, SERIES, GAME] } }
         - { in: query, name: status, schema: { type: string, enum: [WANT, IN_PROGRESS, FINISHED, DROPPED] } }
         - { in: query, name: q, schema: { type: string, maxLength: 120 } }
-      responses: { "200": { description: Library item summaries with relation counts } }
+      responses: { "200": { description: Library item summaries with relation counts, releaseYear and hasSource; excludes full description and source snapshots } }
     post:
       summary: Create a Library-owned metadata record
       requestBody:
@@ -2385,7 +2385,7 @@ paths:
     get:
       summary: Read a Library item and Notebook relation summaries without copied bodies
       parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
-      responses: { "200": { description: Library item detail and relations } }
+      responses: { "200": { description: Library item detail including description/releaseYear, source attribution summaries and Notebook relations } }
     put:
       summary: Update a Library item with optimistic concurrency
       parameters: [{ in: path, name: id, required: true, schema: { type: integer, format: int64 } }]
@@ -2523,6 +2523,148 @@ paths:
         "403": { description: AI or Notebook permission is disabled }
         "409": { description: Operation identity was used with changed source input }
         "500": { description: Provider or structure validation failure persisted for retry }
+  /library/import/search:
+    get:
+      summary: Search official source candidates (no Library writes)
+      description: Private no-store response; TMDB movie/whole-series or Open Library works. Animation is an annotation, not a genre search filter. 30 requests per minute per user per API process.
+      parameters:
+        - { in: query, name: provider, required: true, schema: { type: string, enum: [TMDB, OPEN_LIBRARY] } }
+        - { in: query, name: entityType, required: true, schema: { type: string, enum: [MOVIE, SERIES, BOOK] } }
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 500, default: 1 } }
+      responses:
+        "200": { description: Candidate list with provider/sourceId/type/title/year/animation, current page and hasMore }
+        "409": { description: Local request rate exceeded }
+  /library/import/resolve:
+    post:
+      summary: Resolve a source identity to a signed editable preview
+      description: Extract IDs from allowlisted URLs; never fetch a user URL. Preview expires after 10 minutes; immutable source identity/URL/cover are signed. A targetItemId produces current/base/incoming differences. 20 requests per minute per user per API process.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [provider, entityType, sourceIdOrInput]
+              properties:
+                provider: { type: string, enum: [TMDB, OPEN_LIBRARY] }
+                entityType: { type: string, enum: [MOVIE, SERIES, BOOK] }
+                sourceIdOrInput: { type: string, minLength: 1, maxLength: 500 }
+                targetItemId: { type: integer, minimum: 1 }
+      responses:
+        "200": { description: previewToken, fingerprint, expiresAt, source, existingItemId, expectedVersion, changes and editable defaults }
+        "500": { description: Source unavailable; retain client draft and offer manual entry }
+  /library/import/confirm:
+    post:
+      summary: Explicitly create, attach or refresh metadata with a frozen operation identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [previewToken, fingerprint, operationId, mode, edits]
+              properties:
+                previewToken: { type: string, maxLength: 65536 }
+                fingerprint: { type: string, minLength: 64, maxLength: 64 }
+                operationId: { type: string, format: uuid }
+                mode: { type: string, enum: [create, attach, refresh] }
+                targetItemId: { type: integer, minimum: 1 }
+                expectedVersion: { type: integer, minimum: 1 }
+                edits:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    title: { type: string, minLength: 1, maxLength: 200 }
+                    originalTitle: { type: string, maxLength: 200, nullable: true }
+                    creator: { type: string, maxLength: 160, nullable: true }
+                    releaseYear: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+                    description: { type: string, maxLength: 10000, nullable: true }
+      responses:
+        "200": { description: Item id and existing flag; same-source concurrent creates return the same item. Committed replay precedes preview expiry validation. }
+        "409": { description: Expired preview, changed item version, source assigned elsewhere, or operation payload mismatch }
+  /library/import/operations/{operationId}:
+    get:
+      summary: Pure user-owned import receipt status
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: committed with itemId, or not_found; no request snapshot returned }
+  /library/items/{id}/sources/{sourceId}:
+    delete:
+      summary: Unlink source without deleting the item or restoring old metadata
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+        - { in: path, name: sourceId, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operationId, expectedVersion]
+              properties:
+                operationId: { type: string, format: uuid }
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        "200": { description: Item identity and new version }
+  /tasks/split/context:
+    get:
+      summary: User-scoped assignable Project and enabled Category metadata
+      description: Requires enabled AI and allowTasks. If either directory exceeds 50 entries, explicit context selection is required before generation; no silent truncation.
+      responses:
+        "200": { description: projects, categories and selectionRequired }
+  /tasks/split/name-check:
+    get:
+      summary: Check a suggested new name against the full owner directory
+      parameters:
+        - { in: query, name: kind, required: true, schema: { type: string, enum: [project, category] } }
+        - { in: query, name: name, required: true, schema: { type: string, maxLength: 120 } }
+      responses:
+        "200": { description: Matching IDs/names/availability including archived or disabled entries; never creates anything }
+  /tasks/split/preview:
+    post:
+      summary: Explicit paid generation of reviewable flat task candidates
+      description: Requires AI and Tasks permission. Maximum 5000 Unicode input characters, 32 KiB full provider request, 20 candidates, one in-flight generation and 20 calls per user business day. Claims commit before provider I/O. Same operation replays, never silently retries the provider. Model output never publishes Tasks or creates Categories/Projects.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [operationId, draftId, text]
+              properties:
+                operationId: { type: string, format: uuid }
+                draftId: { type: string, format: uuid }
+                text: { type: string, minLength: 1, maxLength: 5000 }
+                contextSelectionIds:
+                  type: object
+                  required: [projects, categories]
+                  properties:
+                    projects: { type: array, maxItems: 50, items: { type: integer } }
+                    categories: { type: array, maxItems: 50, items: { type: integer } }
+      responses:
+        "200": { description: Terminal status, validated candidates and measured usage. FAILED_UNKNOWN means a new generation may incur another charge. }
+        "202": { description: Same generation is pending; poll its GET status }
+        "403": { description: AI or Tasks permission disabled }
+        "409": { description: Changed operation payload, another pending request, or daily quota reached }
+  /tasks/split/preview/{operationId}:
+    get:
+      summary: Pure user-owned generation status and validated candidate artifact
+      description: No provider call or DB cleanup. Pending claims older than 60 seconds derive FAILED_UNKNOWN. Explicit generation POST cleans abandoned claims. Date evidence and current business date/timezone are retained for review.
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: PENDING, SUCCEEDED, FAILED or FAILED_UNKNOWN; result and token usage }
+        "404": { description: No generation owned by this user in TASK_SPLIT }
+  /tasks/split/publish-status/{operationId}:
+    get:
+      summary: Pure user-owned PUBLISH_TASK receipt status
+      description: Publication still uses existing POST /tasks with BOTH operationId and recordTimezone. Local dueAt uses YYYY-MM-DDTHH:mm. Omit acceptDate and plannedDate for pool-only publication.
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: committed with taskId or not_found; no publication payload disclosed }
 components:
   securitySchemes:
     BearerAuth:
@@ -2753,6 +2895,8 @@ components:
         startedOn: { type: string, format: date, nullable: true }
         finishedOn: { type: string, format: date, nullable: true }
         externalRef: { type: string, maxLength: 500, nullable: true }
+        releaseYear: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        description: { type: string, maxLength: 10000, nullable: true }
         shortNote: { type: string, maxLength: 1000, nullable: true }
     MilestoneInput:
       type: object

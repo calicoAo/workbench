@@ -397,6 +397,7 @@ type AiSettingsSnapshot = {
   allowGrowth: number;
   allowLibrary: number;
   allowWallet: number;
+  allowTasks: number;
   version: number;
 };
 type AiUsageSnapshot = {
@@ -416,7 +417,7 @@ function AiSettings({ request, userId, onError }: { request: Request; userId: nu
     queryFn: () => request<AiUsageSnapshot>("/api/ai/usage"),
   });
   const [pending, setPending] = useState<keyof AiSettingsSnapshot | null>(null);
-  async function update(key: "enabled" | "allowAdventure" | "allowNotebook" | "allowGrowth" | "allowLibrary" | "allowWallet", checked: boolean) {
+  async function update(key: "enabled" | "allowAdventure" | "allowNotebook" | "allowGrowth" | "allowLibrary" | "allowWallet" | "allowTasks", checked: boolean) {
     if (!settings.data) return;
     setPending(key);
     try {
@@ -456,6 +457,7 @@ function AiSettings({ request, userId, onError }: { request: Request; userId: nu
     ["allowGrowth", "成长", "成长维度与确定性汇总"],
     ["allowLibrary", "Library", "收藏条目与状态"],
     ["allowWallet", "钱包", "财务数据；默认关闭"],
+    ["allowTasks", "任务", "主动拆分的文本及所选项目、分类名称"],
   ] as const;
   return (
     <section className="settings-section ai-settings">

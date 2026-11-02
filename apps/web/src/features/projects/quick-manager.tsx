@@ -13,8 +13,8 @@ export function ProjectRefreshStatus({ request, userId }: { request: Request; us
 }
 
 /** Embedded Projects capability; Tasks owns the surrounding active panel. */
-export function ProjectQuickManager({ request, userId, onPending, onClose, onSelect, onSaved, onError }: {
-  request: Request; userId: number; onPending: (pending: boolean) => void; onClose: () => void;
+export function ProjectQuickManager({ request, userId, onPending, onClose, onSelect, onSaved, onError, initialName }: {
+  request: Request; userId: number; initialName?:string; onPending: (pending: boolean) => void; onClose: () => void;
   onSelect: (project: ProjectSummary) => void; onSaved: (project: ProjectSummary, created: boolean) => void;
   onError: (message: string, title?: string) => void;
 }) {
@@ -23,7 +23,7 @@ export function ProjectQuickManager({ request, userId, onPending, onClose, onSel
   const [pending, setPending] = useState(false);
   const projects = Array.isArray(query.data) ? query.data.filter(isAssignableProject) : [];
   return <section className="project-quick-manager">
-    <ProjectEditor key={`${userId}:${editing?.id ?? "new"}`} request={request} userId={userId} project={editing} embedded onClose={onClose} onSaved={onSaved} onError={onError} onPending={(value) => { setPending(value); onPending(value); }} />
+    <ProjectEditor initialName={initialName} key={`${userId}:${editing?.id ?? "new"}`} request={request} userId={userId} project={editing} embedded onClose={onClose} onSaved={onSaved} onError={onError} onPending={(value) => { setPending(value); onPending(value); }} />
     <ProjectRefreshStatus request={request} userId={userId} />
     <div className="project-quick-list"><h3>{tx("已有项目")}</h3>{editing ? <Button type="button" size="sm" disabled={pending} onClick={() => setEditing(null)}>{tx("新建项目")}</Button> : null}
       {projects.map((project) => <div className="project-quick-row" key={project.id}><span>{project.name}</span><Button type="button" size="sm" disabled={pending} onClick={() => onSelect(project)}>{tx("使用")}</Button><Button type="button" size="sm" disabled={pending} aria-label={tx("编辑项目 {value0}", { value0: project.name })} onClick={() => setEditing(project)}>{tx("编辑")}</Button></div>)}

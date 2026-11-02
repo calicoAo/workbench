@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db, type DatabaseClient } from "./db/index.js";
 import { projects } from "./db/schema.js";
 import { ProjectStatus } from "./enums.js";
@@ -24,4 +24,9 @@ export async function completedProjectSource(userId: number) {
 export async function projectReferenceAvailable(userId: number, projectId: number) {
   const [project] = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.userId, userId), eq(projects.id, projectId), isNull(projects.archivedAt)));
   return Boolean(project);
+}
+
+/** Bounded metadata only; no project notes or tasks enter the AI context. */
+export async function taskSplitProjectContext(userId:number) {
+  return db.select({id:projects.id,name:projects.name,description:projects.description,status:projects.status,archivedAt:projects.archivedAt,updatedAt:projects.updatedAt}).from(projects).where(eq(projects.userId,userId)).orderBy(desc(projects.updatedAt));
 }

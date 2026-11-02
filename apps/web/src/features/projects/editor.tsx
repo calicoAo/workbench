@@ -11,12 +11,12 @@ const draftFor = (project: ProjectSummary | null): Draft => ({ name: project?.na
 const valuesFor = (draft: Draft) => ({ name: draft.name.trim(), description: draft.description.trim() || null, priority: Number(draft.priority), startDate: draft.startDate || null, targetDate: draft.targetDate || null, notes: draft.notes.trim() || null });
 
 /** One Projects-owned editor, embedded in Tasks or framed by the full Projects page. */
-export function ProjectEditor({ project, request, userId, onError, onClose, onSaved, embedded = false, onPending }: {
+export function ProjectEditor({ project, request, userId, onError, onClose, onSaved, embedded = false, onPending, initialName }: {
   project: ProjectSummary | null; request: Request; userId: number; onError: (message: string, title?: string) => void;
   onClose: () => void; onSaved: (project: ProjectSummary, created: boolean) => void | Promise<void>;
-  embedded?: boolean; onPending?: (pending: boolean) => void;
+  initialName?:string; embedded?: boolean; onPending?: (pending: boolean) => void;
 }) {
-  const [initial] = useState(() => draftFor(project));
+  const [initial] = useState(() => ({...draftFor(project),...(!project && initialName ? {name:initialName}: {})}));
   const [draft, setDraft] = useState(initial);
   const [version, setVersion] = useState(project?.version);
   const [pending, setPending] = useState(false);

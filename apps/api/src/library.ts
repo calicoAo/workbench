@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "./db/index.js";
-import { journals, libraryItemRelations, libraryItems, quickNotes, writingInspirations } from "./db/schema.js";
+import { journals, libraryItemRelations, libraryItemSources, libraryItems, quickNotes, writingInspirations } from "./db/schema.js";
 import { BusinessError, ErrorCode } from "./errors.js";
 
 export const LIBRARY_TYPES = ["BOOK", "MOVIE", "SERIES", "GAME"] as const;
@@ -21,6 +21,7 @@ export async function listLibraryItems(userId: number, query: { type?: LibraryTy
   return db
     .select({
       item: libraryItems,
+      sourceCount: sql<number>`(select count(*) from library_item_sources s where s.user_id = ${userId} and s.library_item_id = ${libraryItems.id})`,
       relationCount: sql<number>`(select count(*) from library_item_relations r where r.user_id = ${userId} and r.library_item_id = ${libraryItems.id})`,
     })
     .from(libraryItems)
@@ -28,7 +29,8 @@ export async function listLibraryItems(userId: number, query: { type?: LibraryTy
     .orderBy(desc(libraryItems.updatedAt))
     .then((rows) =>
       rows.map((row) => ({
-        ...row.item,
+        ...Object.fromEntries(Object.entries(row.item).filter(([key]) => key !== "description")),
+        hasSource: Number(row.sourceCount) > 0,
         relationCount: Number(row.relationCount),
       })),
     );
@@ -56,7 +58,8 @@ export async function libraryItemDetail(userId: number, id: number) {
       summary: await relationSummary(userId, relation.targetType as LibraryRelationType, relation.targetId),
     })),
   );
-  return { item, relations };
+  const sources = await db.select({ id:libraryItemSources.id,provider:libraryItemSources.provider,entityType:libraryItemSources.entityType,stableSourceId:libraryItemSources.stableSourceId,canonicalUrl:libraryItemSources.canonicalUrl,attribution:libraryItemSources.attribution,language:libraryItemSources.language,importedAt:libraryItemSources.importedAt }).from(libraryItemSources).where(and(eq(libraryItemSources.userId,userId),eq(libraryItemSources.libraryItemId,id)));
+  return { item, relations, sources };
 }
 
 async function relationSummary(userId: number, type: LibraryRelationType, targetId: number) {
@@ -109,6 +112,10 @@ export async function createLibraryItem(userId: number, input: Omit<typeof libra
 export async function updateLibraryItem(userId: number, id: number, expectedVersion: number, values: Partial<Omit<typeof libraryItems.$inferInsert, "id" | "userId" | "version" | "createdAt" | "updatedAt">>) {
   const item = await requireLibraryItem(userId, id);
   if (item.version !== expectedVersion) throw new BusinessError(ErrorCode.CONFLICT, "library item version conflict", 409);
+  if(values.type && values.type!==item.type){
+    const [source]=await db.select({id:libraryItemSources.id}).from(libraryItemSources).where(and(eq(libraryItemSources.userId,userId),eq(libraryItemSources.libraryItemId,id)));
+    if(source) throw new BusinessError(ErrorCode.CONFLICT,"Unlink the source before changing Library item type",409);
+  }
   const startedOn = values.startedOn === undefined ? item.startedOn : values.startedOn;
   const finishedOn = values.finishedOn === undefined ? item.finishedOn : values.finishedOn;
   if (startedOn && finishedOn && finishedOn < startedOn) throw new BusinessError(ErrorCode.PARAM_ERROR, "finished date must not precede started date");
