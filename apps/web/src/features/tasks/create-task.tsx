@@ -11,7 +11,7 @@ import { ProjectQuickManager, ProjectRefreshStatus, isAssignableProject, useProj
 type CreateResult = { id: number };
 
 export function CreateTaskWorkflow({ children, request, selectedDate, categories, projects, onError, onChanged, timezone, userId }: {
-  children: (open: (options?: { projectId?: number }) => void) => ReactNode;
+  children: (open: (options?: { projectId?: number }) => void, openAiSplit: () => void) => ReactNode;
   request: Request;
   userId: number;
   selectedDate: string;
@@ -62,6 +62,7 @@ export function CreateTaskWorkflow({ children, request, selectedDate, categories
     setActivePanel("bounty");
   }
   function closeBounty() { setActivePanel("bounty"); returnTo.current = null; setOpen(false); }
+  function openAiSplit() { setOpen(false); setAiOpen(true); }
   async function submit(takeToday: boolean) {
     if (secondaryPanel) return;
     if (projectId && !projectOptions.some((project) => String(project.id) === projectId && isAssignableProject(project))) {
@@ -105,13 +106,13 @@ export function CreateTaskWorkflow({ children, request, selectedDate, categories
 
   return <>
     {aiOpen?<TaskSplitWorkflow request={request} userId={userId} timezone={timezone} onError={onError} onChanged={onChanged} initiallyOpen onClose={()=>setAiOpen(false)}/>:null}
-    {children((options) => { setProjectId(options?.projectId ? String(options.projectId) : ""); setOpen(true); })}
+    {children((options) => { setProjectId(options?.projectId ? String(options.projectId) : ""); setOpen(true); }, openAiSplit)}
     {open && (
       <ModalPortal panelKey={activePanel} label={categoryPanel ? tx("管理分类") : projectPanel ? tx("管理项目") : tx("发布悬赏")} onClose={secondaryPanel ? closeSecondary : closeBounty}>
         <div hidden={secondaryPanel} {...(secondaryPanel ? { inert: "" } : {})} {...(!secondaryPanel ? { "data-active-task-panel": true } : {})}>
         <form className="ui-dialog time-modal task-create-modal" onSubmit={(event: FormEvent) => { event.preventDefault(); void submit(false); }}>
           <header className="mb-3 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-mint-700">{tx("发布悬赏")}</p><h3 className="text-sm font-semibold">{tx("新增任务到任务池")}</h3></div><CloseButton onClose={closeBounty} /></header>
-          <Button type="button" onClick={()=>{setOpen(false);setAiOpen(true);}}>{tx("AI 整理任务 / 恢复草稿")}</Button>
+          <Button type="button" onClick={openAiSplit}>{tx("AI 整理任务 / 恢复草稿")}</Button>
           <div className="task-create-layout">
             <label data-guide-anchor="task.title" className="task-form-field task-form-field-wide"><span>{tx("任务标题")}</span><input aria-label={tx("任务标题")} className="field" placeholder={tx("写一个清楚的悬赏标题")} value={title} onChange={(event) => setTitle(event.target.value)} autoFocus /></label>
             <label className="task-form-field task-form-field-wide"><span>{tx("任务详情")}</span><textarea aria-label={tx("任务详情")} className="task-description-field" maxLength={2000} placeholder={tx("可以写背景、完成标准、步骤或灵感，任务列表里会保留一行摘要")} value={description} onChange={(event) => setDescription(event.target.value)} /></label>

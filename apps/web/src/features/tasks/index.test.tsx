@@ -113,6 +113,14 @@ describe("TasksFeature ownership", () => {
     expect(screen.getByLabelText<HTMLInputElement>("任务标题").value).toBe("保留这段输入");
   });
 
+  it("opens AI task splitting directly from the task board", () => {
+    render(feature());
+
+    fireEvent.click(screen.getByRole("button", { name: "AI 拆分" }));
+
+    expect(screen.getByRole("dialog", { name: "AI 整理任务" })).toBeTruthy();
+  });
+
   it("resets and closes the create workflow only after a successful mutation", async () => {
     const requestMock = vi.fn(async (_path: string, _init?: RequestInit) => ({ id: 3 }));
     const request = requestMock as Props["request"];

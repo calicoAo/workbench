@@ -6,6 +6,7 @@ export const englishMessages: Record<string, string> = {
   "丢弃本机任务草稿？已发布任务仍保留。": "Discard local task drafts? Published tasks will remain.",
   "丢弃任务草稿": "Discard task drafts",
   "AI 整理任务": "Organize tasks with AI",
+  "AI 拆分": "Split with AI",
   "AI 整理任务 / 恢复草稿": "AI tasks / Resume draft",
   "导入资料": "Import metadata",
   "导入作品资料": "Import media metadata",

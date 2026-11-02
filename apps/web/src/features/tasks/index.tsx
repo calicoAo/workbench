@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Ellipsis, Gift, GripVertical, Pencil, Play, Plus, Star, X } from "lucide-react";
+import { CheckCircle2, Ellipsis, Gift, GripVertical, Pencil, Play, Plus, Sparkles, Star, X } from "lucide-react";
 import { Badge, Button, FilterChip, IconButton } from "../../shared/ui";
 import { DIMENSIONS, type Category, type DimensionKey, visibleDimensions } from "../categories";
 import { estimatePlannedTaskReward, type RewardEvent, type RewardGrant } from "../rewards";
@@ -177,7 +177,7 @@ export function TasksFeature({
     });
   }
 
-  function renderPanel(openCreate: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>, dailyQuests?: ReactNode) {
+  function renderPanel(openCreate: () => void, openAiSplit: () => void, openSelector: () => void, openEditor: (task: Task) => void, toggleDone: (task: Task) => void | Promise<void>, dailyQuests?: ReactNode) {
     const focusSet = new Set(focus.focused);
     const focusedTasks = pendingTasks.filter((task) => focusSet.has(task.id));
     const otherTasks = pendingTasks.filter((task) => !focusSet.has(task.id));
@@ -218,6 +218,8 @@ export function TasksFeature({
             <CheckCircle2 size={14} />{tx("已完成")}</Button>
           <Button data-guide-anchor="task.accept" variant="secondary" size="sm" type="button" aria-label={tx("接取今日任务")} onClick={openSelector}>
             <Gift size={14} />{tx("接取")}</Button>
+          <Button variant="secondary" size="sm" type="button" onClick={openAiSplit}>
+            <Sparkles size={14} />{tx("AI 拆分")}</Button>
           <Button data-guide-anchor="task.publish" variant="primary" size="sm" type="button" onClick={openCreate}>
             <Plus size={14} />{tx("新增")}</Button>
         </div>
@@ -273,14 +275,14 @@ export function TasksFeature({
 
   return (
     <CreateTaskWorkflow key={userId} userId={userId} request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} projects={projects} dailyTaskIds={dailyTaskIds} timezone={timezone} onError={onError} onChanged={onChanged}>
-      {(openCreate) => (
+      {(openCreate, openAiSplit) => (
         <SelectDailyTasksWorkflow request={request} selectedDate={selectedDate} tasks={tasks} categories={categories} dailyTaskIds={dailyTaskIds} focusTaskIds={focusTaskIds} onError={onError} onConfirm={onConfirm} onChanged={onChanged}>
           {(openSelector) => (
             <EditTaskWorkflow key={userId} userId={userId} timezone={timezone} request={request} projects={projects} categories={categories} onError={onError} onChanged={onChanged}>
               {(openEditor) => (
                 <CompleteTaskWorkflow activeTaskId={runningTimers[0]?.taskId} onCompleteAndFinish={onCompleteAndFinish} request={request} selectedDate={selectedDate} timezone={timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone} taskPlans={taskPlans} onError={onError} onChanged={onChanged} onReward={onReward}>
                   {(toggleDone) => (
-                    <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask, pin: updatePinned }}>
+                    <TasksContext.Provider value={{ panel: (dailyQuests) => renderPanel(openCreate, openAiSplit, openSelector, openEditor, toggleDone, dailyQuests), openCreate, openSelector, openEditor, complete: toggleDone, archive: archiveTask, pin: updatePinned }}>
                       {children}
                       {completedOpen && <CompletedTasksModal tasks={completedTasks} categories={categories} rewardsByTaskId={rewardsByTaskId} onClose={() => setCompletedOpen(false)} />}
                     </TasksContext.Provider>
