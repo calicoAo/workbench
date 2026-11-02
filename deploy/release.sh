@@ -37,7 +37,8 @@ systemctl restart workbench-tmdb-connect-bridge.service
 
 old_api_image=$(docker inspect --format '{{.Image}}' personal-workbench-api 2>/dev/null || true)
 old_web_image=$(docker inspect --format '{{.Image}}' personal-workbench-web 2>/dev/null || true)
-$compose build --parallel api web
+$compose build api
+$compose build web
 
 set -a
 . deploy/.env
