@@ -2535,6 +2535,55 @@ paths:
       responses:
         "200": { description: Candidate list with provider/sourceId/type/title/year/animation, current page and hasMore }
         "409": { description: Local request rate exceeded }
+  /library/import/ai-search:
+    post:
+      summary: Search the web and organize Library candidates without TMDB
+      description: Requires enabled AI and Library permission. One paid search and at most one structured response, never automatic retries. User-scoped operation replay; 20 operations per business day, 10 POST requests per minute per process. Candidate sources/covers are validated server-side. No Library item is created.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [operationId, query, mediaType]
+              properties:
+                operationId: { type: string, format: uuid }
+                query: { type: string, minLength: 1, maxLength: 72 }
+                mediaType: { type: string, enum: [BOOK, MOVIE, SERIES, GAME] }
+      responses:
+        "200": { description: Operation status, query, mediaType, model, searchCalls, usage and persisted result.candidates (title, originalTitle, creator, releaseYear, description, coverRef, coverSourceUrl, sources, needsReview). Maximum five candidates. }
+        "403": { description: AI or Library permission disabled }
+        "409": { description: Operation parameter conflict, another pending operation or quota exceeded }
+  /library/import/ai-search/{operationId}:
+    get:
+      summary: Read user-owned AI search status without another paid call
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: PENDING, SUCCEEDED, FAILED or FAILED_UNKNOWN and saved candidates. Pending older than 60 seconds derives FAILED_UNKNOWN without writes. }
+        "403": { description: AI or Library permission disabled }
+        "404": { description: No search with this user and operation identity }
+  /library/import/ai-search/{operationId}/preview:
+    post:
+      summary: Sign a persisted AI candidate for direct Library confirmation
+      description: No provider request and no arbitrary client metadata. Uses existing preview fields and 10-minute expiry; targetItemId enables explicit attachment/three-way comparison. WEB_SEARCH identity hashes normalized primary reference URL. 30 preview requests per user per minute per process.
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [candidateIndex]
+              properties:
+                candidateIndex: { type: integer, minimum: 0, maximum: 4 }
+                targetItemId: { type: integer, minimum: 1 }
+      responses:
+        "200": { description: Signed preview with editable defaults and immutable server source/cover; confirm using the existing import command }
+        "403": { description: AI or Library permission disabled }
+        "404": { description: Search or target item does not belong to this user }
+        "409": { description: Candidate unavailable or source association conflict }
   /library/import/resolve:
     post:
       summary: Resolve a source identity to a signed editable preview
@@ -2573,6 +2622,7 @@ paths:
                 mode: { type: string, enum: [create, attach, refresh] }
                 targetItemId: { type: integer, minimum: 1 }
                 expectedVersion: { type: integer, minimum: 1 }
+                omitCover: { type: boolean, default: false, description: Explicitly omit the signed cover without accepting an arbitrary replacement URL }
                 edits:
                   type: object
                   additionalProperties: false

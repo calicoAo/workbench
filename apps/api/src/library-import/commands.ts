@@ -6,9 +6,9 @@ import { libraryItems, libraryItemSources, users } from "../db/schema.js";
 import { env } from "../env.js";
 import { BusinessError, ErrorCode } from "../errors.js";
 import { mutationFingerprint, readMutationResult, runMutation } from "../mutation-receipt.js";
-import { plain, resolveMedia, type Source, type Metadata } from "./providers.js";
+import { plain, resolveMedia, type Source, type Metadata, type Provider, type Entity } from "./providers.js";
 const editable = z.object({ title: z.string().trim().min(1).max(200), originalTitle: z.string().max(200).nullable(), creator: z.string().max(160).nullable(), releaseYear: z.number().int().min(1).max(9999).nullable(), description: z.string().max(10000).nullable() }).partial().strict();
-export const confirmSchema = z.object({ previewToken: z.string().max(65536), fingerprint: z.string().length(64), operationId: z.string().uuid(), mode: z.enum(["create", "attach", "refresh"]), targetItemId: z.number().int().positive().optional(), expectedVersion: z.number().int().positive().optional(), edits: editable }).strict();
+export const confirmSchema = z.object({ previewToken: z.string().max(65536), fingerprint: z.string().length(64), operationId: z.string().uuid(), mode: z.enum(["create", "attach", "refresh"]), targetItemId: z.number().int().positive().optional(), expectedVersion: z.number().int().positive().optional(), edits: editable, omitCover: z.boolean().optional() }).strict();
 type Preview = {
     userId: number;
     expiresAt: number;
@@ -34,8 +34,8 @@ function decode(token: string): Preview {
 }
 const fields = ["title", "originalTitle", "creator", "releaseYear", "description", "coverRef"] as const;
 export async function resolvePreview(userId: number, input: {
-    provider: Source["provider"];
-    entityType: Source["entityType"];
+    provider: Provider;
+    entityType: Entity;
     sourceIdOrInput: string;
     targetItemId?: number;
 }, resolver: typeof resolveMedia = resolveMedia) {
@@ -48,6 +48,10 @@ export async function resolvePreview(userId: number, input: {
         if (timer)
             clearTimeout(timer);
     }
+    return sourcePreview(userId, source, input.targetItemId);
+}
+export async function sourcePreview(userId: number, source: Source, targetItemId?: number) {
+    const input = { targetItemId };
     const [existing] = await db.select({ id: libraryItemSources.libraryItemId }).from(libraryItemSources).where(and(eq(libraryItemSources.userId, userId), eq(libraryItemSources.provider, source.provider), eq(libraryItemSources.entityType, source.entityType), eq(libraryItemSources.stableSourceId, source.stableSourceId)));
     let current: typeof libraryItems.$inferSelect | undefined, previous: Metadata | undefined;
     if (input.targetItemId) {
@@ -123,16 +127,16 @@ export async function confirmImport(userId: number, input: z.infer<typeof confir
             if (old)
                 importedAt = old.importedAt;
             const base = old?.metadataSnapshot as Metadata | undefined;
-            const values: Record<string, unknown> = { ...clean, version: current.version + 1, updatedAt: now };
+            const values: Record<string, unknown> = { ...clean, ...(input.omitCover ? { coverRef: null } : {}), version: current.version + 1, updatedAt: now };
             for (const field of fields)
-                if (!(field in clean) && source.metadata[field] !== null && (base ? current[field] === base[field] : current[field] === null || current[field] === ""))
+                if (!(field in values) && source.metadata[field] !== null && (base ? current[field] === base[field] : current[field] === null || current[field] === ""))
                     values[field] = source.metadata[field];
             await tx.update(libraryItems).set(values).where(eq(libraryItems.id, id));
             if (old)
                 await tx.delete(libraryItemSources).where(eq(libraryItemSources.id, old.id));
         }
         else {
-            const [created] = await tx.insert(libraryItems).values({ userId, type: source.entityType, title: source.metadata.title, originalTitle: source.metadata.originalTitle, creator: source.metadata.creator, releaseYear: source.metadata.releaseYear, description: source.metadata.description, coverRef: source.metadata.coverRef, externalRef: source.canonicalUrl, status: "WANT", version: 1, createdAt: now, updatedAt: now, ...clean });
+            const [created] = await tx.insert(libraryItems).values({ userId, type: source.entityType, title: source.metadata.title, originalTitle: source.metadata.originalTitle, creator: source.metadata.creator, releaseYear: source.metadata.releaseYear, description: source.metadata.description, coverRef: input.omitCover ? null : source.metadata.coverRef, externalRef: source.canonicalUrl, status: "WANT", version: 1, createdAt: now, updatedAt: now, ...clean });
             id = created.insertId;
         }
         await tx.insert(libraryItemSources).values({ userId, libraryItemId: id, provider: source.provider, entityType: source.entityType, stableSourceId: source.stableSourceId, canonicalUrl: source.canonicalUrl, attribution: source.attribution, language: source.metadata.descriptionLanguage, metadataSnapshot: source.metadata, importedAt, metadataUpdatedAt: now });

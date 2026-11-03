@@ -18,7 +18,6 @@ const envSchema = z.object({
   DEEPSEEK_API_KEY: z.string().optional(),
   DEEPSEEK_BASE_URL: z.string().url().default("https://api.deepseek.com"),
   DEEPSEEK_MODEL: z.string().default("deepseek-flash"),
-  DEEPSEEK_LIBRARY_SEARCH_MODEL: z.string().default("deepseek-v4-pro"),
   TMDB_API_READ_ACCESS_TOKEN: z.string().optional(),
   TMDB_PROXY_URL: z.preprocess(value => value === "" ? undefined : value, z.string().url().refine(value => {
     const url = new URL(value);

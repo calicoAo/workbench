@@ -21,10 +21,13 @@ export type Metadata = {
     isAnimation: boolean;
     editionId?: string;
     isbn?: string;
+    sourceReferences?: Array<{ url: string; title: string }>;
+    coverSourceUrl?: string;
+    searchOperationId?: string;
 };
 export type Source = {
-    provider: Provider;
-    entityType: Entity;
+    provider: Provider | "WEB_SEARCH";
+    entityType: Entity | "GAME";
     stableSourceId: string;
     canonicalUrl: string;
     attribution: string;

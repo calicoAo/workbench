@@ -93,10 +93,10 @@ describe("Library detail and editing", () => {
     fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "解除关联" }));
     await screen.findByRole("button", { name: "关联来源资料" });
     fireEvent.click(screen.getByRole("button", { name: "关联来源资料" }));
-    fireEvent.change(screen.getByLabelText("搜索词或来源网址"), { target: { value: "保留的草稿" } });
+    fireEvent.change(screen.getByLabelText("AI 搜索词"), { target: { value: "保留的草稿" } });
     fireEvent.click(screen.getByRole("button", { name: "丢弃草稿 / 重新开始" }));
     fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "取消" }));
-    expect((screen.getByLabelText("搜索词或来源网址") as HTMLInputElement).value).toBe("保留的草稿");
+    expect((screen.getByLabelText("AI 搜索词") as HTMLInputElement).value).toBe("保留的草稿");
     expect(confirm).not.toHaveBeenCalled();
   });
 });

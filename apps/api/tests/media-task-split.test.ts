@@ -21,8 +21,10 @@ async function migrate(name: string, from = 0, to = 1000) { await admin.query(`U
         await admin.query(await readFile(resolve(dir, file), 'utf8')); }
 before(async () => {
     provider = createServer(async (req, res) => { calls++; let raw = ''; for await (const chunk of req)
-        raw += chunk; const body = JSON.parse(raw); assert.equal(req.url, '/responses'); res.setHeader('Content-Type', 'application/json');
-        if(body.tools?.some((tool:any)=>tool.type==='web_search')){assert.equal(body.model,'deepseek-v4-pro');assert.equal(body.tool_choice,'required');assert.equal(body.text.format.type,'json_schema');res.end(JSON.stringify({status:'completed',output:[{type:'web_search_call',action:{sources:[{url:'https://openlibrary.org/works/OL123W',title:'Open Library'},{url:'http://untrusted.example',title:'Untrusted'}]}},{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({candidates:[{title:'The Hobbit',originalTitle:null,creator:'J. R. R. Tolkien',releaseYear:1937,description:'A fantasy novel.',sourceUrls:['https://openlibrary.org/works/OL123W','https://untrusted.example/book']}] }),annotations:[{type:'url_citation',url:'https://openlibrary.org/works/OL123W',title:'Open Library'}]}]}],usage:{input_tokens:200,output_tokens:120,output_tokens_details:{reasoning_tokens:0},server_tool_use:{tool_search:1,tool_fetch:1}}}));return;}
+        raw += chunk; const body = JSON.parse(raw); res.setHeader('Content-Type', 'application/json');
+        if(req.url === '/v1/tools/search') { assert.equal(body.need_content,true); assert.ok(body.query.includes('-site:themoviedb.org')); res.end(JSON.stringify({results:[{url:'https://openlibrary.org/works/OL123W',title:'Open Library',content:'The Hobbit by J. R. R. Tolkien, 1937. A fantasy novel. ![cover](https://covers.openlibrary.org/b/id/42-L.jpg)'},{url:'http://untrusted.example',title:'Rejected',content:'Untrusted'}]}));return; }
+        assert.equal(req.url, '/responses');
+        if(body.text?.format?.name === 'library_media_candidates_v2') { assert.equal(body.model,'deepseek-flash'); assert.ok(body.input[0].content.includes('untrusted')); res.end(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({candidates:[{title:'The Hobbit',originalTitle:null,creator:'J. R. R. Tolkien',releaseYear:1937,description:'A fantasy novel.',sourceIndexes:[0,4],coverRef:'https://covers.openlibrary.org/b/id/42-L.jpg'},{title:'No invented cover',originalTitle:null,creator:null,releaseYear:null,description:null,sourceIndexes:[0],coverRef:'https://tracker.invalid/x.jpg'}]})}]}],usage:{input_tokens:200,output_tokens:120,output_tokens_details:{reasoning_tokens:0}}}));return; }
         assert.equal(body.reasoning.effort, 'none'); assert.equal(body.stream, false); assert.equal(body.text.format.type, 'json_schema');
         if(providerMode==="rate"){res.statusCode=429;res.end(JSON.stringify({error:"limited"}));return;}
         if(providerMode==="invalid"){res.end(JSON.stringify({status:"completed",output:[{type:"message",role:"assistant",content:[{type:"output_text",text:"not JSON"}]}]}));return;}
@@ -212,10 +214,62 @@ test('Library AI search enforces its permission, persists candidates, filters un
  await api('/ai/settings',{expectedVersion:changed.version,enabled:true,allowLibrary:true},1,'PUT');
  const first=await ai.searchLibrary(1,input);
  const replay=await ai.searchLibrary(1,input);
- assert.equal(calls,before+1);
+ assert.equal(calls,before+2);
  assert.equal(first.status,'SUCCEEDED');assert.deepEqual((first.result as any).candidates[0].sources,[{url:'https://openlibrary.org/works/OL123W',title:'Open Library'}]);
  assert.equal((replay.result as any).candidates[0].title,'The Hobbit');
  assert.equal((await api(`/library/import/ai-search/${input.operationId}`)).data.status,'SUCCEEDED');
  assert.equal((await api(`/library/import/ai-search/${input.operationId}`,undefined,992)).status,403);
  await assert.rejects(()=>ai.searchLibrary(1,{...input,query:'Different title'}),/different parameters/);
+});
+
+test('AI candidates import directly, preserve covers/provenance and survive reentry without TMDB; concurrent confirms reuse one item', async()=>{
+ const ai=await import('../src/library-import/ai-search.js');
+ const input={operationId:operation(),query:'The Hobbit direct',mediaType:'BOOK'};
+ const before=calls;
+ const first=await ai.searchLibrary(1,input);
+ assert.equal(first.status,'SUCCEEDED');
+ assert.equal((first.result as any).candidates[0].coverRef,'https://covers.openlibrary.org/b/id/42-L.jpg');
+ assert.equal((first.result as any).candidates[1].coverRef,null);
+ const previewResponse=await api(`/library/import/ai-search/${input.operationId}/preview`,{candidateIndex:0});
+ assert.equal(previewResponse.status,200);
+ const preview=previewResponse.data;
+ assert.equal(preview.source.provider,'WEB_SEARCH');
+ const body={operationId:operation(),previewToken:preview.previewToken,fingerprint:preview.fingerprint,mode:'create',edits:{title:'Reviewed Hobbit'}};
+ assert.equal((await api('/library/import/confirm',{...body,coverRef:'https://tracker.invalid/x.jpg'})).status,400);
+ const [a,b]=await Promise.all([api('/library/import/confirm',body),api('/library/import/confirm',{...body,operationId:operation()})]);
+ assert.equal(a.status,200);assert.equal(b.status,200);assert.equal(a.data.id,b.data.id);
+ const detail=(await api(`/library/items/${a.data.id}`)).data;
+ assert.equal(detail.item.coverRef,preview.source.metadata.coverRef);assert.equal(detail.item.title,'Reviewed Hobbit');assert.equal(detail.item.shortNote,null);
+ assert.equal(detail.sources[0].provider,'WEB_SEARCH');assert.equal(detail.sources[0].references[0].url,'https://openlibrary.org/works/OL123W');
+ assert.equal((await api(`/library/import/ai-search/${input.operationId}/preview`,{candidateIndex:5})).status,400);
+ const settings=(await api('/ai/settings',undefined,992)).data;await api('/ai/settings',{expectedVersion:settings.version,enabled:true,allowLibrary:true},992,'PUT');
+ assert.equal((await api(`/library/import/ai-search/${input.operationId}/preview`,{candidateIndex:0},992)).status,404);
+ const refreshed=await api(`/library/import/ai-search/${input.operationId}/preview`,{candidateIndex:0,targetItemId:a.data.id});
+ assert.equal(refreshed.status,200);assert.equal(refreshed.data.defaults.title,'Reviewed Hobbit');
+ const noCover=await api('/library/import/confirm',{operationId:operation(),previewToken:refreshed.data.previewToken,fingerprint:refreshed.data.fingerprint,mode:'refresh',targetItemId:a.data.id,expectedVersion:refreshed.data.expectedVersion,edits:{},omitCover:true});assert.equal(noCover.status,200);assert.equal((await api(`/library/items/${a.data.id}`)).data.item.coverRef,null);
+ const afterOmit=await api(`/library/import/ai-search/${input.operationId}/preview`,{candidateIndex:0,targetItemId:a.data.id});assert.equal(afterOmit.data.defaults.coverRef,null,'explicitly omitted cover remains a user edit in later three-way refresh');assert.equal(afterOmit.data.source.metadata.coverRef,'https://covers.openlibrary.org/b/id/42-L.jpg');
+ assert.equal(calls,before+2,'preview/confirm/refresh never fetch external metadata');
+});
+
+test('web evidence URL boundaries reject private/tracking covers and only identify supported image references',async()=>{
+ const {referenceUrl,coverUrl,evidenceCovers}=await import('../src/library-import/web-search.js');
+ for(const value of ['http://example.com','https://127.0.0.1/x','https://10.0.0.1/x','https://user:password@example.com/x','https://www.douban.com/x','https://api.themoviedb.org/x']) assert.equal(referenceUrl(value),null,value);
+ assert.equal(referenceUrl('https://publisher.example/book?utm_source=track#part'),'https://publisher.example/book');
+ for(const value of ['https://tracker.invalid/x.jpg','https://upload.wikimedia.org/x.svg/a.png','https://books.google.com/books/content?id=1']) assert.equal(coverUrl(value),null,value);
+ assert.deepEqual(evidenceCovers('![x](https://covers.openlibrary.org/b/id/42-L.jpg) https://tracker.invalid/x.jpg'),['https://covers.openlibrary.org/b/id/42-L.jpg']);
+});
+
+test('Library unknown searches recover read-only, clean expired claims explicitly and never charge on replay',async()=>{
+ const ai=await import('../src/library-import/ai-search.js');
+ const input={operationId:operation(),query:'Expired library search',mediaType:'GAME'};
+ let attempts=0;const gateway={provider:'mock',model:'bounded-fixture',search:async()=>{attempts++;return {payload:{candidates:[]},evidence:[],searchCalls:1,fetchCalls:0};}};
+ await ai.searchLibrary(992,input,gateway);
+ await pool.query("UPDATE ai_artifacts SET status='PENDING',created_at=?,generation_context=JSON_SET(generation_context,'$.timeoutAt','2000-01-01T00:00:00Z') WHERE user_id=992 AND operation_id=?",[new Date(Date.now()-65000),input.operationId]);
+ assert.equal((await ai.getLibrarySearch(992,input.operationId)).status,'FAILED_UNKNOWN');
+ const [[stored]]=await pool.query<any[]>("SELECT status FROM ai_artifacts WHERE user_id=992 AND operation_id=?",[input.operationId]);assert.equal(stored.status,'PENDING');
+ await ai.searchLibrary(992,input,gateway);assert.equal(attempts,1);
+ const next=await ai.searchLibrary(992,{...input,operationId:operation()},gateway);assert.equal(next.status,'SUCCEEDED');assert.equal(attempts,2);
+ const failed=await ai.searchLibrary(992,{...input,operationId:operation()},{...gateway,search:async()=>{attempts++;throw Object.assign(Error('provider timed out after search'),{searchCalls:1});}});
+ assert.equal(failed.status,'FAILED_UNKNOWN');assert.equal(failed.searchCalls,1);const before=attempts;
+ await ai.searchLibrary(992,{...input,operationId:failed.operationId},gateway);assert.equal(attempts,before);
 });

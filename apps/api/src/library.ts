@@ -63,7 +63,8 @@ export async function libraryItemDetail(userId: number, id: number) {
       summary: await relationSummary(userId, relation.targetType as LibraryRelationType, relation.targetId),
     })),
   );
-  const sources = await db.select({ id:libraryItemSources.id,provider:libraryItemSources.provider,entityType:libraryItemSources.entityType,stableSourceId:libraryItemSources.stableSourceId,canonicalUrl:libraryItemSources.canonicalUrl,attribution:libraryItemSources.attribution,language:libraryItemSources.language,importedAt:libraryItemSources.importedAt }).from(libraryItemSources).where(and(eq(libraryItemSources.userId,userId),eq(libraryItemSources.libraryItemId,id)));
+  const sourceRows = await db.select({ metadataSnapshot:libraryItemSources.metadataSnapshot,id:libraryItemSources.id,provider:libraryItemSources.provider,entityType:libraryItemSources.entityType,stableSourceId:libraryItemSources.stableSourceId,canonicalUrl:libraryItemSources.canonicalUrl,attribution:libraryItemSources.attribution,language:libraryItemSources.language,importedAt:libraryItemSources.importedAt }).from(libraryItemSources).where(and(eq(libraryItemSources.userId,userId),eq(libraryItemSources.libraryItemId,id)));
+  const sources = sourceRows.map(({ metadataSnapshot, ...source }) => ({ ...source, references: (metadataSnapshot as { sourceReferences?: Array<{url:string;title:string}> })?.sourceReferences ?? [] }));
   return { item, relations, sources };
 }
 

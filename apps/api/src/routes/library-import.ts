@@ -6,7 +6,7 @@ import { BusinessError, ErrorCode } from "../errors.js";
 import { confirmImport, confirmSchema, resolvePreview, unlinkSource } from "../library-import/commands.js";
 import { entitySchema, providerSchema, searchMedia } from "../library-import/providers.js";
 import { mutationResult } from "../mutation-receipt.js";
-import { getLibrarySearch, searchLibrary } from "../library-import/ai-search.js";
+import { getLibrarySearch, searchLibrary, previewLibrarySearch } from "../library-import/ai-search.js";
 const hits = new Map<string, {
     until: number;
     count: number;
@@ -22,6 +22,7 @@ export const libraryImportRoute = new Hono()
     .get("/import/search", async (c) => { const userId = getCurrentUserId(c); limit(userId, "search", 30); const q = identity.extend({ q: z.string().trim().min(1).max(120), page: z.coerce.number().int().min(1).max(500).default(1) }).parse(c.req.query()); return ok(c, await searchMedia(q.provider, q.entityType, q.q, q.page)); })
     .post("/import/ai-search", async (c) => { const userId = getCurrentUserId(c); limit(userId, "ai-search", 10); return ok(c, await searchLibrary(userId, await c.req.json(), undefined, c.req.raw.signal)); })
     .get("/import/ai-search/:operationId", async (c) => ok(c, await getLibrarySearch(getCurrentUserId(c), z.string().uuid().parse(c.req.param("operationId")))))
+    .post("/import/ai-search/:operationId/preview", async (c) => { const userId = getCurrentUserId(c); limit(userId, "ai-preview", 30); const input = z.object({ candidateIndex: z.number().int().min(0).max(4), targetItemId: z.number().int().positive().optional() }).strict().parse(await c.req.json()); return ok(c, await previewLibrarySearch(userId, z.string().uuid().parse(c.req.param("operationId")), input.candidateIndex, input.targetItemId)); })
     .post("/import/resolve", async (c) => { const userId = getCurrentUserId(c); limit(userId, "resolve", 20); const input = identity.extend({ sourceIdOrInput: z.string().trim().min(1).max(500), targetItemId: z.number().int().positive().optional() }).strict().parse(await c.req.json()); return ok(c, await resolvePreview(userId, input)); })
     .post("/import/confirm", async (c) => ok(c, await confirmImport(getCurrentUserId(c), confirmSchema.parse(await c.req.json()))))
     .get("/import/operations/:operationId", async (c) => { const result = await mutationResult(getCurrentUserId(c), z.string().uuid().parse(c.req.param("operationId")), "LIBRARY_IMPORT") as {
