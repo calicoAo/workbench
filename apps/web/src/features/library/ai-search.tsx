@@ -9,6 +9,12 @@ type Candidate = { title: string; originalTitle: string | null; creator: string 
 type Search = { operationId: string; query: string; mediaType: MediaType; status: string; result?: { candidates: Candidate[] }; searchCalls?: number; fetchCalls?: number; usage?: {inputTokens:number|null;outputTokens:number|null;reasoningTokens:number|null}; coverLookup?: "FOUND" | "NO_IMAGE" | "UNAVAILABLE" };
 const key = (userId: number) => `wb.library-ai-search.v1:${userId}`;
 export function clearLibraryAiSearchDrafts() { for (const name of Object.keys(localStorage)) if (name.startsWith("wb.library-ai-search.v1:")) localStorage.removeItem(name); }
+export function clearLibraryAiSearchDraft(userId: number, operationId: string) {
+  try {
+    const raw = localStorage.getItem(key(userId));
+    if (raw && JSON.parse(raw).operationId === operationId) localStorage.removeItem(key(userId));
+  } catch { /* An unrelated or unreadable search draft must remain intact. */ }
+}
 export function LibraryAiSearch({ request, userId, mediaType, query = "", onQuery = () => {}, disabled = false, onUse }: { request: Request; userId: number; mediaType: MediaType; query?: string; onQuery?: (query: string) => void; disabled?: boolean; onUse: (operationId: string, candidateIndex: number) => void }) {
   const [saved, setSaved] = useState<Search | null>(() => { try { const value = localStorage.getItem(key(userId)); return value ? JSON.parse(value) as Search : null; } catch { return null; } });
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [unclaimed, setUnclaimed] = useState(false);

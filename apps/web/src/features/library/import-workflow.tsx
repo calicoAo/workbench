@@ -4,7 +4,7 @@ import type { FeedbackActions } from "../../app/feedback";
 import type { Request } from "../../app/api";
 import { tx } from "../../app/i18n";
 import { Button } from "../../shared/ui";
-import { clearLibraryAiSearchDrafts, LibraryAiSearch } from "./ai-search";
+import { clearLibraryAiSearchDraft, clearLibraryAiSearchDrafts, LibraryAiSearch } from "./ai-search";
 import { LibraryCoverPicker, type CoverLookup } from "./cover-picker";
 import "./import.css";
 export type LibrarySource = {
@@ -96,8 +96,12 @@ export function MediaImportWorkflow({ request, userId, target, onSaved, onConfir
                 const parsed = JSON.parse(raw);
                 if (parsed.schemaVersion !== 1 || typeof parsed.revision !== "string")
                     throw Error("Unsupported saved draft");
-                revision.current = parsed.revision;
-                if (!parsed.committedId) return parsed;
+                if (!parsed.committedId) {
+                    revision.current = parsed.revision;
+                    return parsed;
+                }
+                localStorage.removeItem(key);
+                if (parsed.aiSelection) clearLibraryAiSearchDraft(userId, parsed.aiSelection.operationId);
             }
         }
         catch {
@@ -108,6 +112,30 @@ export function MediaImportWorkflow({ request, userId, target, onSaved, onConfir
     const [coverPending, setCoverPending] = useState(false);
     const [error, setError] = useState(""), [pending, setPending] = useState(false), [candidates, setCandidates] = useState<Candidate[]>([]), [page, setPage] = useState(1), [hasMore, setHasMore] = useState(false);
     useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+    useEffect(() => {
+        if (!draft.frozen || draft.committedId) return;
+        let cancelled = false;
+        setPending(true);
+        void request<{status:string;itemId?:number}>(`/api/library/import/operations/${draft.frozen.operationId}`)
+            .then(async state => {
+                if (!cancelled && state.status === "committed") await acknowledge(draft, state.itemId!);
+            })
+            .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
+            .finally(() => { if (!cancelled) setPending(false); });
+        return () => { cancelled = true; };
+    }, []);
+    async function acknowledge(submitted: Draft, id: number) {
+        // Clear only this acknowledged submission, never another tab's newer draft.
+        const raw = localStorage.getItem(key);
+        if (raw && JSON.parse(raw).revision === submitted.revision) {
+            localStorage.removeItem(key);
+            revision.current = null;
+            if (submitted.aiSelection) clearLibraryAiSearchDraft(userId, submitted.aiSelection.operationId);
+        }
+        if (!alive.current) return;
+        setDraft({ ...submitted, committedId: id });
+        await onSaved(id);
+    }
     function save(next: Draft) {
         const raw = localStorage.getItem(key);
         const stored = raw ? JSON.parse(raw) : null;
@@ -161,7 +189,7 @@ export function MediaImportWorkflow({ request, userId, target, onSaved, onConfir
             if (!preview || !draft.edits)
                 return;
             const frozen = draft.frozen ?? { previewToken: preview.previewToken, fingerprint: preview.fingerprint, operationId: crypto.randomUUID(), mode: target?.source ? "refresh" : target ? "attach" : "create", ...(target ? { targetItemId: target.id, expectedVersion: preview.expectedVersion } : {}), edits: draft.edits, omitCover: draft.omitCover ?? false };
-            save({ ...draft, frozen });
+            const submitted = save({ ...draft, frozen });
             const state = await request<{
                 status: string;
                 itemId?: number;
@@ -173,10 +201,7 @@ export function MediaImportWorkflow({ request, userId, target, onSaved, onConfir
             const result = state.status === "committed" ? { id: state.itemId! } : await request<{
                 id: number;
             }>("/api/library/import/confirm", { method: "POST", body: JSON.stringify(frozen) });
-            if (!alive.current)
-                return;
-            save({ ...draft, frozen, committedId: result.id });
-            await onSaved(result.id);
+            await acknowledge(submitted, result.id);
         });
     }
     const mismatch = draft.targetItemId !== target?.id;
