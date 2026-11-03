@@ -10,6 +10,8 @@ if (!sourceUrl || !new URL(sourceUrl).pathname.endsWith("_test"))
 const source = new URL(sourceUrl), fresh = `wb_media_split_${process.pid}_test`, upgrade = `wb_media_upgrade_${process.pid}_test`;
 let admin: Connection, pool: Pool, app: typeof import('../src/app.js').app, signToken: typeof import('../src/auth.js').signToken, provider: Server, calls = 0;
 let providerMode="success";
+const baikeUrl='https://baike.baidu.com/item/帕丁顿熊/14354362';
+const baikeCover='https://bkimg.cdn.bcebos.com/pic/0823dd54564e9258dbbe38929382d158cdbf4ec7';
 let commands: typeof import('../src/library-import/commands.js'), split: typeof import('../src/task-split/index.js');
 const candidate = { title: "整理材料", description: "检查数据", priority: 3, difficulty: 2, categoryId: null, projectId: null, categorySuggestion: "资料", projectSuggestion: null, dueAtLocal: null, dueEvidence: null, estimatedMinutes: 30, durationEvidence: "整理材料30分钟", suggestedMinutes: 40 };
 const sourceFixture = { provider: "TMDB" as const, entityType: "MOVIE" as const, stableSourceId: "550", canonicalUrl: "https://www.themoviedb.org/movie/550", attribution: "TMDB", metadata: { title: "Fight Club", originalTitle: "Fight Club", creator: "David Fincher", creatorRole: "director", releaseYear: 1999, description: "Original overview", descriptionLanguage: "en-US", coverRef: "https://image.tmdb.org/t/p/w500/a.jpg", isAnimation: false } };
@@ -22,6 +24,22 @@ async function migrate(name: string, from = 0, to = 1000) { await admin.query(`U
 before(async () => {
     provider = createServer(async (req, res) => { calls++; let raw = ''; for await (const chunk of req)
         raw += chunk; const body = JSON.parse(raw); res.setHeader('Content-Type', 'application/json');
+        if(req.url === '/v1/tools/fetch') {
+          assert.equal(body.url,new URL(baikeUrl).href);
+          if(providerMode==='baike-unavailable'){res.statusCode=403;res.end('{}');return;}
+          if(providerMode==='baike-redirect'){res.statusCode=302;res.setHeader('Location','/forbidden-follow');res.end('{}');return;}
+          if(providerMode==='baike-invalid'){res.end('{');return;}
+          res.end(JSON.stringify({title:'帕丁顿熊',content:providerMode==='baike-no-image'?'作品正文，无图片':`![电影海报](${baikeCover}?x-bce-process=image/resize,w_500) ![站点图标](https://tracker.invalid/favicon.png)`}));return;
+        }
+        if(req.url === '/v1/tools/search' && providerMode.startsWith('baike')) {
+          const content=`帕丁顿熊，2014年保罗·金执导电影。${providerMode==='baike-search-image'?`![电影海报](${baikeCover})`:''}`;
+          res.end(JSON.stringify({results:[{url:baikeUrl+'?fromModule=search#1',title:'帕丁顿熊',content},{url:'https://baike.baidu.com/item/其他/123',title:'其他',content:'其他作品'},{url:baikeUrl+'?fromModule=duplicate',title:'重复出处',content}]}));return;
+        }
+        if(req.url === '/responses' && providerMode.startsWith('baike')) {
+          if(providerMode==='baike-model-fail'){res.statusCode=500;res.end('{}');return;}
+          const evidence=JSON.parse(body.input[1].content).evidence;assert.equal(evidence.length,2);assert.equal(evidence[0].url,new URL(baikeUrl).href);
+          res.end(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({candidates:[{title:'帕丁顿熊',originalTitle:'Paddington',creator:'保罗·金',releaseYear:2014,description:'一只小熊来到伦敦。',sourceIndexes:[0],coverRef:baikeCover}]})}]}],usage:{input_tokens:200,output_tokens:120,output_tokens_details:{reasoning_tokens:0}}}));return;
+        }
         if(req.url === '/v1/tools/search') { assert.equal(body.need_content,true); assert.ok(body.query.includes('-site:themoviedb.org')); res.end(JSON.stringify({results:[{url:'https://openlibrary.org/works/OL123W',title:'Open Library',content:'The Hobbit by J. R. R. Tolkien, 1937. A fantasy novel. ![cover](https://covers.openlibrary.org/b/id/42-L.jpg)'},{url:'http://untrusted.example',title:'Rejected',content:'Untrusted'}]}));return; }
         assert.equal(req.url, '/responses');
         if(body.text?.format?.name === 'library_media_candidates_v2') { assert.equal(body.model,'deepseek-flash'); assert.ok(body.input[0].content.includes('untrusted')); res.end(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({candidates:[{title:'The Hobbit',originalTitle:null,creator:'J. R. R. Tolkien',releaseYear:1937,description:'A fantasy novel.',sourceIndexes:[0,4],coverRef:'https://covers.openlibrary.org/b/id/42-L.jpg'},{title:'No invented cover',originalTitle:null,creator:null,releaseYear:null,description:null,sourceIndexes:[0],coverRef:'https://tracker.invalid/x.jpg'}]})}]}],usage:{input_tokens:200,output_tokens:120,output_tokens_details:{reasoning_tokens:0}}}));return; }
@@ -264,7 +282,7 @@ test('Library unknown searches recover read-only, clean expired claims explicitl
  const input={operationId:operation(),query:'Expired library search',mediaType:'GAME'};
  let attempts=0;const gateway={provider:'mock',model:'bounded-fixture',search:async()=>{attempts++;return {payload:{candidates:[]},evidence:[],searchCalls:1,fetchCalls:0};}};
  await ai.searchLibrary(992,input,gateway);
- await pool.query("UPDATE ai_artifacts SET status='PENDING',created_at=?,generation_context=JSON_SET(generation_context,'$.timeoutAt','2000-01-01T00:00:00Z') WHERE user_id=992 AND operation_id=?",[new Date(Date.now()-65000),input.operationId]);
+ await pool.query("UPDATE ai_artifacts SET status='PENDING',created_at=?,generation_context=JSON_SET(generation_context,'$.timeoutAt','2000-01-01T00:00:00Z') WHERE user_id=992 AND operation_id=?",[new Date(Date.now()-95000),input.operationId]);
  assert.equal((await ai.getLibrarySearch(992,input.operationId)).status,'FAILED_UNKNOWN');
  const [[stored]]=await pool.query<any[]>("SELECT status FROM ai_artifacts WHERE user_id=992 AND operation_id=?",[input.operationId]);assert.equal(stored.status,'PENDING');
  await ai.searchLibrary(992,input,gateway);assert.equal(attempts,1);
@@ -272,4 +290,42 @@ test('Library unknown searches recover read-only, clean expired claims explicitl
  const failed=await ai.searchLibrary(992,{...input,operationId:operation()},{...gateway,search:async()=>{attempts++;throw Object.assign(Error('provider timed out after search'),{searchCalls:1});}});
  assert.equal(failed.status,'FAILED_UNKNOWN');assert.equal(failed.searchCalls,1);const before=attempts;
  await ai.searchLibrary(992,{...input,operationId:failed.operationId},gateway);assert.equal(attempts,before);
+});
+
+test('metadata search no longer Fetches Baike; images are discovered only after explicit work selection',async()=>{
+ const ai=await import('../src/library-import/ai-search.js');providerMode='baike';
+ try {const before=calls;const input={operationId:operation(),query:'帕丁顿熊',mediaType:'MOVIE'};const result=await ai.searchLibrary(1,input);assert.equal(result.status,'SUCCEEDED');assert.equal(result.fetchCalls,0);assert.equal(calls,before+2);assert.equal((result.result as any).candidates[0].coverRef,null);await ai.searchLibrary(1,input);assert.equal(calls,before+2);}finally{providerMode='success';}
+});
+test('Baike images require dedicated image paths AND matching Baike article evidence',async()=>{
+ const {baikeArticle,coverUrl,evidenceCovers}=await import('../src/library-import/web-search.js');
+ assert.equal(baikeArticle(baikeUrl+'?track=1#cover'),new URL(baikeUrl).href);
+ for(const u of ['https://baike.baidu.com.evil.example/item/a/1','https://baike.baidu.com/tashuolist/a/1','https://baike.baidu.com@127.0.0.1/item/a'])assert.equal(baikeArticle(u),null);
+ for(const u of ['https://bkimg.cdn.bcebos.com/favicon.png','https://bkimg.cdn.bcebos.com.evil.example/pic/1234567890123456','https://imgsrc.baidu.com/forum/pic/item/1234567890123456.jpg',baikeCover+'.svg'])assert.equal(coverUrl(u),null);
+ assert.equal(coverUrl(baikeCover+'?x-bce-process=image/resize,w_500'),baikeCover);
+ assert.deepEqual(evidenceCovers(`![海报](${baikeCover})`,'https://untrusted.example/a'),[]);
+ assert.deepEqual(evidenceCovers(`![海报](${baikeCover})`,baikeUrl),[baikeCover]);
+});
+
+test('cover artifacts bind user/work, preserve zero-token usage and preview choice; duplicate confirmation stays idempotent',async()=>{
+ const ai=await import('../src/library-import/ai-search.js'),covers=await import('../src/library-import/ai-covers.js');
+ const parent=operation();const payload={title:'Cover flow unique book',originalTitle:null,creator:null,releaseYear:2000,description:null,coverRef:null,sourceIndexes:[0]};await ai.searchLibrary(1,{operationId:parent,query:'cover flow',mediaType:'BOOK'},{provider:'mock',model:'fixture',search:async()=>({payload:{candidates:[payload,{...payload,title:'Other book'}]},evidence:[{url:'https://standardebooks.org/ebooks/a/book',title:'Book source',content:'Book',covers:[]}],searchCalls:1,fetchCalls:0})});
+ let probes=0;const selected={id:'a'.repeat(32),imageUrl:'https://standardebooks.org/ebooks/a/book/downloads/cover.jpg',sourcePageUrl:'https://standardebooks.org/ebooks/a/book',sourceTitle:'Reviewed book',extractionMethod:'PAGE_META',kind:'COVER' as const,width:1400,height:2100,needsReview:true as const};
+ const discover=async()=>{probes++;return {candidates:[selected],failures:[],pageCalls:1,imageCalls:1,searchCalls:0};};
+ const input={operationId:operation(),candidateIndex:0};const [a,b]=await Promise.all([covers.findLibraryCovers(1,parent,input,undefined,discover),covers.findLibraryCovers(1,parent,input,undefined,discover)]);
+ assert.ok([a.status,b.status].includes('SUCCEEDED'));assert.equal(probes,1);
+ const read=await covers.getLibraryCovers(1,parent,input.operationId);assert.deepEqual(read.usage,{inputTokens:0,outputTokens:0,reasoningTokens:0});assert.equal(read.pageCalls,1);
+ await assert.rejects(()=>covers.getLibraryCovers(992,parent,input.operationId),/found/);
+ await assert.rejects(()=>covers.findLibraryCovers(1,parent,{...input,candidateIndex:1},undefined,discover),/different parameters/);
+ assert.equal((await api(`/library/import/ai-search/${parent}/preview`,{candidateIndex:1,coverOperationId:input.operationId,coverCandidateId:selected.id})).status,409);
+ assert.equal((await api(`/library/import/ai-search/${parent}/preview`,{candidateIndex:0,coverCandidateId:selected.id})).status,400);
+ const preview=await api(`/library/import/ai-search/${parent}/preview`,{candidateIndex:0,coverOperationId:input.operationId,coverCandidateId:selected.id});assert.equal(preview.status,200);assert.equal(preview.data.source.metadata.coverRef,selected.imageUrl);
+ const body={operationId:operation(),mode:'create',previewToken:preview.data.previewToken,fingerprint:preview.data.fingerprint,edits:{}};
+ const [one,two]=await Promise.all([api('/library/import/confirm',body),api('/library/import/confirm',{...body,operationId:operation()})]);assert.equal(one.status,200);assert.equal(one.data.id,two.data.id);
+ const detail=(await api(`/library/items/${one.data.id}`)).data;
+ assert.equal(detail.item.coverRef,selected.imageUrl);assert.ok(detail.sources[0].references.some((row:any)=>row.url===selected.sourcePageUrl));
+ assert.equal(probes,1);await covers.findLibraryCovers(1,parent,input,undefined,discover);assert.equal(probes,1);
+ const failedInput={operationId:operation(),candidateIndex:0};const failed=await covers.findLibraryCovers(1,parent,failedInput,undefined,async()=>{throw Object.assign(Error('timeout'),{pageCalls:2,imageCalls:1,searchCalls:1});});assert.equal(failed.status,'FAILED_UNKNOWN');assert.equal(failed.searchCalls,1);assert.equal(failed.usage.inputTokens,0);
+ await pool.query("UPDATE ai_artifacts SET status='PENDING',created_at=?,generation_context=JSON_SET(generation_context,'$.timeoutAt','2000-01-01T00:00:00Z') WHERE operation_id=?",[new Date(Date.now()-50000),failedInput.operationId]);
+ assert.equal((await covers.getLibraryCovers(1,parent,failedInput.operationId)).status,'FAILED_UNKNOWN');assert.equal(await scalar("SELECT COUNT(*) FROM ai_artifacts WHERE operation_id=? AND status='PENDING'",[failedInput.operationId]),1);
+ await covers.findLibraryCovers(1,parent,{operationId:operation(),candidateIndex:0},undefined,discover);assert.equal(probes,2);
 });

@@ -2538,7 +2538,7 @@ paths:
   /library/import/ai-search:
     post:
       summary: Search the web and organize Library candidates without TMDB
-      description: Requires enabled AI and Library permission. One paid search and at most one structured response, never automatic retries. User-scoped operation replay; 20 operations per business day, 10 POST requests per minute per process. Candidate sources/covers are validated server-side. No Library item is created.
+      description: Requires enabled AI and Library permission. One paid search and at most one structured response, never automatic retries. Cover discovery is a separate explicit work-selection operation; no automatic Baike Fetch. User-scoped operation replay; 20 operations per business day, 10 POST requests per minute per process. Candidate sources/covers are validated server-side. No Library item is created.
       requestBody:
         required: true
         content:
@@ -2552,7 +2552,7 @@ paths:
                 query: { type: string, minLength: 1, maxLength: 72 }
                 mediaType: { type: string, enum: [BOOK, MOVIE, SERIES, GAME] }
       responses:
-        "200": { description: Operation status, query, mediaType, model, searchCalls, usage and persisted result.candidates (title, originalTitle, creator, releaseYear, description, coverRef, coverSourceUrl, sources, needsReview). Maximum five candidates. }
+        "200": { description: Operation status, query, mediaType, model, searchCalls, fetchCalls (zero for new operations; legacy artifacts may retain Fetch counts), usage (inputTokens, outputTokens, reasoningTokens; total is input + output) and persisted result.candidates (title, originalTitle, creator, releaseYear, description, coverRef, coverSourceUrl, sources, needsReview). Maximum five candidates. }
         "403": { description: AI or Library permission disabled }
         "409": { description: Operation parameter conflict, another pending operation or quota exceeded }
   /library/import/ai-search/{operationId}:
@@ -2560,9 +2560,40 @@ paths:
       summary: Read user-owned AI search status without another paid call
       parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
       responses:
-        "200": { description: PENDING, SUCCEEDED, FAILED or FAILED_UNKNOWN and saved candidates. Pending older than 60 seconds derives FAILED_UNKNOWN without writes. }
+        "200": { description: PENDING, SUCCEEDED, FAILED or FAILED_UNKNOWN and saved candidates. Pending older than 90 seconds derives FAILED_UNKNOWN without writes. }
         "403": { description: AI or Library permission disabled }
         "404": { description: No search with this user and operation identity }
+  /library/import/ai-search/{operationId}/covers:
+    post:
+      summary: Find real cover candidates for a selected persisted work
+      description: Requires Library AI permission and parent ownership. Reads at most three reviewed HTTPS pages and validates six images, with at most one supplemental paid Search if none are found. No model request; usage is zero model tokens. Thirty-second bound, forty-five-second pending expiry. Idempotent user-scoped operation; changed parameters conflict. Twenty operations per business day, one concurrent pending lookup, five POST requests per minute per API process. No Library item is created and no image file is stored.
+      parameters: [{ in: path, name: operationId, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [operationId, candidateIndex]
+              properties:
+                operationId: { type: string, format: uuid, description: Independent cover operation identity }
+                candidateIndex: { type: integer, minimum: 0, maximum: 4 }
+      responses:
+        "200": { description: Cover operation status, parentOperationId, candidateIndex, usage, pageCalls, imageCalls, searchCalls and result (candidates and partial failure codes). Candidates have id, imageUrl, sourcePageUrl, sourceTitle, extractionMethod, kind (COVER/POSTER/ARTWORK/UNCONFIRMED), nullable width/height and needsReview. Mixed manga/series encyclopedia images require manual choice. At most six; browser decode and user version review remain necessary. }
+        "403": { description: AI or Library permission disabled }
+        "404": { description: Parent search not owned by user }
+        "409": { description: Fingerprint conflict, unavailable parent, pending operation or quota exceeded }
+  /library/import/ai-search/{operationId}/covers/{coverOperationId}:
+    get:
+      summary: Recover a saved cover lookup without network discovery or paid calls
+      parameters:
+        - { in: path, name: operationId, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: coverOperationId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: PENDING, SUCCEEDED or FAILED_UNKNOWN plus saved candidates and usage. Expired pending derives unknown without writes. }
+        "403": { description: AI or Library permission disabled }
+        "404": { description: Cover lookup does not belong to this user and parent }
   /library/import/ai-search/{operationId}/preview:
     post:
       summary: Sign a persisted AI candidate for direct Library confirmation
@@ -2579,6 +2610,8 @@ paths:
               properties:
                 candidateIndex: { type: integer, minimum: 0, maximum: 4 }
                 targetItemId: { type: integer, minimum: 1 }
+                coverOperationId: { type: string, format: uuid, description: Must be paired with coverCandidateId and belong to this user and candidate }
+                coverCandidateId: { type: string, minLength: 32, maxLength: 32 }
       responses:
         "200": { description: Signed preview with editable defaults and immutable server source/cover; confirm using the existing import command }
         "403": { description: AI or Library permission disabled }

@@ -13,7 +13,7 @@ describe("Library AI search recovery", () => {
     render(<MemoryRouter><LibraryAiSearch request={request} userId={5} mediaType="BOOK" query="The Hobbit" onUse={onUse}/></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "AI 搜索" }));
     expect(await screen.findByText("A fantasy novel.")).toBeTruthy();
-    fireEvent.click(screen.getByText("预览此作品资料"));
+    fireEvent.click(screen.getByText("预览并查找封面"));
     expect(onUse).toHaveBeenCalledWith(expect.any(String),0);
     expect(localStorage.getItem("wb.library-ai-search.v1:5")).toContain("OL123W");
   });
@@ -34,4 +34,11 @@ describe("Library AI search recovery", () => {
     expect(JSON.parse(localStorage.getItem("wb.library-ai-search.v1:5")!).operationId).toBe("another-tab");
   });
 
+});
+
+it("shows a cover lookup failure without hiding usable metadata",async()=>{
+ localStorage.setItem("wb.library-ai-search.v1:5",JSON.stringify({...result,coverLookup:"NO_IMAGE"}));
+ render(<MemoryRouter><LibraryAiSearch request={vi.fn() as unknown as Request} userId={5} mediaType="BOOK" onUse={vi.fn()}/></MemoryRouter>);
+ expect(screen.getByText("百科补读未取得可用图片，仍可预览并保存其他资料。")).toBeTruthy();
+ expect(screen.getByRole("button",{name:"预览并查找封面"})).not.toHaveProperty("disabled",true);
 });

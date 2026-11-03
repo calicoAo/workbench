@@ -10,3 +10,4 @@ logs/
 Thumbs.db
 
 /.qa-private/
+/docs/reports/

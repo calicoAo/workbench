@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const web='http://localhost:5188',apiOrigin='http://127.0.0.1:3000',cdp='http://127.0.0.1:9338';
 if(!process.env.TEST_DATABASE_URL?.endsWith('_test'))throw Error('Disposable QA database required');
-const dir='docs/reports/WB-LIBRARY-AI-DIRECT-2026-11-03-evidence';await fs.mkdir(dir,{recursive:true});
+const baike=process.env.LIBRARY_BAIKE_QA==='1', cover=baike?'https://bkimg.cdn.bcebos.com/pic/0823dd54564e9258dbbe38929382d158cdbf4ec7':'https://covers.openlibrary.org/b/id/42-L.jpg';
+const dir=baike?'docs/reports/WB-LIBRARY-BAIKE-COVER-2026-11-03-evidence':'docs/reports/WB-LIBRARY-AI-DIRECT-2026-11-03-evidence';await fs.mkdir(dir,{recursive:true});
 const pages=await fetch(cdp+'/json/list').then(r=>r.json());const ws=new WebSocket(pages.find(p=>p.type==='page').webSocketDebuggerUrl);
 await new Promise((r,j)=>{ws.addEventListener('open',r,{once:true});ws.addEventListener('error',j,{once:true});});
 let id=0;const jobs=new Map();ws.addEventListener('message',event=>{const m=JSON.parse(event.data),job=jobs.get(m.id);if(!job)return;jobs.delete(m.id);clearTimeout(job.timer);m.error?job.j(new Error(m.error.message)):job.r(m.result);});
@@ -31,14 +32,14 @@ try {
  assert.equal(await ev(`document.querySelector('input[aria-label="AI 搜索词"]').value`),'霍比特人');
  await click('AI 搜索');await wait("document.querySelector('.library-ai-candidate')");await screen('desktop-search');
  await click('预览此作品资料');await wait("document.querySelector('.media-preview-cover')");
- assert.equal(await ev("document.querySelector('.media-preview-cover').getAttribute('src')"),'https://covers.openlibrary.org/b/id/42-L.jpg');
+ assert.equal(await ev("document.querySelector('.media-preview-cover').getAttribute('src')"),cover);
  const editor='.media-import textarea';await set(editor,'用户核对后保留的作品简介。');
  await viewport(375,812);await ev("document.querySelector('.media-import textarea').scrollIntoView({block:'center'})");await screen('mobile-preview');assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth'),'mobile preview overflow');
  await send('Page.reload');await pause(400);await wait("document.querySelector('.library-route')");await click('导入资料');
  assert.equal(await ev(`document.querySelector(${JSON.stringify(editor)}).value`),'用户核对后保留的作品简介。');
  await click('确认保存资料');await wait("document.querySelectorAll('.library-item-card').length===1");
  const items=await api('/library/items',undefined,token);assert.equal(items.items.length,1);const itemId=items.items[0].id;
- let detail=await api('/library/items/'+itemId,undefined,token);assert.equal(detail.item.description,'用户核对后保留的作品简介。');assert.equal(detail.item.coverRef,'https://covers.openlibrary.org/b/id/42-L.jpg');assert.equal(detail.sources[0].provider,'WEB_SEARCH');assert.equal(detail.sources[0].references[0].title,'作品资料出处');
+ let detail=await api('/library/items/'+itemId,undefined,token);assert.equal(detail.item.description,'用户核对后保留的作品简介。');assert.equal(detail.item.coverRef,cover);assert.equal(detail.sources[0].provider,'WEB_SEARCH');assert.equal(detail.sources[0].references[0].title,'作品资料出处');
  for(const [width,height] of [[1440,1000],[375,812]]){
   await viewport(width,height);await nav('/library/'+itemId);await wait("document.querySelector('.library-source-copy')");
   assert.ok((await ev('document.body.innerText')).includes('作品资料出处'));assert.ok((await ev('document.body.innerText')).includes('用户核对后保留的作品简介。'));assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth'));
@@ -47,7 +48,7 @@ try {
  await nav('/library');await click('导入资料');await set(select,'WEB_SEARCH:BOOK');await wait("document.querySelector('.library-ai-candidate')");await click('预览此作品资料');await wait("document.body.innerText.includes('该来源已导入，打开已有条目')");await click('确认保存资料');await wait("document.querySelectorAll('.library-item-card').length===1");
  assert.equal((await api('/library/items',undefined,token)).items.length,1);
  assert.ok(!requests.some(url=>url.includes('/import/resolve')||url.includes('/import/search?')||url.includes('api.themoviedb.org')),'unexpected TMDB dependency');
- const after=await fetch('http://127.0.0.1:33308/health').then(r=>r.json());assert.equal(after.calls-health.calls,2,'refresh/import must not regenerate');
- results.inputRestored=true;results.editsRestored=true;results.coverAndReferencesPersisted=true;results.noTmdb=true;results.reimportReusesExisting=true;results.searchCalls=1;results.modelCalls=1;
+ const after=await fetch('http://127.0.0.1:33308/health').then(r=>r.json());assert.equal(after.calls-health.calls,baike?3:2,'refresh/import must not regenerate');
+ results.inputRestored=true;results.editsRestored=true;results.coverAndReferencesPersisted=true;results.noTmdb=true;results.reimportReusesExisting=true;results.searchCalls=1;results.fetchCalls=baike?1:0;results.modelCalls=1;
  await fs.writeFile(dir+'/browser.json',JSON.stringify(results,null,2));console.log(JSON.stringify({result:'PASS',...results},null,2));
 } finally {ws.close();}
