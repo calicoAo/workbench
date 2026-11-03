@@ -1,0 +1,19 @@
+{
+  "assertions": [
+    "Cards expose canonical finishedOn and distinguish missing historical dates without inventing dates"
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "noOverflow": true,
+      "finishedDatesVisible": true
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "noOverflow": true,
+      "finishedDatesVisible": true
+    }
+  ]
+}

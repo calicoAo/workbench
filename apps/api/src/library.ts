@@ -26,7 +26,12 @@ export async function listLibraryItems(userId: number, query: { type?: LibraryTy
     })
     .from(libraryItems)
     .where(and(...clauses))
-    .orderBy(desc(libraryItems.updatedAt))
+    .orderBy(
+      sql`case when ${libraryItems.status} = 'WANT' then 0 else 1 end`,
+      desc(sql`case when ${libraryItems.status} <> 'WANT' then ${libraryItems.finishedOn} else null end`),
+      desc(libraryItems.createdAt),
+      desc(libraryItems.id),
+    )
     .then((rows) =>
       rows.map((row) => ({
         ...Object.fromEntries(Object.entries(row.item).filter(([key]) => key !== "description")),

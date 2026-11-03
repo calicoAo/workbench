@@ -21,7 +21,9 @@ async function migrate(name: string, from = 0, to = 1000) { await admin.query(`U
         await admin.query(await readFile(resolve(dir, file), 'utf8')); }
 before(async () => {
     provider = createServer(async (req, res) => { calls++; let raw = ''; for await (const chunk of req)
-        raw += chunk; const body = JSON.parse(raw); assert.equal(req.url, '/responses'); assert.equal(body.reasoning.effort, 'none'); assert.equal(body.stream, false); assert.equal(body.text.format.type, 'json_schema'); res.setHeader('Content-Type', 'application/json');
+        raw += chunk; const body = JSON.parse(raw); assert.equal(req.url, '/responses'); res.setHeader('Content-Type', 'application/json');
+        if(body.tools?.some((tool:any)=>tool.type==='web_search')){assert.equal(body.model,'deepseek-v4-pro');assert.equal(body.tool_choice,'required');assert.equal(body.text.format.type,'json_schema');res.end(JSON.stringify({status:'completed',output:[{type:'web_search_call',action:{sources:[{url:'https://openlibrary.org/works/OL123W',title:'Open Library'},{url:'http://untrusted.example',title:'Untrusted'}]}},{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({candidates:[{title:'The Hobbit',originalTitle:null,creator:'J. R. R. Tolkien',releaseYear:1937,description:'A fantasy novel.',sourceUrls:['https://openlibrary.org/works/OL123W','https://untrusted.example/book']}] }),annotations:[{type:'url_citation',url:'https://openlibrary.org/works/OL123W',title:'Open Library'}]}]}],usage:{input_tokens:200,output_tokens:120,output_tokens_details:{reasoning_tokens:0},server_tool_use:{tool_search:1,tool_fetch:1}}}));return;}
+        assert.equal(body.reasoning.effort, 'none'); assert.equal(body.stream, false); assert.equal(body.text.format.type, 'json_schema');
         if(providerMode==="rate"){res.statusCode=429;res.end(JSON.stringify({error:"limited"}));return;}
         if(providerMode==="invalid"){res.end(JSON.stringify({status:"completed",output:[{type:"message",role:"assistant",content:[{type:"output_text",text:"not JSON"}]}]}));return;}
         if(providerMode==="incomplete"){res.end(JSON.stringify({status:"incomplete",output:[],usage:{input_tokens:20,output_tokens:8192}}));return;} res.end(JSON.stringify({ status: 'completed', output: [{ type: 'reasoning', content: [{ type: 'summary_text', text: 'DO NOT PARSE' }] }, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify({ candidates: [candidate], hasMore: false, unprocessedTextSpans: [] }) }] }], usage: { input_tokens: 300, output_tokens: 100, output_tokens_details: { reasoning_tokens: 0 } } })); });
@@ -197,4 +199,23 @@ test('Open Library editions canonicalize merged works; TV empty creators and Chi
  assert.equal(book.stableSourceId,'OL2W');assert.equal(book.metadata.editionId,'OL4M');assert.equal(book.metadata.releaseYear,1970);assert.equal(book.metadata.creator,'First Author');assert.equal(book.metadata.description,'Plain description');assert.equal(book.metadata.coverRef,'https://covers.openlibrary.org/b/id/42-L.jpg');
  const tv=await resolveMedia('TMDB','SERIES','1',async(url)=>({url,data:{id:1,name:'Series',original_name:'Original',created_by:[],production_companies:[{name:'Studio'}],overview:url.searchParams.get('language')==='en-US'?'English overview':'',poster_path:'/safe.jpg',first_air_date:'2001-01-01',genres:[{id:16}]}}));
  assert.equal(tv.metadata.creator,'Studio');assert.equal(tv.metadata.creatorRole,'production_company');assert.equal(tv.metadata.descriptionLanguage,'en-US');assert.equal(tv.metadata.releaseYear,2001);assert.equal(tv.metadata.isAnimation,true);
+});
+
+test('Library AI search enforces its permission, persists candidates, filters unverified citations, and replays by operation',async()=>{
+ const ai=await import('../src/library-import/ai-search.js');
+ const settings=(await api('/ai/settings')).data;
+ await api('/ai/settings',{expectedVersion:settings.version,enabled:true,allowLibrary:false},1,'PUT');
+ const input={operationId:operation(),query:'The Hobbit',mediaType:'BOOK' as const};
+ const before=calls;
+ await assert.rejects(()=>ai.searchLibrary(1,input),/permission/);
+ const changed=(await api('/ai/settings')).data;
+ await api('/ai/settings',{expectedVersion:changed.version,enabled:true,allowLibrary:true},1,'PUT');
+ const first=await ai.searchLibrary(1,input);
+ const replay=await ai.searchLibrary(1,input);
+ assert.equal(calls,before+1);
+ assert.equal(first.status,'SUCCEEDED');assert.deepEqual((first.result as any).candidates[0].sources,[{url:'https://openlibrary.org/works/OL123W',title:'Open Library'}]);
+ assert.equal((replay.result as any).candidates[0].title,'The Hobbit');
+ assert.equal((await api(`/library/import/ai-search/${input.operationId}`)).data.status,'SUCCEEDED');
+ assert.equal((await api(`/library/import/ai-search/${input.operationId}`,undefined,992)).status,403);
+ await assert.rejects(()=>ai.searchLibrary(1,{...input,query:'Different title'}),/different parameters/);
 });

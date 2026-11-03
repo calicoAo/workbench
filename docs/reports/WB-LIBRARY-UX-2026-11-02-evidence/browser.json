@@ -1,0 +1,32 @@
+{
+  "assertions": [
+    "Reading is default; one year/description editor; save returns to detail; reload retains canonical fields",
+    "Inline completion defaults user business date; rating persists; unlink uses shared confirmation and cancel leaves source intact",
+    "Editing old item never reorders created-time list; manual create returns to list with newest entry first and completion date",
+    "Import draft discard uses shared dialog; cancel preserves input, confirm resets it",
+    "No native browser dialogs; exact 1440/390/375 CSS viewports without horizontal overflow"
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "noOverflow": true,
+      "sourceActionsHorizontal": true,
+      "oneYearAndDescription": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "noOverflow": true,
+      "sourceActionsHorizontal": true,
+      "oneYearAndDescription": true
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "noOverflow": true,
+      "sourceActionsHorizontal": true,
+      "oneYearAndDescription": true
+    }
+  ]
+}

@@ -10,74 +10,34 @@ import {
   Tv,
   X,
 } from "lucide-react";
-import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { type FormEvent, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import type { Request } from "../../app/api";
+import type { FeedbackActions } from "../../app/feedback";
 import { tx } from "../../app/i18n";
 import { Button, IconButton } from "../../shared/ui";
 
 import { LibrarySourcePanel } from "./source-panel";
 import tmdbLogo from "./assets/tmdb.svg";
 import { MediaImportWorkflow, type LibrarySource } from "./import-workflow";
+import { type LibraryItem, type LibraryStatus, type LibraryType, type Relation, statuses, typeLabels, statusLabels } from "./item";
+import { LibraryItemEditor } from "./item-editor";
 export { clearLibraryImportDrafts } from "./import-workflow";
 
-type LibraryType = "BOOK" | "MOVIE" | "SERIES" | "GAME";
-type LibraryStatus = "WANT" | "IN_PROGRESS" | "FINISHED" | "DROPPED";
-type LibraryItem = {
-  id: number;
-  type: LibraryType;
-  title: string;
-  originalTitle: string | null;
-  creator: string | null;
-  coverRef: string | null;
-  status: LibraryStatus;
-  rating: number | null;
-  startedOn: string | null;
-  finishedOn: string | null;
-  externalRef: string | null;
-  shortNote: string | null;
-  description: string | null;
-  releaseYear: number | null;
-  version: number;
-  relationCount?: number;
-};
-type Relation = {
-  id: number;
-  targetType: string;
-  targetId: number;
-  summary: { title: string; date: string; deepLink: string } | null;
-};
-const statuses: Array<{ key: "ALL" | LibraryStatus; label: string }> = [
-  { key: "ALL", label: "全部" },
-  { key: "WANT", label: "想体验" },
-  { key: "IN_PROGRESS", label: "进行中" },
-  { key: "FINISHED", label: "已完成" },
-  { key: "DROPPED", label: "已放下" },
-];
-const typeLabels: Record<LibraryType, string> = {
-  BOOK: "书籍",
-  MOVIE: "电影",
-  SERIES: "剧集",
-  GAME: "游戏",
-};
-const statusLabels: Record<LibraryStatus, string> = {
-  WANT: "想体验",
-  IN_PROGRESS: "进行中",
-  FINISHED: "已完成",
-  DROPPED: "已放下",
-};
-
 export function LibraryPage({
+  businessToday,
+  onConfirm,
   request,
   userId,
   onError,
 }: {
+  businessToday: string;
+  onConfirm: FeedbackActions["confirm"];
   request: Request;
   userId: number;
   onError: (message: string, title?: string) => void;
 }) {
   const client = useQueryClient();
-  const navigate = useNavigate();
   const [status, setStatus] = useState<"ALL" | LibraryStatus>("ALL");
   const [type, setType] = useState<"ALL" | LibraryType>("ALL");
   const [q, setQ] = useState("");
@@ -94,7 +54,7 @@ export function LibraryPage({
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     try {
-      const item = await request<LibraryItem>("/api/library/items", {
+      await request<LibraryItem>("/api/library/items", {
         method: "POST",
         body: JSON.stringify({
           type: data.get("type"),
@@ -102,6 +62,7 @@ export function LibraryPage({
           originalTitle: String(data.get("originalTitle") || "").trim() || null,
           creator: String(data.get("creator") || "").trim() || null,
           status: data.get("status"),
+          finishedOn: data.get("status") === "FINISHED" ? businessToday : null,
           coverRef: String(data.get("coverRef") || "").trim() || null,
           externalRef: String(data.get("externalRef") || "").trim() || null,
           shortNote: String(data.get("shortNote") || "").trim() || null,
@@ -110,7 +71,7 @@ export function LibraryPage({
         }),
       });
       await client.invalidateQueries({ queryKey: ["library", userId] });
-      navigate(`/library/${item.id}`);
+      setAdding(false);
     } catch (error) {
       onError(message(error), tx("作品没有保存"));
     }
@@ -130,7 +91,7 @@ export function LibraryPage({
           {tx("添加作品")}
         </Button></div>
       </header>
-      {importing?<MediaImportWorkflow key={userId} request={request} userId={userId} onSaved={async id=>{await client.invalidateQueries({queryKey:["library",userId]});navigate(`/library/${id}`);}}/>:null}
+      {importing?<MediaImportWorkflow key={userId} request={request} userId={userId} onConfirm={onConfirm} onSaved={async ()=>{await client.invalidateQueries({queryKey:["library",userId]});setImporting(false);}}/>:null}
       <details className="media-source"><summary>{tx("资料来源与致谢")}</summary><img src={tmdbLogo} alt="TMDB" width={150}/><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a><a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer">Open Library / Internet Archive</a></details>
       <nav className="library-status-tabs" aria-label={tx("作品状态")}>
         {statuses.map((item) => (
@@ -194,6 +155,7 @@ export function LibraryPage({
                     tx("未评分")
                   )}
                 </span>
+                {item.finishedOn ? <small className="library-finished-on">{tx("完成日期")} · <time dateTime={item.finishedOn}>{item.finishedOn}</time></small> : item.status === "FINISHED" ? <small>{tx("完成日期未填写")}</small> : null}
                 <small>
                   {tx("关联记录 {value0} 条", {
                     value0: item.relationCount ?? 0,
@@ -285,17 +247,34 @@ export function LibraryPage({
 }
 
 export function LibraryDetailPage({
+  businessToday,
+  onConfirm,
   request,
   userId,
   itemId,
   onError,
 }: {
+  businessToday: string;
+  onConfirm: FeedbackActions["confirm"];
   request: Request;
   userId: number;
   itemId: number;
   onError: (message: string, title?: string) => void;
 }) {
   const client = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  const editing = params.get("edit") === "1";
+  const saving = useRef(false);
+  const [pending, setPending] = useState(false);
+  async function refresh() {
+    await Promise.all([client.invalidateQueries({ queryKey: ["library-item", userId, itemId] }), client.invalidateQueries({ queryKey: ["library", userId] })]);
+  }
+  function returnToDetail() {
+    if (location.state?.libraryEditor) navigate(-1);
+    else navigate(`/library/${itemId}`, { replace: true });
+  }
   const query = useQuery({
     queryKey: ["library-item", userId, itemId],
     queryFn: () =>
@@ -326,36 +305,19 @@ export function LibraryDetailPage({
       </section>
     );
   const { item, relations } = query.data;
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
+  async function quickSave(values: Partial<Pick<LibraryItem, "status" | "rating">>) {
+    if (saving.current) return;
+    saving.current = true; setPending(true);
     try {
-      await request(`/api/library/items/${itemId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          expectedVersion: item.version,
-          type: data.get("type"),
-          title: data.get("title"),
-          originalTitle: String(data.get("originalTitle") || "").trim() || null,
-          creator: String(data.get("creator") || "").trim() || null,
-          status: data.get("status"),
-          rating: data.get("rating") ? Number(data.get("rating")) : null,
-          startedOn: data.get("startedOn") || null,
-          finishedOn: data.get("finishedOn") || null,
-          coverRef: String(data.get("coverRef") || "").trim() || null,
-          externalRef: String(data.get("externalRef") || "").trim() || null,
-          shortNote: String(data.get("shortNote") || "").trim() || null,
-          releaseYear:data.get("releaseYear") ? Number(data.get("releaseYear")) : null,
-          description:String(data.get("description") || "").trim() || null,
-        }),
-      });
-      await client.invalidateQueries({
-        queryKey: ["library-item", userId, itemId],
-      });
-      await client.invalidateQueries({ queryKey: ["library", userId] });
+      await request(`/api/library/items/${itemId}`, { method: "PUT", body: JSON.stringify({
+        expectedVersion: item.version, ...values,
+        ...(values.status === "FINISHED" && !item.finishedOn ? { finishedOn: businessToday } : {}),
+      }) });
+      await refresh();
     } catch (error) {
       onError(message(error), tx("作品没有保存"));
-    }
+      await refresh();
+    } finally { saving.current = false; setPending(false); }
   }
   async function relate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -388,131 +350,25 @@ export function LibraryDetailPage({
           <h1>{item.title}</h1>
           <p>{item.creator || tx("创作者未填写")}</p>
         </div>
+        {!editing ? <Link className="ui-button ui-button-primary ui-button-md library-edit-link" to="?edit=1" state={{ libraryEditor: true }}><span className="ui-button-visual">{tx("编辑作品")}</span></Link> : null}
       </header>
-      <LibrarySourcePanel key={`${userId}:${itemId}:${query.data.sources?.[0]?.id ?? "manual"}`} request={request} userId={userId} item={item} source={query.data.sources?.[0]} onSaved={async()=>{await client.invalidateQueries({queryKey:["library-item",userId,itemId]});await client.invalidateQueries({queryKey:["library",userId]});}}/>
+      {!editing ? <section className="library-quick-record" aria-label={tx("个人记录")}>
+        <label>{tx("状态")}<select className="field" aria-label={tx("作品状态")} value={item.status} disabled={pending} onChange={event => void quickSave({ status: event.target.value as LibraryStatus })}>{statuses.slice(1).map(entry => <option key={entry.key} value={entry.key}>{tx(entry.label)}</option>)}</select></label>
+        <label>{tx("评分")}<select className="field" aria-label={tx("评分")} value={item.rating ?? ""} disabled={pending} onChange={event => void quickSave({ rating: event.target.value ? Number(event.target.value) : null })}><option value="">{tx("未评分")}</option>{[1,2,3,4,5].map(value => <option key={value} value={value}>{value} / 5</option>)}</select></label>
+      </section> : null}
+      {!editing ? <LibrarySourcePanel key={`${userId}:${itemId}:${query.data.sources?.[0]?.id ?? "manual"}`} request={request} userId={userId} item={item} source={query.data.sources?.[0]} onSaved={refresh} onConfirm={onConfirm} onError={onError}/> : null}
       <div className="library-detail-grid">
-        <form className="library-editor" onSubmit={save}>
-          <h2>{tx("作品信息")}</h2>
-          <label>{tx("发行年份")}<input className="field" name="releaseYear" type="number" min={1} max={9999} defaultValue={item.releaseYear ?? ""}/></label>
-          <label>{tx("作品简介")}<textarea key={`description:${item.version}`} className="field" name="description" rows={7} maxLength={10000} defaultValue={item.description ?? ""}/></label>
-          <label>
-            {tx("标题")}
-            <input
-              className="field"
-              aria-label={tx("作品名称")} name="title"
-              defaultValue={item.title}
-              required
-            />
-          </label>
-          <label>
-            {tx("原名")}
-            <input
-              className="field"
-              aria-label={tx("原名（可选）")} name="originalTitle"
-              defaultValue={item.originalTitle ?? ""}
-            />
-          </label>
-          <div className="library-form-row">
-            <label>
-              {tx("类型")}
-              <select className="field" aria-label={tx("作品类型")} name="type" defaultValue={item.type}>
-                {Object.entries(typeLabels).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {tx(label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {tx("状态")}
-              <select
-                className="field"
-                aria-label={tx("作品状态")} name="status"
-                defaultValue={item.status}
-              >
-                {statuses.slice(1).map((entry) => (
-                  <option key={entry.key} value={entry.key}>
-                    {tx(entry.label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label>
-            {tx("创作者")}
-            <input
-              className="field"
-              aria-label={tx("作者、导演或工作室")} name="creator"
-              defaultValue={item.creator ?? ""}
-            />
-          </label>
-          <label>
-            {tx("评分")}
-            <select
-              className="field"
-              name="rating"
-              defaultValue={item.rating ?? ""}
-            >
-              <option value="">{tx("未评分")}</option>
-              {[1, 2, 3, 4, 5].map((value) => (
-                <option key={value} value={value}>
-                  {value} / 5
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="library-form-row">
-            <label>
-              {tx("开始日期")}
-              <input
-                className="field"
-                type="date"
-                name="startedOn"
-                defaultValue={item.startedOn ?? ""}
-              />
-            </label>
-            <label>
-              {tx("完成日期")}
-              <input
-                className="field"
-                type="date"
-                name="finishedOn"
-                defaultValue={item.finishedOn ?? ""}
-              />
-            </label>
-          </div>
-          <label>
-            {tx("封面 URL")}
-            <input
-              className="field"
-              type="url"
-              aria-label={tx("封面 URL（可选）")} name="coverRef"
-              defaultValue={item.coverRef ?? ""}
-            />
-          </label>
-          <label>
-            {tx("外部链接")}
-            <input
-              className="field"
-              type="url"
-              aria-label={tx("外部链接（可选）")} name="externalRef"
-              defaultValue={item.externalRef ?? ""}
-            />
-          </label>
-          <label>
-            {tx("简短备注")}
-            <input className="field" aria-label={tx("发行年份")} name="releaseYear" type="number" min={1} max={9999} placeholder={tx("发行年份")}/>
-            <textarea className="field" aria-label={tx("作品简介")} name="description" maxLength={10000} rows={4} placeholder={tx("作品简介")}/>
-            <textarea
-              className="field"
-              aria-label={tx("简短备注（长笔记请写入 Notebook）")} name="shortNote"
-              defaultValue={item.shortNote ?? ""}
-            />
-          </label>
-          <Button variant="primary" type="submit">
-            {tx("保存更改")}
-          </Button>
-        </form>
+        {editing ? <LibraryItemEditor key={item.id} item={item} request={request} businessToday={businessToday} onError={onError} onCancel={returnToDetail} onSaved={async () => { await refresh(); returnToDetail(); }}/> : <article className="library-reading">
+          <section><h2>{tx("作品信息")}</h2><dl className="library-facts">
+            <div><dt>{tx("原名")}</dt><dd>{item.originalTitle || "—"}</dd></div>
+            <div><dt>{tx("发行年份")}</dt><dd>{item.releaseYear || "—"}</dd></div>
+            <div><dt>{tx("开始日期")}</dt><dd>{item.startedOn || "—"}</dd></div>
+            <div><dt>{tx("完成日期")}</dt><dd>{item.finishedOn || "—"}</dd></div>
+          </dl></section>
+          <section><h2>{tx("作品简介")}</h2><p className="library-prose">{item.description || tx("暂无简介")}</p></section>
+          <section><h2>{tx("简短备注")}</h2><p className="library-prose">{item.shortNote || tx("暂无备注")}</p></section>
+          {item.externalRef ? <a className="library-external-link" href={item.externalRef} target="_blank" rel="noopener noreferrer">{tx("外部链接")} <ExternalLink size={14}/></a> : null}
+        </article>}
         <section className="library-relations">
           <h2>{tx("Notebook 关联")}</h2>
           <p>{tx("只保存引用，不复制笔记正文。")}</p>

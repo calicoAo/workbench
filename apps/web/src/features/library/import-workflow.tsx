@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import type { FeedbackActions } from "../../app/feedback";
 import type { Request } from "../../app/api";
 import { tx } from "../../app/i18n";
 import { Button } from "../../shared/ui";
+import { clearLibraryAiSearchDrafts, LibraryAiSearch } from "./ai-search";
 import "./import.css";
 export type LibrarySource = {
     id: number;
@@ -66,9 +68,10 @@ type Draft = {
 const prefix = "wb.library-import.v1:";
 export function clearLibraryImportDrafts() { for (const key of Object.keys(localStorage))
     if (key.startsWith(prefix))
-        localStorage.removeItem(key); }
-export function MediaImportWorkflow({ request, userId, target, onSaved }: {
+        localStorage.removeItem(key); clearLibraryAiSearchDrafts(); }
+export function MediaImportWorkflow({ request, userId, target, onSaved, onConfirm }: {
     request: Request;
+    onConfirm: FeedbackActions["confirm"];
     userId: number;
     target?: {
         id: number;
@@ -167,6 +170,7 @@ export function MediaImportWorkflow({ request, userId, target, onSaved }: {
     return <section className="media-import glass-panel" aria-label={tx("导入作品资料")}>
     <h2>{(target?.source ? tx("刷新来源资料") : target ? tx("为已有作品关联来源") : tx("导入作品资料"))}</h2>
     <p>{tx("搜索作品，或粘贴来源网址、ID、ISBN。确认后才会保存；失败时保留草稿。游戏暂用手动录入。")}</p>
+    {!target ? <LibraryAiSearch request={request} userId={userId} mediaType={draft.entityType} onUse={title => update({ input: title, preview: undefined, frozen: undefined, edits: undefined, committedId: undefined })}/> : null}
     {error ? <p role="alert" className="notes-error">{error}</p> : null}
     {mismatch ? <p role="alert">{tx("有另一条目的导入草稿，请先恢复原条目或明确丢弃。")}{draft.targetItemId ? <Link to={`/library/${draft.targetItemId}`}>{tx("打开原条目")}</Link> : null}</p> : null}
     <fieldset disabled={pending || Boolean(draft.frozen) || mismatch || draft.revision === "invalid"}>
@@ -193,8 +197,7 @@ export function MediaImportWorkflow({ request, userId, target, onSaved }: {
       {!draft.committedId ? <Button type="button" variant="primary" disabled={pending || mismatch || !draft.edits.title} onClick={() => void confirm()}>{(draft.frozen ? tx("查询结果 / 重试原确认") : tx("确认保存资料"))}</Button> : <Link to={`/library/${draft.committedId}`}>{tx("已保存，打开作品")}</Link>}
       {draft.frozen && !draft.committedId ? <p>{tx("请求结果未确认前，保持本次内容与操作 ID。可先查询结果，再重试原确认。")}</p> : null}
     </> : null}
-    <Button type="button" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(tx("确定丢弃导入草稿？已保存的作品仍保留。")))
-        reset(); }}>{tx("丢弃草稿 / 重新开始")}</Button>
+    <Button type="button" variant="ghost" disabled={pending} onClick={() => onConfirm(tx("丢弃导入草稿"), tx("确定丢弃导入草稿？已保存的作品仍保留。"), reset)}>{tx("丢弃草稿 / 重新开始")}</Button>
   </section>;
 }
 

@@ -114,6 +114,49 @@ test("Library owns metadata, links Notebook by reference, searches, isolates use
   assert.equal((await api<any>(`/library/items/${created.data.id}`)).data.relations[0].summary, null);
 });
 
+test("Library preserves entry order within WANT, including timestamp ties after edits", async () => {
+  const ids: number[] = [];
+  for (const title of ["先录入", "后录入", "同秒最后录入"]) {
+    const response = await api<any>("/library/items", { method: "POST", body: JSON.stringify({ type: "MOVIE", title, status: "WANT" }) });
+    assert.equal(response.response.status, 200);
+    ids.push(response.data.id);
+  }
+  await pool.query("UPDATE library_items SET created_at='2026-09-20 10:00:00', updated_at='2026-09-20 10:00:00' WHERE user_id=1");
+  await pool.query("UPDATE library_items SET created_at='2026-09-19 10:00:00' WHERE id=?", [ids[0]]);
+  await api(`/library/items/${ids[0]}`, { method: "PUT", body: JSON.stringify({ expectedVersion: 1, rating: 5, shortNote: "编辑不改变录入顺序" }) });
+  for (const suffix of ["", "?type=MOVIE", "?q=录入"]) {
+    assert.deepEqual((await api<any>("/library/items" + suffix)).data.items.map((item: any) => item.id), [...ids].reverse());
+  }
+});
+
+test("Library pins only WANT then sorts all other statuses by finished date, with nulls last and stable ties", async () => {
+  const fixtures = [
+    { title: "排序-想体验旧", status: "WANT", finishedOn: "2026-12-01" },
+    { title: "排序-近期完成", status: "FINISHED", finishedOn: "2026-10-30" },
+    { title: "排序-较早完成", status: "FINISHED", finishedOn: "2026-09-01" },
+    { title: "排序-进行中无日期", status: "IN_PROGRESS" },
+    { title: "排序-历史完成无日期", status: "FINISHED" },
+    { title: "排序-放下有日期", status: "DROPPED", finishedOn: "2026-10-31" },
+    { title: "排序-同日完成后录入", status: "FINISHED", finishedOn: "2026-10-30" },
+    { title: "排序-想体验新", status: "WANT" },
+  ];
+  const ids: number[] = [];
+  for (const fixture of fixtures) {
+    const result = await api("/library/items", { method: "POST", body: JSON.stringify({ type: "MOVIE", ...fixture }) });
+    assert.equal(result.response.status, 200); ids.push(result.data.id);
+  }
+  await pool.query("UPDATE library_items SET created_at='2026-09-20 10:00:00' WHERE user_id=1");
+  const expected = [7, 0, 5, 6, 1, 2, 4, 3].map(i => ids[i]);
+  for (const suffix of ["", "?type=MOVIE", "?q=排序-"]) {
+    const listed = await api("/library/items" + suffix);
+    assert.deepEqual(listed.data.items.map((item: any) => item.id), expected);
+    assert.equal(listed.data.items.find((item: any) => item.id === ids[1]).finishedOn, "2026-10-30");
+  }
+  assert.deepEqual((await api("/library/items?status=FINISHED")).data.items.map((item: any) => item.id), [6, 1, 2, 4].map(i => ids[i]));
+  await api(`/library/items/${ids[2]}`, { method: "PUT", body: JSON.stringify({ expectedVersion: 1, finishedOn: "2026-11-02" }) });
+  assert.deepEqual((await api("/library/items")).data.items.map((item: any) => item.id), [7, 0, 2, 5, 6, 1, 4, 3].map(i => ids[i]));
+});
+
 test("Backpack unlocks deterministic facts once, replays writes, keeps unavailable sources, and is searchable", async () => {
   await pool.query("INSERT INTO projects (user_id,name,status,priority,version,created_at,updated_at) VALUES (1,'Shipped product',3,2,1,NOW(),NOW())");
   await pool.query("INSERT INTO library_items (user_id,type,title,status,finished_on,version,created_at,updated_at) VALUES (1,'GAME','Completed Game','FINISHED','2026-09-15',1,NOW(),NOW())");

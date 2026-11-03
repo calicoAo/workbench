@@ -3027,7 +3027,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .library-detail-grid { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(280px,.8fr); align-items: start; gap: 16px; }
 .library-editor, .library-relations { display: grid; gap: 12px; border: 1px solid rgba(255,255,255,.92); border-radius: 8px; background: rgba(255,255,255,.68); padding: 16px; }
 .library-editor h2, .library-relations h2, .backpack-section h2, .ai-settings h2 { font-size: 14px; font-weight: 800; }
-.library-editor > label { display: grid; gap: 5px; color: #566179; font-size: 11px; font-weight: 650; }
+.library-editor > label, .library-editor fieldset > label { display: grid; gap: 5px; color: #566179; font-size: 11px; font-weight: 650; }
 .library-editor textarea { min-height: 110px; resize: vertical; }
 .library-relations > p { color: #8991A6; font-size: 10px; }
 .library-relations > form { display: grid; gap: 8px; }
@@ -3035,6 +3035,37 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .library-relations > div > a, .library-relation-unavailable { display: flex; min-height: 50px; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #DDE3ED; padding: 7px 2px; color: #29324B; }
 .library-relations > div > a > span { display: grid; }
 .library-relations small, .library-relation-unavailable { color: #8991A6; font-size: 9px; }
+.library-detail-head { align-items: flex-start; }
+.library-detail-head > div { flex: 1; min-width: 0; }
+.library-detail-head h1 { overflow-wrap: anywhere; }
+.library-detail-head .library-cover { width: 112px; box-shadow: 0 5px 18px rgba(36, 52, 78, .12); }
+.library-edit-link { align-self: flex-start; }
+.library-quick-record { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; border-bottom: 1px solid #DDE3ED; padding: 0 0 14px; }
+.library-quick-record label { display: grid; min-width: 150px; gap: 5px; color: #566179; font-size: 11px; font-weight: 650; }
+.library-source-copy { display: grid; min-width: 0; gap: 4px; }
+.library-source-copy small { color: #8991A6; font-size: 10px; }
+.library-source-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.library-reading { display: grid; align-content: start; gap: 20px; border: 1px solid rgba(255,255,255,.92); border-radius: 8px; background: rgba(255,255,255,.72); padding: 20px; }
+.library-reading h2 { margin-bottom: 10px; font-size: 14px; font-weight: 800; }
+.library-facts { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 20px; margin: 0; }
+.library-facts > div { min-width: 0; }
+.library-facts dt { color: #8991A6; font-size: 10px; }
+.library-facts dd { margin: 3px 0 0; color: #29324B; font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.library-prose { color: #414C63; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.library-external-link { display: inline-flex; align-items: center; gap: 6px; color: #3A7F79; font-size: 11px; }
+.library-editor fieldset { display: grid; min-width: 0; gap: 12px; border: 0; padding: 0; }
+.library-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.library-create-dialog > footer { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 640px) {
+  .library-detail-head .library-cover { width: 76px; }
+  .library-detail-head { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 12px; }
+  .library-edit-link { grid-column: 2; justify-self: start; }
+  .library-quick-record { align-items: stretch; }
+  .library-quick-record label { flex: 1 1 140px; }
+  .library-source-actions { width: 100%; }
+  .library-reading { padding: 14px; }
+  .library-facts { grid-template-columns: 1fr 1fr; }
+}
 .backpack-filters { display: grid; grid-template-columns: minmax(180px,1fr) 150px 150px 160px; gap: 8px; }
 .backpack-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .backpack-summary > article { display: grid; grid-template-columns: 34px minmax(0,1fr); grid-template-rows: auto auto; align-items: center; gap: 1px 10px; border-left: 3px solid #78D9D0; background: rgba(255,255,255,.58); padding: 13px; }
