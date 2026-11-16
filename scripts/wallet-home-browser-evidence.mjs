@@ -32,10 +32,11 @@ try {
     await sleep(250);
     const layout = await evaluate(`(() => {
       const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom }; };
-      return { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, current: rect('.today-current'), countdown: rect('.today-countdown'), water: rect('.today-water-block'), sleep: rect('.today-sleep-block'), quickText: document.querySelector('.quick-action').textContent, bellInHeader: !!document.querySelector('.app-topbar .reminder-bell'), closed: !document.querySelector('.reminder-popover') };
+      return { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, current: rect('.today-current'), countdown: rect('.today-countdown'), status: rect('.today-status-surface'), water: rect('.today-water-block'), sleep: rect('.today-sleep-block'), quickText: document.querySelector('.quick-action').textContent, bellInHeader: !!document.querySelector('.app-topbar .reminder-bell'), closed: !document.querySelector('.reminder-popover') };
     })()`);
     assert.equal(layout.width, width); assert.equal(layout.height, height); assert.equal(layout.scrollWidth, width); assert.equal(layout.quickText.trim(), "快捷操作"); assert.ok(layout.bellInHeader && layout.closed);
-    if (width >= 1024) { assert.equal(layout.current.y, layout.countdown.y); assert.ok(layout.countdown.x > layout.current.x); assert.equal(layout.current.y, layout.water.y); assert.equal(layout.current.y, layout.sleep.y); assert.ok(layout.water.x > layout.countdown.x && layout.sleep.x > layout.water.x); }
+    if (width >= 1024) { assert.equal(layout.current.y, layout.countdown.y); assert.ok(layout.countdown.x > layout.current.x); assert.equal(layout.current.y, layout.status.y); assert.ok(layout.status.x > layout.countdown.x); }
+    assert.equal(layout.water.x, layout.sleep.x); assert.ok(layout.sleep.y >= layout.water.bottom);
     assert.ok(layout.water.height < 180 && layout.sleep.height < 180, JSON.stringify(layout));
     await capture(`today-${width}.png`);
     await navigate("/today", true);

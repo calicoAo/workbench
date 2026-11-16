@@ -85,11 +85,14 @@ html[data-font-scale="110"] { --font-scale: 1.1; }
   .growth-page-head { @apply flex items-start justify-between gap-4 px-1 py-2; }
   .growth-page-head h1 { @apply mt-1 text-2xl font-bold; }
   .growth-page-head p:last-child { @apply mt-1 text-xs; color: var(--text-secondary); }
-  .growth-period, .growth-subnav { @apply flex shrink-0 gap-1 rounded-card border p-1; border-color: var(--border-soft); background: var(--surface-card); }
-  .growth-period button, .growth-subnav button { @apply min-h-9 rounded-card px-3 text-xs; color: var(--text-secondary); }
-  .growth-period button.is-active, .growth-subnav button[aria-pressed=true] { background: var(--accent-primary-soft); color: var(--text-primary); }
-  .growth-period button.is-active .ui-button-visual, .growth-subnav button[aria-pressed=true] .ui-button-visual { box-shadow: inset 0 -2px var(--accent-primary); font-weight: 750; }
-  .growth-subnav { @apply w-fit max-w-full; }
+  .growth-period { @apply flex shrink-0 gap-1 rounded-card p-1; background: #E6EEE9; }
+  .growth-period button { @apply rounded-md border-0 bg-transparent px-4 text-[12px] font-semibold; min-height: 36px; color: var(--text-secondary); }
+  .growth-period button:hover { color: var(--text-primary); }
+  .growth-period button[aria-pressed=true] { background: var(--surface-raised); color: var(--text-primary); box-shadow: 0 1px 4px rgba(35,59,57,.12); }
+  .growth-subnav { @apply flex max-w-full gap-5 border-b px-1; border-color: var(--border-soft); }
+  .growth-subnav button { @apply shrink-0 border-0 border-b-2 border-transparent bg-transparent px-1 text-[12px] font-semibold; min-height: 40px; color: var(--text-secondary); }
+  .growth-subnav button:hover { color: var(--text-primary); }
+  .growth-subnav button[aria-pressed=true] { border-bottom-color: var(--state-success); color: var(--state-success); }
   .growth-overview { @apply grid min-w-0 gap-4; }
   .growth-hero-card, .growth-distribution, .growth-summary-card, .growth-recent, .growth-manager, .growth-empty { @apply rounded-card border p-4; background: var(--surface-card); border-color: var(--border-soft); }
   .growth-hero-card { @apply grid grid-cols-[96px_minmax(0,1fr)] items-center gap-4; }
@@ -480,6 +483,7 @@ html[data-font-scale="110"] { --font-scale: 1.1; }
   .growth-page-head { @apply flex-col; }
   .growth-period { @apply w-full; }
   .growth-period button { @apply flex-1; }
+  .growth-period button, .growth-subnav button { min-height: 44px; }
   .growth-hero-card { @apply grid-cols-[56px_minmax(0,1fr)] gap-3 p-3; }
   .growth-hero-portrait .pixel-icon-slot { width: 56px !important; height: 56px !important; }
   .growth-hero-copy h2 { @apply text-base; }
@@ -712,13 +716,15 @@ select {
   .today-reminder-row small { @apply truncate text-[10px] text-soft; }
   .today-reminder-countdown { @apply shrink-0 text-right text-xs font-bold text-pink-600; }
   .today-quests { @apply grid min-w-0 content-start gap-2.5; grid-area: quests; grid-template-columns: minmax(0,1fr); }
-  .today-status-surface { @apply grid min-w-0 items-center gap-3 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; grid-area: status; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .today-status-surface { @apply grid min-w-0 content-start gap-2.5 rounded-card border border-white/80 bg-white/75 p-3 shadow-glass; grid-area: status; grid-template-columns: minmax(0,1fr); }
   .today-status-block { @apply min-w-0; }
-  .today-water-block { @apply border-r border-white/80 pr-3; }
-  .today-sleep-block { @apply pl-1; }
+  .today-water-block { @apply border-b pb-2; border-color: var(--border-soft); }
+  .today-sleep-block { @apply min-w-0; }
+  .water-utility-count { @apply ml-auto text-xs font-semibold; color: var(--state-success); font-variant-numeric: tabular-nums; }
   .water-utility { @apply min-w-0; }
   .water-utility > div:first-child { @apply mb-1; }
-  .today-status-block .sleep-utility { @apply min-w-0 border-0 bg-transparent p-0 shadow-none; }
+  .today-status-block .sleep-utility { @apply min-h-10 min-w-0 border-0 bg-transparent p-0 shadow-none; }
+  .today-status-block .sleep-utility-summary { font-variant-numeric: tabular-nums; }
   .today-sleep-block .sleep-utility-main > div:first-child { @apply min-w-0; }
   .today-timeline { @apply grid min-w-0 content-start gap-2.5; grid-area: timeline; grid-template-columns: minmax(0,1fr); }
   .today-utility-strip { @apply grid min-w-0 grid-cols-2 gap-2.5; }
@@ -1328,9 +1334,6 @@ select {
   .app-heading { @apply w-auto; }
   .app-top-actions { @apply w-full; }
   .today-grid { grid-template-columns: minmax(0, 1fr); }
-  .today-status-surface { grid-template-columns: minmax(0,1fr); align-content: start; gap: 8px; }
-  .today-water-block { @apply border-r-0 border-b border-white/80 pr-0 pb-2; }
-  .today-sleep-block { @apply pl-0; }
   .today-sleep-block .sleep-utility { @apply flex-row items-center gap-2; }
   .today-sleep-block .sleep-utility-main { @apply justify-between gap-2; }
   .routines-head { @apply flex-col; }
@@ -1402,8 +1405,7 @@ select {
 
 @media (min-width: 1024px) {
   .today-grid { grid-template-areas: "context context" "quests timeline"; }
-  .today-context-row { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr) minmax(0,2.1fr); grid-template-areas: "current countdown status"; }
-  .today-status-surface { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .today-context-row { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.45fr); grid-template-areas: "current countdown status"; }
 }
 
 @media (max-width: 600px) {
@@ -2300,9 +2302,11 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
     @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-soft transition hover:bg-pink-50 hover:text-pink-500;
   }
 
-  .completed-task-row {
-    @apply rounded-card border border-white/70 bg-white/55 p-2 transition duration-150 hover:bg-white/85;
-  }
+  .completed-task-list { @apply grid min-w-0 gap-2; }
+  .completed-task-row { @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-card border px-3 py-2.5 transition-colors; min-height: 48px; border-color: var(--border-soft); background: #F8FAF9; }
+  .completed-task-row:hover { border-color: var(--border-strong); background: var(--surface-soft); }
+  .completed-task-row strong { @apply min-w-0 text-[13px] font-semibold leading-relaxed; overflow-wrap: anywhere; }
+  .completed-task-row small { @apply whitespace-nowrap text-[11px]; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
   .completed-reward-pill {
     @apply shrink-0 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600;
@@ -3528,7 +3532,6 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 textarea.field { height: auto; min-height: 90px; padding-block: .65rem; resize: vertical; }
 .task-focus-dropzone { border: 1px solid transparent; border-radius: 12px; padding: 2px; }
 .task-focus-dropzone.is-dragging { border-color: #70c9ba; background: #ecfaf6; }
-.completed-task-row small { display: block; color: #6b7280; font-size: 11px; }
 
 /* Keep the bounty form aligned and open row menus above neighboring cards. */
 .task-form-field { align-content: start; }
@@ -3588,10 +3591,6 @@ textarea.field { height: auto; min-height: 90px; padding-block: .65rem; resize: 
  .activity-month-note small { margin-left:0; }
 }
 
-@media (min-width: 1024px) and (max-width: 1199px) {
-  .today-context-row { grid-template-columns: minmax(0,1.1fr) minmax(0,.75fr) minmax(0,2.25fr); }
-  .today-status-surface { grid-template-columns: repeat(2,minmax(0,1fr)); }
-}
 
 /* Keep long task-split drafts inside the dialog body while the controls stay anchored. */
 .ui-dialog.split-workflow {

@@ -70,6 +70,7 @@ export function WaterFeature({
       <div className="mb-3 flex items-center gap-2">
         <span className="text-mint-700"><Droplets size={17} /></span>
         <h2 className="section-title">{tx("喝水")}</h2>
+        {compact ? <span className="water-utility-count">{water.cups} / {water.targetCups}</span> : null}
       </div>
 
       <div className="water-progress-wrap">
