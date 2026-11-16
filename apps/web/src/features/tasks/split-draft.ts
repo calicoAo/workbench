@@ -15,6 +15,7 @@ export type SplitCandidate = {
     suggestedMinutes: number | null;
     warnings: string[];
     selected: boolean;
+    acceptDate?: string | null;
     publishOperationId?: string;
     frozen?: Record<string, unknown>;
     publishedId?: number;
@@ -30,6 +31,7 @@ export type SplitDraft = {
         request: Record<string, unknown>;
         status: string;
         applied?: boolean;
+        acceptDate?: string | null;
     };
     candidates: SplitCandidate[];
     hasMore: boolean;
@@ -58,3 +60,17 @@ export function writeSplitDraft(userId: number, draft: SplitDraft, expectedRevis
     return next;
 }
 export function splitDraftExists(userId: number) { return localStorage.getItem(prefix + userId) !== null; }
+export function removeSplitDraft(userId: number, expectedRevision: string | null) {
+    const raw = localStorage.getItem(prefix + userId);
+    if ((raw ? JSON.parse(raw).revision : null) !== expectedRevision)
+        throw Error("Draft changed in another tab; copy current text and reload");
+    localStorage.removeItem(prefix + userId);
+}
+// A batch heading is explicit acceptance intent, not a deadline inference.
+export function todaySplitAcceptDate(text: string, timezone: string, now = new Date()): string | null {
+    const heading = text.trim().split(/[：:\n。！？!?]/)[0];
+    if (!/^(?:我)?(?:今天|今日)(?:的)?(?:任务|要做的事|待办)(?:(?:是|有|包括|如下|清单)|$)/.test(heading.trim()))
+        return null;
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+    return ["year", "month", "day"].map(type => parts.find(part => part.type === type)!.value).join("-");
+}

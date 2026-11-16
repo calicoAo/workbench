@@ -139,6 +139,17 @@ test('DeepSeek adapter contract, permission, generation identity and real transa
     assert.equal(published.data.id, replayed.data.id);
     assert.equal((await api(`/tasks/split/publish-status/${payload.operationId}`)).data.taskId, published.data.id);
     assert.equal(await scalar("SELECT COUNT(*) FROM tasks WHERE title='Published split draft'"), 1);
+    const acceptedPayload = { ...payload, operationId: operation(), title: 'Today split accepted', acceptDate: '2026-11-16' };
+    const accepted = await api('/tasks', acceptedPayload);
+    assert.equal(accepted.status, 200);
+    assert.ok(accepted.data.assignmentId);
+    const acceptedReplay = await api('/tasks', acceptedPayload);
+    assert.equal(acceptedReplay.data.id, accepted.data.id);
+    assert.equal(acceptedReplay.data.assignmentId, accepted.data.assignmentId);
+    assert.equal(await scalar('SELECT COUNT(*) FROM task_daily_assignments WHERE task_id=? AND task_date=?', [accepted.data.id, acceptedPayload.acceptDate]), 1);
+    assert.equal((await api(`/tasks/split/publish-status/${acceptedPayload.operationId}`)).data.taskId, accepted.data.id);
+    assert.equal((await api(`/tasks/split/publish-status/${acceptedPayload.operationId}`, undefined, 992)).data.status, 'not_found');
+    assert.equal((await api('/tasks', { ...acceptedPayload, acceptDate: '2026-11-17' })).status, 409);
 });
 test('expired pending derives unknown without GET writes; explicit POST cleans claim, no paid replay', async () => {
     const input = { operationId: operation(), draftId: operation(), text: '整理材料30分钟' };

@@ -1,4 +1,8 @@
 export const englishMessages: Record<string, string> = {
+  "发布时同时接取": "Accept when publishing",
+  "接取日期": "Acceptance date",
+  "已发布的任务已移出草稿。": "Published tasks have been removed from the draft.",
+  "确认发布所选 {value0} 条任务？已勾选接取的任务将同时加入指定日期。": "Publish {value0} selected tasks? Tasks marked for acceptance will also be added to the chosen date.",
   "预览时继续查找封面": "Continue looking for covers in preview",
   "媒介未核实，请手动选择": "Media format unverified; choose manually",
   "合计": "Total",

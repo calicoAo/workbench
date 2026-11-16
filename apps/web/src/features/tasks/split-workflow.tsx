@@ -8,7 +8,7 @@ import { CategoryQuickManager, useCategoryOptions } from "../categories";
 import { ProjectQuickManager, isAssignableProject, useProjects } from "../projects";
 import { CloseButton, ModalPortal } from "./task-ui";
 import { SplitCandidateEditor } from "./split-candidate";
-import { newSplitDraft, readSplitDraft, splitDraftExists, writeSplitDraft, type SplitCandidate, type SplitDraft } from "./split-draft";
+import { newSplitDraft, readSplitDraft, removeSplitDraft, splitDraftExists, todaySplitAcceptDate, writeSplitDraft, type SplitCandidate, type SplitDraft } from "./split-draft";
 import "./split.css";
 export { clearTaskSplitDrafts } from "./split-draft";
 type Generation = {
@@ -40,6 +40,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
         candidateId: string;
         name: string;
     } | null>(null), secondaryPending = useRef(false);
+    const [published, setPublished] = useState<Array<{ id: number; title: string }>>([]);
     const categories = useCategoryOptions(request, userId, [], open), projects = useProjects(request, userId, "active", open);
     const categoryOptions = categories.data ?? [], projectOptions = Array.isArray(projects.data) ? projects.data.filter(isAssignableProject) : [];
     const context = useQuery({ queryKey: ["task-split-context", userId], queryFn: () => request<{
@@ -71,6 +72,17 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
     catch (e) {
         setError(String(e));
     } }
+    function cleanPublished() {
+        const d = current.current;
+        if (!d.candidates.some(c => c.publishedId)) return;
+        const candidates = d.candidates.filter(c => !c.publishedId);
+        if (candidates.length || d.hasMore || d.generation && ["PENDING", "UNKNOWN", "NOT_FOUND"].includes(d.generation.status)) { save({ ...d, candidates }); return; }
+        removeSplitDraft(userId, revision.current);
+        revision.current = null;
+        current.current = newSplitDraft();
+        setDraft(current.current);
+    }
+    useEffect(() => { try { cleanPublished(); } catch (e) { setError(String(e)); } }, []);
     function patch(id: string, value: Partial<SplitCandidate>) { const d = current.current; update({ ...d, candidates: d.candidates.map(c => c.candidateId === id ? { ...c, ...value } : c) }); }
     async function run(job: () => Promise<void>) { if (busy.current)
         return; busy.current = true; setPending(true); setError(""); try {
@@ -87,7 +99,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
     } }
     function acceptGeneration(result: Generation) { if (!alive.current)
         return; const d = current.current; if (!d.generation)
-        return; save({ ...d, generation: { ...d.generation, status: result.status, applied: d.generation.applied || result.status === "SUCCEEDED" }, ...(result.status === "SUCCEEDED" && result.result && !d.generation.applied ? { candidates: [...d.candidates.filter(c => c.publishedId), ...result.result.candidates.map(c => ({ ...c, selected: true }))], hasMore: result.result.hasMore, unprocessedTextSpans: result.result.unprocessedTextSpans } : {}) }); }
+        return; save({ ...d, generation: { ...d.generation, status: result.status, applied: d.generation.applied || result.status === "SUCCEEDED" }, ...(result.status === "SUCCEEDED" && result.result && !d.generation.applied ? { candidates: [...d.candidates.filter(c => c.publishedId), ...result.result.candidates.map(c => ({ ...c, selected: true, acceptDate: /^(?:明天|后天|下周|下个月)/.test(c.title.trim()) ? null : d.generation!.acceptDate ?? null }))], hasMore: result.result.hasMore, unprocessedTextSpans: result.result.unprocessedTextSpans } : {}) }); }
     async function queryGeneration() { await run(async () => { const generation = current.current.generation; if (!generation)
         return; try {
         acceptGeneration(await request<Generation>(`/api/tasks/split/preview/${generation.operationId}`));
@@ -118,7 +130,8 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
                 return;
             const operationId = crypto.randomUUID(), draftId = d.candidates.length ? crypto.randomUUID() : d.draftId;
             const body = { operationId, draftId, text: d.text, ...(context.data?.selectionRequired ? { contextSelectionIds: contextIds } : {}) };
-            save({ ...d, draftId, generation: { operationId, request: body, status: "PENDING" } });
+            setPublished([]);
+            save({ ...d, draftId, generation: { operationId, request: body, status: "PENDING", acceptDate: timezone ? todaySplitAcceptDate(d.text, timezone) : null } });
             abort.current = new AbortController();
             try {
                 acceptGeneration(await request<Generation>("/api/tasks/split/preview", { method: "POST", body: JSON.stringify(body), signal: abort.current.signal }));
@@ -141,11 +154,11 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
                 return;
             if (selected.some(c => !c.title.trim() || c.dueAtLocal && !c.dueAtLocal.includes("T")))
                 throw Error(tx("请补齐标题；仅有日期的条目需选择时间或清空日期。"));
-            if (!window.confirm(tx("确认发布所选 {value0} 条任务？不会自动接取或创建分类、项目。", { value0: selected.length })))
+            if (!window.confirm(tx("确认发布所选 {value0} 条任务？已勾选接取的任务将同时加入指定日期。", { value0: selected.length })))
                 return;
             // Freeze and persist every payload before the first write.
             const frozen = save({ ...current.current, candidates: current.current.candidates.map(c => !c.selected || c.publishedId || c.frozen ? c : { ...c, publishOperationId: c.publishOperationId ?? crypto.randomUUID() }) });
-            save({ ...frozen, candidates: frozen.candidates.map(c => !c.selected || c.publishedId || c.frozen ? c : { ...c, frozen: { operationId: c.publishOperationId, recordTimezone: timezone, title: c.title.trim(), description: c.description, priority: c.priority, difficulty: c.difficulty, progressPercent: 0, ...(c.categoryId ? { categoryId: c.categoryId } : {}), ...(c.projectId ? { projectId: c.projectId } : {}), ...(c.dueAtLocal ? { dueAt: c.dueAtLocal } : {}), ...(c.estimatedMinutes ? { estimatedMinutes: c.estimatedMinutes } : {}) } }) });
+            save({ ...frozen, candidates: frozen.candidates.map(c => !c.selected || c.publishedId || c.frozen ? c : { ...c, frozen: { operationId: c.publishOperationId, recordTimezone: timezone, title: c.title.trim(), description: c.description, priority: c.priority, difficulty: c.difficulty, progressPercent: 0, ...(c.acceptDate ? { acceptDate: c.acceptDate } : {}), ...(c.categoryId ? { categoryId: c.categoryId } : {}), ...(c.projectId ? { projectId: c.projectId } : {}), ...(c.dueAtLocal ? { dueAt: c.dueAtLocal } : {}), ...(c.estimatedMinutes ? { estimatedMinutes: c.estimatedMinutes } : {}) } }) });
             for (const candidate of current.current.candidates.filter(c => c.selected && !c.publishedId)) {
                 if (!alive.current)
                     return;
@@ -160,6 +173,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
                     if (!alive.current)
                         return;
                     patch(candidate.candidateId, { publishedId: result.id, publishError: undefined });
+                    setPublished(items => [...items, { id: result.id, title: candidate.title }]);
                 }
                 catch (e) {
                     if (!alive.current)
@@ -167,6 +181,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
                     patch(candidate.candidateId, { publishError: e instanceof Error ? e.message : String(e), ...(e instanceof ApiError && [400, 403, 404, 409].includes(e.status) ? { frozen: undefined, publishOperationId: undefined } : {}) });
                 }
             }
+            cleanPublished();
             await onChanged();
         });
     }
@@ -215,6 +230,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
         <div className="split-workflow-body">
         <p>{tx("只生成草稿。发送本段文字和所选项目、分类名称及简介，不读取其他领域。刷新可恢复；发布需再次确认。")}</p>
         {error ? <p className="notes-error" role="alert">{error}</p> : null}
+        {published.length ? <div role="status"><p>{tx("已发布的任务已移出草稿。")}</p>{published.map(item => <p key={item.id}><Link to={`/tasks/${item.id}`}>{item.title}</Link></p>)}</div> : null}
         {context.isError ? <p role="alert">{tx("请在设置中开启 AI 和任务权限。下方文本仍保存在本机。")}<Link to="/settings?topic=ai">{tx("打开设置")}</Link><Button type="button" onClick={() => void context.refetch()}>{tx("重试读取上下文")}</Button></p> : null}
         <label>{tx("待整理文本")}<textarea className="field" rows={6} maxLength={5000} value={draft.text} disabled={pending || Boolean(unknown)} onChange={e => update({ ...current.current, text: e.target.value })}/></label>
         {context.data?.selectionRequired ? <fieldset><legend>{tx("项目或分类较多，请选择参考范围（各最多 50）")}</legend>{(["projects", "categories"] as const).map(kind => <label key={kind}>{(kind === "projects" ? tx("参考项目") : tx("参考分类"))}<select className="field" multiple value={contextIds[kind].map(String)} onChange={e => setContextIds({ ...contextIds, [kind]: Array.from(e.target.selectedOptions).slice(0, 50).map(v => Number(v.value)) })}>{context.data![kind].map(v => <option value={v.id} key={v.id}>{v.name}</option>)}</select></label>)}</fieldset> : <p>{tx("参考范围：当前全部可分配项目与启用分类；最多各 50 项。")}</p>}
@@ -222,7 +238,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
         {draft.generation?.status === "NOT_FOUND" ? <Button type="button" disabled={pending} onClick={() => void retryOriginal()}>{tx("重试原生成请求（同一操作 ID）")}</Button> : null}
         {draft.generation ? <p>{tx("生成状态：")}{draft.generation.status}</p> : null}
         {draft.hasMore ? <p role="alert">{tx("还有未拆出的内容，请核对后单独处理。")}{draft.unprocessedTextSpans.join("\n")}</p> : null}
-        {draft.candidates.map((c, index) => <SplitCandidateEditor key={c.candidateId} candidate={c} index={index} categories={categoryOptions} projects={projectOptions} duplicate={(duplicates.data ?? []).some(t => t.status !== 2 && t.status !== 3 && t.title.normalize("NFKC").trim().toLowerCase() === c.title.normalize("NFKC").trim().toLowerCase())} pending={pending} onChange={patchValue => patch(c.candidateId, patchValue)} onRemove={() => update({ ...current.current, candidates: current.current.candidates.filter(v => v.candidateId !== c.candidateId) })} onManage={(kind, name) => void manage(c.candidateId, kind, name)}/>)}
+        {draft.candidates.map((c, index) => <SplitCandidateEditor key={c.candidateId} candidate={c} index={index} acceptanceToday={new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date())} categories={categoryOptions} projects={projectOptions} duplicate={(duplicates.data ?? []).some(t => t.status !== 2 && t.status !== 3 && t.title.normalize("NFKC").trim().toLowerCase() === c.title.normalize("NFKC").trim().toLowerCase())} pending={pending} onChange={patchValue => patch(c.candidateId, patchValue)} onRemove={() => update({ ...current.current, candidates: current.current.candidates.filter(v => v.candidateId !== c.candidateId) })} onManage={(kind, name) => void manage(c.candidateId, kind, name)}/>)}
         <div className="flex flex-wrap gap-2"><Button type="button" disabled={pending || Boolean(unknown) || draft.candidates.some(c => c.frozen && !c.publishedId)} onClick={() => { if (window.confirm(tx("丢弃本机任务草稿？已发布任务仍保留。"))) {
             localStorage.removeItem("wb.task-split.v1:" + userId);
             revision.current = null;

@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { tx } from "../../app/i18n";
 import { Button } from "../../shared/ui";
 import type { SplitCandidate } from "./split-draft";
-export function SplitCandidateEditor({ candidate: c, index, categories, projects, duplicate, pending, onChange, onRemove, onManage }: {
+export function SplitCandidateEditor({ candidate: c, index, categories, projects, duplicate, pending, acceptanceToday, onChange, onRemove, onManage }: {
     candidate: SplitCandidate;
     index: number;
     categories: Array<{
@@ -15,6 +15,7 @@ export function SplitCandidateEditor({ candidate: c, index, categories, projects
     }>;
     duplicate: boolean;
     pending: boolean;
+    acceptanceToday: string;
     onChange: (patch: Partial<SplitCandidate>) => void;
     onRemove: () => void;
     onManage: (kind: "category" | "project", name: string) => void;
@@ -25,6 +26,8 @@ export function SplitCandidateEditor({ candidate: c, index, categories, projects
     {duplicate ? <p className="text-soft">{tx("存在同名未完成任务，请核对是否重复。")}</p> : null}
     {c.publishError ? <p role="alert">{c.publishError}</p> : null}
     <fieldset disabled={pending || Boolean(c.frozen) || Boolean(c.publishedId)}>
+      <label><input type="checkbox" checked={Boolean(c.acceptDate)} onChange={e => onChange({ acceptDate: e.target.checked ? acceptanceToday : null })}/>{tx("发布时同时接取")}</label>
+      {c.acceptDate ? <label>{tx("接取日期")}<input className="field" type="date" required value={c.acceptDate} onChange={e => onChange({ acceptDate: e.target.value || null })}/></label> : null}
       <label>{tx("标题")}<input className="field" maxLength={200} value={c.title} onChange={e => onChange({ title: e.target.value })}/></label>
       <label>{tx("详情")}<textarea className="field" rows={2} maxLength={2000} value={c.description} onChange={e => onChange({ description: e.target.value })}/></label>
       <div className="split-grid"><label>{tx("优先级")}<select className="field" value={c.priority} onChange={e => onChange({ priority: Number(e.target.value) })}>{[tx("低"), tx("中"), tx("高")].map((v, i) => <option key={v} value={i + 1}>{tx(v)}</option>)}</select></label><label>{tx("难度")}<select className="field" value={c.difficulty} onChange={e => onChange({ difficulty: Number(e.target.value) })}>{[tx("轻松"), tx("普通"), tx("困难"), tx("硬仗")].map((v, i) => <option key={v} value={i + 1}>{tx(v)}</option>)}</select></label></div>

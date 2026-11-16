@@ -10,6 +10,8 @@ export const taskSplitRoute = new Hono()
     .get("/name-check", async (c) => { const q = z.object({ kind: z.enum(["project", "category"]), name: z.string().trim().min(1).max(120) }).parse(c.req.query()); return ok(c, { matches: await checkSplitName(getCurrentUserId(c), q.kind, q.name) }); })
     .post("/preview", async (c) => { const result = await generateSplit(getCurrentUserId(c), generateSchema.parse(await c.req.json()), undefined, c.req.raw.signal); return c.json({ code: 0, message: "ok", data: result }, result.status === "PENDING" ? 202 : 200); })
     .get("/preview/:operationId", async (c) => ok(c, await getSplit(getCurrentUserId(c), z.string().uuid().parse(c.req.param("operationId")))))
-    .get("/publish-status/:operationId", async (c) => { const result = await mutationResult(getCurrentUserId(c), z.string().uuid().parse(c.req.param("operationId")), "PUBLISH_TASK") as {
+    .get("/publish-status/:operationId", async (c) => {
+        const userId = getCurrentUserId(c), operationId = z.string().uuid().parse(c.req.param("operationId"));
+        const result = (await mutationResult(userId, operationId, "PUBLISH_TASK") ?? await mutationResult(userId, operationId, "PUBLISH_AND_ACCEPT_TASK")) as {
     id: number;
 } | null; return ok(c, result ? { status: "committed", taskId: result.id } : { status: "not_found" }); });
