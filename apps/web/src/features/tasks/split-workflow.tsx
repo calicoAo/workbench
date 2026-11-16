@@ -212,6 +212,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
             setOpen(false);
             onClose?.();
         } }}/></header>
+        <div className="split-workflow-body">
         <p>{tx("只生成草稿。发送本段文字和所选项目、分类名称及简介，不读取其他领域。刷新可恢复；发布需再次确认。")}</p>
         {error ? <p className="notes-error" role="alert">{error}</p> : null}
         {context.isError ? <p role="alert">{tx("请在设置中开启 AI 和任务权限。下方文本仍保存在本机。")}<Link to="/settings?topic=ai">{tx("打开设置")}</Link><Button type="button" onClick={() => void context.refetch()}>{tx("重试读取上下文")}</Button></p> : null}
@@ -229,6 +230,7 @@ export function TaskSplitWorkflow({ request, userId, timezone, onError, onChange
             setDraft(current.current);
             setError("");
         } }}>{tx("丢弃任务草稿")}</Button><Button type="button" disabled={pending || draft.candidates.length >= 20} onClick={() => { const d = current.current; update({ ...d, candidates: [...d.candidates, { candidateId: crypto.randomUUID(), title: "", description: "", priority: 2, difficulty: 2, categoryId: null, projectId: null, categorySuggestion: null, projectSuggestion: null, dueAtLocal: null, dueEvidence: null, estimatedMinutes: null, durationEvidence: null, suggestedMinutes: null, warnings: [], selected: true }] }); }}>{tx("增加草稿")}</Button><Button type="button" variant="primary" disabled={pending || !draft.candidates.some(c => c.selected && !c.publishedId)} onClick={() => void publish()}>{tx("确认发布所选 / 重试待定项")}</Button></div>
+        </div>
       </section>
       {manager ? <div data-active-task-panel className="task-category-panel">{manager.kind === "category" ? <CategoryQuickManager request={request} userId={userId} initialName={manager.name} onPending={v => { secondaryPending.current = v; }} onClose={() => { if (!secondaryPending.current)
             setManager(null); }} onError={onError} onSelect={c => onManaged(c.id)} onSaved={c => onManaged(c.id)}/> : <ProjectQuickManager request={request} userId={userId} initialName={manager.name} onPending={v => { secondaryPending.current = v; }} onClose={() => { if (!secondaryPending.current)

@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Request } from "../../app/api";
 import { APP_BRAND } from "../../app/brand";
+import { BrandMark } from "../../app/brand-mark";
 import { tx } from "../../app/i18n";
 
 export type AuthUser = { id: number; username: string; displayName: string; timezone: string };
@@ -111,7 +112,7 @@ function AuthPage({ mode, username, displayName, password, onModeChange, onUsern
     <main className="page-shell min-h-screen p-4 text-ink">
       <div className="mx-auto grid min-h-[calc(100vh-32px)] max-w-5xl items-center gap-4 lg:grid-cols-[1fr_420px]">
         <section className="hidden lg:block">
-          <p className="text-xs font-semibold text-mint-700">{APP_BRAND.icon} {tx(APP_BRAND.name)}</p>
+          <div className="mb-4 flex items-center gap-3 text-sm font-semibold text-ink"><BrandMark className="h-11 w-11" /><span>{tx(APP_BRAND.name)}</span></div>
           <h1 className="mt-2 text-3xl font-bold leading-tight">{tx("同一套记录，多端实时同步")}</h1>
           <p className="mt-3 max-w-xl text-sm leading-7 text-soft">{tx("每个人都有独立账号和独立数据。登录后，任务、时间轴、睡眠、喝水、晨写、日记和复盘都会保存到服务器数据库。")}</p>
           <div className="mt-5 grid max-w-xl grid-cols-3 gap-2"><MiniStat label={tx("数据")} value={tx("隔离")} /><MiniStat label={tx("同步")} value={tx("多端")} /><MiniStat label={tx("部署")} value={tx("自有服务器")} /></div>

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
-import { MonthActivityCalendar } from "./month";
+import { MonthActivityCalendar, type TaskDeadline } from "./month";
 import type { Request } from "../../app/api";
 afterEach(cleanup);
 const item = { id: "TIMER_SEGMENT:1:2026-10-01", kind: "ACTUAL", businessDate: "2026-10-01", title: "写方案", taskId: 7, startedAt: "2026-10-01T01:00:00Z", endedAt: "2026-10-01T02:00:00Z", durationSeconds: 3600, completed: false, color: "#ff4400" };
-function view(request: Request, date = "2026-10-01") { return <MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MonthActivityCalendar request={request} userId={1} date={date} timezone="Asia/Tokyo" /></QueryClientProvider></MemoryRouter>; }
+function view(request: Request, date = "2026-10-01", tasks: TaskDeadline[] = [], embedded = false) { return <MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MonthActivityCalendar request={request} userId={1} date={date} timezone="Asia/Tokyo" tasks={tasks} embedded={embedded} /></QueryClientProvider></MemoryRouter>; }
 it("reads exactly 42 visible days and displays activity identity, time, color and task links", async () => {
   const request = vi.fn(async () => ({ activities: [item, { ...item, id: "completion:2", kind: "COMPLETION", title: "不用计时也完成", durationSeconds: 0, completed: true, businessDate: "2026-11-08" }] }));
   render(view(request as Request));
@@ -35,4 +35,21 @@ it("empty day and failed query offer honest empty state and retry", async () => 
   render(view(request as Request)); await screen.findByRole("alert");
   fail = false; fireEvent.click(screen.getByRole("button", { name: "重试" }));
   expect(await screen.findByText("这一天还没有事项记录。")).toBeTruthy();
+});
+it("shows task deadlines on their business date and links to task detail", async () => {
+  const request = vi.fn(async () => ({ activities: [] }));
+  render(view(request as Request, "2026-10-01", [{ id: 15, title: "提交月度复盘", dueDate: "2026-10-12", completed: false }]));
+  const task = await screen.findByRole("link", { name: /提交月度复盘/ });
+  expect(task.getAttribute("href")).toBe("/tasks/15?date=2026-10-12");
+  expect(task.textContent).toContain("任务截止");
+  fireEvent.click(screen.getByRole("button", { name: "2026-10-12" }));
+  expect(within(screen.getByRole("region", { name: "所选日期事项" })).getByText("提交月度复盘")).toBeTruthy();
+});
+it("keeps month navigation inside the calendar when embedded", async () => {
+  const request = vi.fn(async () => ({ activities: [] }));
+  render(view(request as Request, "2026-10-01", [], true));
+  await screen.findByRole("grid", { name: "月视图" });
+  fireEvent.click(screen.getByRole("button", { name: "下个月" }));
+  expect(screen.getByRole("heading", { name: "2026-11" })).toBeTruthy();
+  await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
 });

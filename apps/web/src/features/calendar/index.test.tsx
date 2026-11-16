@@ -2,6 +2,8 @@
 
 import { type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CalendarFeature, type TimelineItem } from ".";
 import { ApiError } from "../../app/api";
@@ -17,6 +19,7 @@ afterEach(() => {
 });
 
 const tasks = [{ id: 11, title: "完成架构切片" }];
+const taskDeadlines = [{ id: 15, title: "提交月度复盘", dueDate: "2026-10-12", completed: false }];
 const categories = [{ id: 7, name: "编程", dimensionKey: "career" as const, color: "#5B8DEF", targetMinutes: 6000, totalMinutes: 120 }];
 const items: TimelineItem[] = [
   { id: 1, taskId: 11, categoryId: 7, startTime: "09:00:00", endTime: "10:00:00", title: "实际投入", note: null, kind: 1, source: 0, color: "#35C99A" },
@@ -28,10 +31,12 @@ function feature(options: Partial<FeatureProps> = {}) {
   return (
     <CalendarFeature
       request={options.request ?? (vi.fn(async () => ({})) as FeatureProps["request"])}
+      userId={options.userId ?? 1}
       selectedDate={options.selectedDate ?? "2026-09-19"}
       loading={options.loading ?? false}
       items={options.items ?? items}
       tasks={options.tasks ?? tasks}
+      taskDeadlines={options.taskDeadlines ?? taskDeadlines}
       acceptedTaskIds={options.acceptedTaskIds}
       categories={options.categories ?? categories}
       onError={options.onError ?? vi.fn()}
@@ -45,6 +50,15 @@ function openEditor() {
 }
 
 describe("CalendarFeature workflow ownership", () => {
+  it("opens the month calendar from the hourly-record header and closes it", async () => {
+    const request = vi.fn(async () => ({ activities: [] }));
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><I18nProvider>{feature({ request: request as FeatureProps["request"], selectedDate: "2026-10-01" })}</I18nProvider></QueryClientProvider></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "查看月历" }));
+    expect(await screen.findByRole("dialog", { name: "事项月历" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /提交月度复盘/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "关闭月历" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "事项月历" })).toBeNull());
+  });
   it.each([
     ["zh-CN", false], ["en", false], ["zh-CN", true], ["en", true]
   ] as const)("localizes overlap feedback in %s (correcting=%s) without losing the draft", async (locale, correcting) => {

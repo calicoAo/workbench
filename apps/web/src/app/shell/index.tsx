@@ -4,10 +4,11 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router";
 import type { Request } from "../api";
 import { APP_BRAND } from "../brand";
+import { BrandMark } from "../brand-mark";
 import { getActiveLocale, useI18n } from "../i18n";
 import type { FeedbackActions } from "../feedback";
 import { queryKeys } from "../query";
-import { MonthActivityCalendar, CalendarFeature, type Schedule, type TimelineItem } from "../../features/calendar";
+import { MonthActivityCalendar, CalendarFeature, type Schedule, type TaskDeadline, type TimelineItem } from "../../features/calendar";
 import { CategoryMappingEditor, CategoriesFeature, type Category } from "../../features/categories";
 import { DecisionToolsFeature } from "../../features/decision-tools";
 import { HistoryFeature, type SleepSeriesItem, type WeeklySeriesItem } from "../../features/history";
@@ -327,7 +328,7 @@ function AppShell({ context }: { context: WorkspaceContext }) {
   async function addWater() { closeQuickMenu(); try { await recordWaterCups(context.request, context.date, (context.dashboard?.waterRecord?.cups ?? 0) + 1); await context.refresh(); } catch (error) { context.feedback.notice(error instanceof Error ? error.message : "喝水记录失败"); } }
   return <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
     <aside className="app-sidebar">
-      <Link className="app-brand" to={link("/today")}><span aria-hidden="true">{APP_BRAND.icon}</span><strong>{tx(APP_BRAND.name)}</strong></Link>
+      <Link className="app-brand" to={link("/today")}><BrandMark className="app-brand-mark h-9 w-9" /><strong>{tx(APP_BRAND.name)}</strong></Link>
       <button className="sidebar-toggle" type="button" title={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} aria-label={sidebarCollapsed ? tx("展开侧栏") : tx("收起侧栏")} onClick={toggleSidebar}>{sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2.25} /> : <ChevronLeft size={18} strokeWidth={2.25} />}</button>
       <nav aria-label={tx("主导航")}>
         <ShellLink to={link("/today")} activePaths={["/today", "/tasks", "/projects", "/calendar", "/routines", "/adventure-log", "/period-review"]} icon={<Home size={17} />}>{tx("冒险")}</ShellLink>
@@ -412,7 +413,7 @@ function TodayRoute() {
         <TasksPanel dailyQuests={<><ContinuationPanel candidates={value.continuations} targetDate={value.date} timezone={value.session.user.timezone} request={value.request} pending={continuationPending} onPending={setContinuationPending} onError={value.feedback.notice} onChanged={value.refresh} /><HabitDailyQuests request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} onError={value.feedback.notice} /></>} />
       </div>
       <aside className="today-timeline" aria-label={tx("实际时间线")}>
-        <CalendarFeature request={value.request} selectedDate={value.date} loading={value.loading} items={timelineItems} tasks={value.tasks} acceptedTaskIds={value.assignments} categories={dashboard?.categories ?? []} projects={value.projects} actualSeconds={value.summary?.actualSeconds} onEditSleep={() => setSleepEditorSignal((value) => value + 1)} onError={value.feedback.notice} onChanged={value.refresh} />
+        <CalendarFeature request={value.request} userId={value.session.user.id} selectedDate={value.date} loading={value.loading} items={timelineItems} tasks={value.tasks} taskDeadlines={taskDeadlines(value.tasks, value.session.user.timezone)} acceptedTaskIds={value.assignments} categories={dashboard?.categories ?? []} projects={value.projects} actualSeconds={value.summary?.actualSeconds} onEditSleep={() => setSleepEditorSignal((value) => value + 1)} onError={value.feedback.notice} onChanged={value.refresh} />
         <TimelineSummary items={value.timeline} summary={value.summary} timezone={value.session.user.timezone} />
       </aside>
     </div>
@@ -444,13 +445,25 @@ function CalendarRoute() {
   function setMode(next: typeof mode) { const copy = new URLSearchParams(params); if (next === "day") copy.delete("view"); else copy.set("view", next); setParams(copy, { replace: true }); }
   const range = weekRange(value.date);
   const year = yearRange(value.date);
+  const deadlines = taskDeadlines(value.tasks, value.session.user.timezone);
   const weekQuery = useQuery({ queryKey: ["calendar-week", value.session.user.id, range.from, range.to], enabled: mode === "week", queryFn: () => value.request<{ schedules: Schedule[] }>(`/api/schedules?from=${range.from}&to=${range.to}&timezone=${encodeURIComponent(value.session.user.timezone)}`) });
   const yearQuery = useQuery({ queryKey: ["calendar-year-summary", value.session.user.id, year.from, year.to], enabled: mode === "year", queryFn: () => value.request<{ days: CalendarDaySummary[] }>("/api/schedules/summary?from=" + year.from + "&to=" + year.to + "&timezone=" + encodeURIComponent(value.session.user.timezone)) });
   const weekItems = (weekQuery.data?.schedules ?? []).map((item) => ({ ...item, color: item.color ?? "#35C99A" }));
   const yearDays = yearQuery.data?.days ?? [];
-  return <section className="calendar-route"><header className="calendar-route-head"><div><p className="route-eyebrow">{tx("计划与真实投入")}</p><h1>{tx("日历")}</h1></div><div className="segmented-control" aria-label={tx("日历视图")}><button type="button" className={mode === "day" ? "is-active" : ""} onClick={() => setMode("day")}>{tx("日")}</button><button type="button" className={mode === "week" ? "is-active" : ""} onClick={() => setMode("week")}>{tx("周")}</button><button type="button" className={mode === "month" ? "is-active" : ""} onClick={() => setMode("month")}>{tx("月")}</button><button type="button" className={mode === "year" ? "is-active" : ""} onClick={() => setMode("year")}>{tx("年")}</button></div></header>{mode === "day" ? <CalendarFeature key={`${value.date}:${params.get("add") ?? "view"}:${params.get("nonce") ?? ""}`} request={value.request} selectedDate={value.date} loading={value.loading} items={value.dashboard?.schedules ?? []} tasks={value.tasks} acceptedTaskIds={value.assignments} categories={value.dashboard?.categories ?? []} projects={value.projects} recordTimezone={value.session.user.timezone} actualSeconds={value.summary?.actualSeconds} initialKind={params.get("add") === "plan" ? "plan" : params.get("add") === "actual" ? "actual" : undefined} onError={value.feedback.notice} onChanged={value.refresh} /> : mode === "week" ? <WeekCalendar from={range.from} items={weekItems} loading={weekQuery.isPending} date={value.date} /> : mode === "month" ? <MonthActivityCalendar key={value.date} request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} /> : <YearHeatmap from={year.from} to={year.to} days={yearDays} loading={yearQuery.isPending} date={value.date} />}</section>;
+  return <section className="calendar-route"><header className="calendar-route-head"><div><p className="route-eyebrow">{tx("计划与真实投入")}</p><h1>{tx("日历")}</h1></div><div className="segmented-control" aria-label={tx("日历视图")}><button type="button" className={mode === "day" ? "is-active" : ""} onClick={() => setMode("day")}>{tx("日")}</button><button type="button" className={mode === "week" ? "is-active" : ""} onClick={() => setMode("week")}>{tx("周")}</button><button type="button" className={mode === "month" ? "is-active" : ""} onClick={() => setMode("month")}>{tx("月")}</button><button type="button" className={mode === "year" ? "is-active" : ""} onClick={() => setMode("year")}>{tx("年")}</button></div></header>{mode === "day" ? <CalendarFeature key={`${value.date}:${params.get("add") ?? "view"}:${params.get("nonce") ?? ""}`} request={value.request} userId={value.session.user.id} selectedDate={value.date} loading={value.loading} items={value.dashboard?.schedules ?? []} tasks={value.tasks} taskDeadlines={deadlines} acceptedTaskIds={value.assignments} categories={value.dashboard?.categories ?? []} projects={value.projects} recordTimezone={value.session.user.timezone} actualSeconds={value.summary?.actualSeconds} initialKind={params.get("add") === "plan" ? "plan" : params.get("add") === "actual" ? "actual" : undefined} onError={value.feedback.notice} onChanged={value.refresh} /> : mode === "week" ? <WeekCalendar from={range.from} items={weekItems} loading={weekQuery.isPending} date={value.date} /> : mode === "month" ? <MonthActivityCalendar key={value.date} request={value.request} userId={value.session.user.id} date={value.date} timezone={value.session.user.timezone} tasks={deadlines} /> : <YearHeatmap from={year.from} to={year.to} days={yearDays} loading={yearQuery.isPending} date={value.date} />}</section>;
 }
 function yearRange(date: string) { const year = Number(date.slice(0, 4)); return { from: String(year) + "-01-01", to: String(year) + "-12-31" }; }
+function taskDeadlines(tasks: TaskSnapshot[], timezone: string): TaskDeadline[] {
+  return tasks.flatMap((task) => {
+    if (task.status === 3) return [];
+    const dueDate = task.dueDate ?? (task.dueAt ? businessDateInTimezone(task.dueAt, timezone) : null);
+    return dueDate ? [{ id: task.id, title: task.title, dueDate, completed: task.status === 2 }] : [];
+  });
+}
+function businessDateInTimezone(value: string, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(value));
+  return `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}-${parts.find((part) => part.type === "day")?.value}`;
+}
 function writingSlots(value: WorkspaceContext) {
   if (!value.settings) return ["MORNING_WRITING", "JOURNAL", "STOCK_REVIEW"];
   return value.settings.writingSlots.filter((slot) => slot.enabled).sort((a, b) => a.sortOrder - b.sortOrder).map((slot) => slot.slotKey);

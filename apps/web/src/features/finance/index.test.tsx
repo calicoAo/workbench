@@ -263,7 +263,7 @@ describe("FIN-01 Finance", () => {
     const shell = readFileSync(resolve(process.cwd(), "src/app/shell/index.tsx"), "utf8"); const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
     expect(shell).toContain('<Route path="/finance"'); expect(shell).toContain("记一笔支出"); expect(shell).toContain("记一笔收入"); expect(shell.match(/className="quick-action"/g)).toHaveLength(1);
     expect(css).toContain(".finance-dialog"); expect(css).toContain("max-height: calc(100dvh - 16px - var(--safe-bottom))"); expect(css).toContain("grid-template-columns: minmax(0,1fr)");
-    expect(css).toContain(".finance-head-actions > .ui-button { display: none; }"); expect(css).toContain("--mobile-floating-action-size: 48px"); expect(css).toContain("var(--mobile-floating-action-gap)");
+    expect(css).toContain(".finance-head-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr))"); expect(css).toContain(".finance-head-actions > .ui-button { display: inline-flex;"); expect(css).toContain("--mobile-floating-action-size: 48px"); expect(css).toContain("var(--mobile-floating-action-gap)");
     expect(css).toContain(".finance-occurrence-list article > div:last-child .ui-button { width: 100%; white-space: nowrap; }"); expect(css).toContain(".finance-prepare-label-mobile { display: inline; white-space: nowrap; }");
   });
 });

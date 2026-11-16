@@ -1,4 +1,4 @@
-export { MonthActivityCalendar } from "./month";
+export { MonthActivityCalendar, type TaskDeadline } from "./month";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type FormEvent, useEffect, useRef, useState } from "react";
@@ -6,6 +6,7 @@ import { Button, IconButton } from "../../shared/ui";
 import { DIMENSIONS, type Category } from "../categories";
 import { scheduleDurationMinutes, TimelineBoard, type Schedule, type TimelineItem } from "./timeline";
 import { tx } from "../../app/i18n";
+import { MonthActivityCalendar, type TaskDeadline } from "./month";
 
 export type { Schedule, TimelineItem } from "./timeline";
 
@@ -17,10 +18,12 @@ type CalendarState = { date: string; editorOpen: boolean; editingId: number | nu
 
 export function CalendarFeature({
   request,
+  userId,
   selectedDate,
   loading,
   items,
   tasks,
+  taskDeadlines,
   categories,
   projects = [],
   recordTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -32,10 +35,12 @@ export function CalendarFeature({
   onChanged
 }: {
   request: Request;
+  userId: number;
   selectedDate: string;
   loading: boolean;
   items: TimelineItem[];
   tasks: Task[];
+  taskDeadlines: TaskDeadline[];
   categories: Category[];
   projects?: Project[];
   recordTimezone?: string;
@@ -48,6 +53,8 @@ export function CalendarFeature({
 }) {
   const [state, setState] = useState<CalendarState>(() => initialState(selectedDate, initialKind));
   const [viewingExecution, setViewingExecution] = useState<TimelineItem | null>(null);
+  const [monthOpen, setMonthOpen] = useState(false);
+  const monthDialog = useRef<HTMLDialogElement>(null);
   const [remoteCandidateIds, setRemoteCandidateIds] = useState<number[] | null>(null);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   let currentState = state;
@@ -66,6 +73,12 @@ export function CalendarFeature({
     void request<{ taskIds: number[] }>(`/api/task-days?date=${currentState.draft.startDate}`).then((result) => { if (current) setRemoteCandidateIds(result.taskIds); }).catch((error) => { if (current) onError(errorMessage(error), tx("任务候选加载失败")); }).finally(() => { if (current) setCandidatesLoading(false); });
     return () => { current = false; };
   }, [currentState.editorOpen, currentState.draft.kind, currentState.draft.startDate, onError, request, selectedDate]);
+  useEffect(() => {
+    const dialog = monthDialog.current;
+    if (!monthOpen || !dialog || dialog.open) return;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }, [monthOpen]);
   const editingItem = currentState.editingId ? scheduleItems.find((item) => item.id === currentState.editingId) : null;
   const candidateIds = new Set(currentState.draft.startDate === selectedDate ? acceptedTaskIds ?? tasks.map((task) => task.id) : remoteCandidateIds ?? []);
   const eligibleTasks = currentState.draft.kind === "1" ? tasks.filter((task) => candidateIds.has(task.id) || task.id === editingItem?.taskId) : tasks;
@@ -146,8 +159,11 @@ export function CalendarFeature({
             <span className="text-mint-700"><CalendarDays size={16} /></span>
             <h2 className="section-title">{tx("小时记录")}</h2>
           </div>
-          <Button variant="primary" size="sm" type="button" onClick={() => setState((current) => ({ ...current, editorOpen: true, editingId: null, overlapConflict: false }))}>
-            <Plus size={14} />{tx("记录")}</Button>
+          <div className="calendar-hour-actions">
+            <IconButton label={tx("查看月历")} onClick={() => setMonthOpen(true)}><CalendarDays size={16} /></IconButton>
+            <Button variant="primary" size="sm" type="button" onClick={() => setState((current) => ({ ...current, editorOpen: true, editingId: null, overlapConflict: false }))}>
+              <Plus size={14} />{tx("记录")}</Button>
+          </div>
         </div>
 
         <div className="mb-2 grid grid-cols-2 gap-1.5">
@@ -180,6 +196,12 @@ export function CalendarFeature({
         />
       )}
       {viewingExecution ? <ExecutionDetailDialog item={viewingExecution} onClose={() => setViewingExecution(null)} /> : null}
+      {monthOpen ? createPortal(
+        <dialog ref={monthDialog} className="calendar-month-dialog" aria-labelledby="calendar-month-dialog-title" onCancel={(event) => { event.preventDefault(); setMonthOpen(false); }} onClose={() => setMonthOpen(false)}>
+          <header><h2 id="calendar-month-dialog-title">{tx("事项月历")}</h2><IconButton label={tx("关闭月历")} onClick={() => { if (monthDialog.current?.open && typeof monthDialog.current.close === "function") monthDialog.current.close(); setMonthOpen(false); }}><X size={17} /></IconButton></header>
+          <MonthActivityCalendar request={request} userId={userId} date={selectedDate} timezone={recordTimezone} tasks={taskDeadlines} embedded />
+        </dialog>, document.body
+      ) : null}
     </>
   );
 }

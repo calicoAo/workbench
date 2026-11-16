@@ -6,43 +6,43 @@ export default {
     extend: {
       colors: {
         mint: {
-          50: "#ECFCF9",
-          100: "#CBF4ED",
-          300: "#99E7DC",
-          500: "#78D9D0",
-          700: "#3A7F79"
+          50: "#EAF6F1",
+          100: "#D1EBE1",
+          300: "#8BC9B5",
+          500: "#3B9C7E",
+          700: "#226A57"
         },
         pink: {
-          50: "#FFF1F6",
-          100: "#F8DFE9",
-          300: "#E8AFC8",
-          500: "#9F5A7E"
+          50: "#FFF1ED",
+          100: "#F8DCD3",
+          300: "#E8A596",
+          500: "#B64F45"
         },
         lavender: {
-          50: "#F5F1FF",
-          200: "#D0C4F0"
+          50: "#EEF1F8",
+          200: "#CFD8EA"
         },
         indigo: {
-          50: "#E1F4FF",
-          100: "#AADFF7",
-          300: "#94A9FF",
-          500: "#7C8CFF",
-          700: "#4C5C9E"
+          50: "#E9EFFB",
+          100: "#CDD9F6",
+          300: "#8BA2E8",
+          500: "#496FC8",
+          700: "#334E94"
         },
         gold: {
-          50: "#FBE7A8",
-          500: "#E1AC4F",
-          700: "#B97938"
+          50: "#FFF6E3",
+          500: "#D69A2F",
+          700: "#91651F"
         },
-        cream: "#F7FAFD",
-        ink: "#29324B",
-        soft: "#566179"
+        cream: "#F2F6F3",
+        ink: "#233B39",
+        soft: "#596D69"
       },
       borderRadius: {
-        card: "12px"
+        card: "8px"
       },
       boxShadow: {
-        glass: "0 18px 52px rgba(41, 50, 75, 0.12)"
+        glass: "0 10px 28px rgba(35, 59, 57, 0.08)"
       }
     }
   },
