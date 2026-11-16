@@ -70,7 +70,7 @@ done
 curl --fail --silent --show-error http://127.0.0.1:8080/api/health
 i=0
 while [ "$i" -lt 5 ]; do
-  if curl --fail --silent --show-error https://calicovo.icu/api/health >/dev/null; then
+  if curl --fail --silent --show-error https://calicovo.online/api/health >/dev/null; then
     public_health_ok=1
     break
   fi

@@ -79,7 +79,7 @@ TEST_DATABASE_URL=mysql://root:ci_test_password@127.0.0.1:3307/personal_workbenc
 
 ## 自动部署
 
-`.github/workflows/deploy.yml` 在默认分支的 `CI` 成功后自动执行，也支持 GitHub Actions 的手动 `workflow_dispatch`。它通过 SSH 上传通过 CI 的提交，由 `deploy/release.sh` 保留服务器上的 `deploy/.env`，构建镜像，将数据库备份到 `/opt/personal-workbench-backups`，运行 Compose 中的 Flyway migration service，再重启 API/Web 容器并验证 `https://calicovo.icu/api/health`。本机健康检查失败时会恢复上一版容器镜像，成功时保留上一版代码在 `/opt/personal-workbench.previous`。
+`.github/workflows/deploy.yml` 在默认分支的 `CI` 成功后自动执行，也支持 GitHub Actions 的手动 `workflow_dispatch`。它通过 SSH 上传通过 CI 的提交，由 `deploy/release.sh` 保留服务器上的 `deploy/.env`，构建镜像，将数据库备份到 `/opt/personal-workbench-backups`，运行 Compose 中的 Flyway migration service，再重启 API/Web 容器并验证 `https://calicovo.online/api/health`。本机健康检查失败时会恢复上一版容器镜像，成功时保留上一版代码在 `/opt/personal-workbench.previous`。
 
 在仓库的 `production` Environment 中配置以下 Secrets：`DEPLOY_HOST=8.129.88.130`、`DEPLOY_USER=root`、`DEPLOY_SSH_KEY`（服务器授权的私钥）、`DEPLOY_KNOWN_HOSTS`（`ssh-keyscan -H 8.129.88.130` 的输出）。不要把生产 `.env` 提交到仓库；服务器必须已有 `/opt/personal-workbench/deploy/.env` 且权限为 `600`。
 
