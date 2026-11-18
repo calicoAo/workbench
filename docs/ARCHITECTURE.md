@@ -597,6 +597,13 @@ Known exceptions are not patterns to copy. New code must not expand their scope 
 - Consequences: Shared controls and surfaces converge on Snow Soda v2 without introducing a theme runtime, global state, or new feature boundary. Feature-local legacy colors remain migration debt until their owner can classify them as presentation or domain data.
 
 
+### 2026-11-18 - Apply the approved Cloud Glass Web presentation
+
+- Context: The user approved the Frosted Clouds previews for the full workspace, including a cover shelf, pearl illustrations, pastel surfaces, and clear navigation without nested tab frames.
+- Decision: `apps/web/src/styles.css` remains the single semantic token/shared presentation owner, with the final Cloud Glass section governing the approved skin and responsive composition. `tailwind.config.ts` maps existing presentation utility names to this palette. Static decorative SVGs live in Web `public/illustrations`; feature owners compose them without a new theme runtime or shared business component. This supersedes the Snow Soda visual palette, not its ownership boundary.
+- Consequences: Actual data, routes, drafts, permissions, category/dimension colors, sorting, source provenance, and write flows remain with their existing owners. Glass is limited to outer work surfaces; dialogs use an opaque surface and the existing bounded-scroll contract. Decorative orbs do not represent a new avatar/level asset pipeline. Desktop/mobile browser acceptance must cover the real React public surfaces, including populated long lists and dialog scrolling.
+
+
 ## Current Deepen Priorities
 
 `WEB-ROOT-OWNERSHIP-DEEPEN` 的当前实现 backlog 已于 2026-09-19 完成。`APP-SHELL-PURIFICATION` 的当前实现 backlog 已于 2026-09-19 完成。以下是后续变更的持续守护项，不是尚未完成的 feature 迁移切片：

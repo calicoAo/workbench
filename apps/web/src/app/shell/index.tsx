@@ -396,6 +396,7 @@ function TodayRoute() {
     return [...(dashboard?.schedules ?? []), ...sleepItems, ...waterTimelineItems(dashboard?.waterRecord ?? null)].sort((a, b) => a.startTime.localeCompare(b.startTime));
   }, [dashboard?.schedules, dashboard?.waterRecord, sleep]);
   return <section className="today-boundary">
+    <header className="today-page-head"><div><h1><Sparkles size={22} aria-hidden="true" />{tx("今天，也有小小的进展")}</h1><p>{tx("不用一口气做完所有事，先从眼前这一件开始。")}</p></div><time dateTime={value.date}><CalendarDays size={15} aria-hidden="true" />{formatBusinessDate(value.date)}</time></header>
     <div data-guide-anchor="onboarding.checklist" />
     {value.date !== todayString(value.session.user.timezone) ? <div className="historical-banner"><strong>{tx("查看")} {formatBusinessDate(value.date)}</strong><span>{tx("当前计时仍属于真实今天；从历史页开始会接取到今天并启动。")}</span><Link to="/today">{tx("回到今天")}</Link></div> : null}
     <div className="today-grid">

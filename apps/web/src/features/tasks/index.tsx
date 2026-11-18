@@ -207,7 +207,7 @@ export function TasksFeature({
       onDrop={() => void reorder(task.id)}
     />;
     return (
-    <section className="glass-panel p-3 xl:min-h-full">
+    <section className="glass-panel tasks-today-panel p-3 xl:min-h-full">
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <span className="text-mint-700"><CheckCircle2 size={17} /></span>

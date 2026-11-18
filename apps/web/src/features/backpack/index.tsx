@@ -165,10 +165,9 @@ export function BackpackPage({
     setParams(copy);
   };
   return (
-    <section className="backpack-route">
+    <section className={`backpack-route${view === "overview" ? " is-overview" : ""}`}>
       <header className="backpack-head">
         <div>
-          <p className="route-eyebrow">Backpack</p>
           <h1>{tx("背包")}</h1>
           <p>{tx("长期保留成就、里程碑与纪念卡。")}</p>
         </div>
@@ -183,6 +182,32 @@ export function BackpackPage({
           </Button>
         </div>
       </header>
+      {view === "overview" ? (
+        <section className="backpack-banner">
+          <img src="/illustrations/cloud-backpack.svg" alt="" aria-hidden="true" />
+          <div className="backpack-banner-copy">
+            <h2>{tx("小小的背包，装着走过的路。")}</h2>
+            <p>{tx("把努力换来的收获，和舍不得丢的小纪念收好。")}</p>
+          </div>
+          <div className="backpack-summary">
+            <Summary
+              icon={<Award />}
+              value={`${data.summary.unlocked}/${data.summary.achievementTotal}`}
+              label={tx("成就解锁")}
+            />
+            <Summary
+              icon={<Flag />}
+              value={String(data.summary.milestones)}
+              label={tx("里程碑")}
+            />
+            <Summary
+              icon={<Gift />}
+              value={String(data.summary.keepsakes)}
+              label={tx("纪念卡")}
+            />
+          </div>
+        </section>
+      ) : null}
       <nav className="backpack-tabs" aria-label={tx("背包视图")}>
         {(
           ["overview", "achievements", "milestones", "keepsakes"] as View[]
@@ -247,25 +272,6 @@ export function BackpackPage({
           ))}
         </select>
       </div>
-      {view === "overview" ? (
-        <div className="backpack-summary">
-          <Summary
-            icon={<Award />}
-            value={`${data.summary.unlocked}/${data.summary.achievementTotal}`}
-            label={tx("成就解锁")}
-          />
-          <Summary
-            icon={<Flag />}
-            value={String(data.summary.milestones)}
-            label={tx("里程碑")}
-          />
-          <Summary
-            icon={<Gift />}
-            value={String(data.summary.keepsakes)}
-            label={tx("纪念卡")}
-          />
-        </div>
-      ) : null}
       {view === "overview" || view === "achievements" ? (
         <section className="backpack-section">
           <header>

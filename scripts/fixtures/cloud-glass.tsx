@@ -1,0 +1,67 @@
+// Isolated visual regression fixture: real public UI, in-memory responses, no API/DB writes.
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
+import { WorkspaceRouter } from "../../apps/web/src/app/shell";
+import { ApplicationFeedback } from "../../apps/web/src/app/feedback";
+import { I18nProvider } from "../../apps/web/src/app/i18n";
+import "../../apps/web/src/styles.css";
+
+const date = "2026-11-18", timezone = "Asia/Shanghai";
+const profile = { id: 7, username: "qa", displayName: "冒险者", timezone };
+const hero = { level: 5, xpTotal: 1927, coins: 604, xpInLevel: 677, xpForNextLevel: 1250 };
+const metrics = { actualMinutes: 235, actualSeconds: 14100, completionEventCount: 11, closedSegmentCount: 3 };
+const dimension = { id: 1, dimensionKey: "career", name: "事业", color: "#5B8DEF", iconKey: "briefcase", sortOrder: 1, enabled: 1, version: 1 };
+const titles = ["整理导游考试练习资料并打印", "调研股市相关开源方案", "梳理股市项目需求", "梳理导游考试内容", "为个人续期 SSL", "打印考前十页纸", "核对导入资料与来源", "这是一条需要在窄屏完整换行显示的很长的已完成任务标题，查看记录时仍然保留完成时间和进入详情的入口"];
+const completions = Array.from({ length: 11 }, (_, index) => ({ id: index + 1, taskId: index + 11, title: titles[index % titles.length], businessDate: date, occurredAt: `${date}T${String(11 - index).padStart(2, "0")}:26:00Z`, categoryIdAtOccurrence: 1 }));
+const waterRecord = { waterDate: date, cups: 3, targetCups: 8 };
+const sleepRecord = { id: 1, sleepDate: date, sleepStart: `${date}T03:10:00+08:00`, wakeTime: `${date}T11:30:00+08:00`, recordTimezone: timezone, durationMinutes: 500, qualityScore: 3 };
+
+const categories = [dimension, { ...dimension, id: 2, name: "创作", dimensionKey: "creation", color: "#d69ab7" }].map(d=>({ ...d, dimensionKey: d.dimensionKey, icon: "sparkles", color: d.color, dailyMinutes: 0 }));
+const tasks = ["刷两套导游押题卷", "画 OW 无料贴纸", "梨梨开新窗", "完成像素画简单草稿", "导游面试"].map((title,i)=>({id:i+1,title,description:"核对进度，把不确定的地方整理出来。保留每一次小小的投入。",categoryId:i%2+1,projectId:i%2+1,status:0,priority:2,difficulty:2,pinned:i<3?1:0,sortOrder:i,dueAt:i>2?"2026-11-24T10:00:00Z":null,estimatedMinutes:45,progressPercent:i*10,version:1,createdAt:`${date}T07:19:00Z`,completedAt:null,completionNote:null}));
+const projects = ["导游考试", "个人创作", "整理我的阅读与观影笔记"].map((name,i)=>({id:i+1,name,description:"让需要持续推进的目标，一步一步走向完成。",status:1,priority:2,startDate:date,targetDate:"2026-12-18",notes:null,version:1,createdAt:date,updatedAt:date,archivedAt:null,taskCount:5,completedTaskCount:i+1,progressPercent:(i+1)*20,actualSeconds:5000+i*1200,nextTask:tasks[i]}));
+const notes = ["一些想画下来的小事", "读到的一句话", "给下一次旅行的备忘"].map((title,i)=>({id:i+1,title,content:"今天发现，一点点不着急的进展也值得被记录。\n让灵感先留在这里，再慢慢整理。",noteDate:date,tag:"日常",projectId:null,archivedAt:null,deletedAt:null,version:1,createdAt:`${date}T07:20:00Z`,updatedAt:`${date}T07:20:00Z`}));
+const works = ["十二国记", "帕丁顿熊", "夏目友人帐", "小王子", "星露谷物语", "魔女宅急便", "看不见的城市", "海街日记", "风之谷", "动物森友会"].map((title,i)=>({id:i+1,title,type:["BOOK","MOVIE","SERIES","BOOK","GAME"][i%5],creator:["小野不由美","保罗·金","绿川幸","圣埃克苏佩里","ConcernedApe"][i%5],originalTitle:null,coverRef:null,externalRef:null,status:i<2?"WANT":"FINISHED",rating:i<2?null:4,startedOn:date,finishedOn:i<2?null:"2026-11-16",description:"一个关于成长、相遇与寻找的故事。慢慢走过的路，都成为了自己的风景。",shortNote:"和朋友一起看完，留下了温暖的小小回忆。",releaseYear:2014,version:1,relationCount:0}));
+const accounts = [{ id:1,name:"日常账户",type:"BANK",currency:"CNY",includeInOverview:true,openingDate:date,archivedAt:null,version:1,balanceCents:"1286000" },{id:2,name:"旅行储蓄",type:"PAYMENT",currency:"CNY",includeInOverview:true,openingDate:date,archivedAt:null,version:1,balanceCents:"300000"}];
+const financeCategories=[{id:1,kind:"EXPENSE",name:"餐饮",sortOrder:1,enabled:true,version:1},{id:2,kind:"INCOME",name:"工资",sortOrder:2,enabled:true,version:1}];
+const transactions=Array.from({length:6},(_,i)=>({id:i+1,type:i===0?"INCOME":"EXPENSE",occurredAt:`${date}T07:20:00Z`,businessDate:date,recordTimezone:timezone,categoryId:i===0?2:1,categoryName:i===0?"工资":"餐饮",note:["本月收入","午餐","一杯热拿铁","买了一本书","周末晚餐","日常采购"][i],version:1,status:"POSTED",accountId:1,accountName:"日常账户",accountType:"BANK",amountCents:i===0?"800000":"-2800"}));
+const backpack={summary:{unlocked:3,achievementTotal:8,milestones:2,keepsakes:3},achievements:["第一步","专注的时刻","文字的温度","持续积累"].map((title,i)=>({id:i+1,title,description:i<3?"留下了一次真实的努力。":"等待下一次小小的进展。",iconKey:"award",themeKey:"mint",unlock:i<3?{id:i+1,unlockedAt:date,sourceType:"TASK",sourceId:1}:null})),milestones:["把工作台搬到了新的域名","完成一本书的阅读笔记"].map((title,i)=>({id:i+1,title,description:"为每天的投入，留下属于自己的标记。",happenedOn:date,sourceType:"MANUAL_TEXT",sourceId:null,version:1})),keepsakes:["第一次画出自己的画","一个看电影的夜晚","留住的小小纪念"].map((title,i)=>({id:i+1,title,description:"这是值得被记住的一天。",happenedOn:date,sourceType:"MANUAL_TEXT",sourceId:null,sourceAvailable:true,iconKey:"gift",themeKey:["mint","violet","amber"][i]}))};
+const request = async (path: string, init?: RequestInit): Promise<any> => {
+  if (path === "/api/hero/daily-entry/claim") return { claimed: false, reason: "ALREADY_ENTERED" };
+  if (path === "/api/daily-carryovers") return {};
+  if (path === "/api/tasks/split/context") return {projects,categories,selectionRequired:false};
+  if (path === "/api/tasks/split/preview") return {status:"SUCCEEDED",result:{candidates:Array.from({length:8},(_,i)=>({candidateId:crypto.randomUUID(),title:"拆分后的任务草稿 "+(i+1),description:"这是一段需要审核的说明，核对完毕再发布。",priority:2,difficulty:2,categoryId:1,projectId:1,categorySuggestion:null,projectSuggestion:null,dueAtLocal:null,dueEvidence:null,estimatedMinutes:null,durationEvidence:null,suggestedMinutes:30,warnings:[],selected:true})),hasMore:false,unprocessedTextSpans:[]}};
+  if (init?.method && init.method !== "GET") throw new Error(`Unexpected fixture write: ${path}`);
+  if (path === "/api/backpack") return backpack;
+  if (path.startsWith("/api/projects/")) return {project:projects[0],tasks,plannedSchedules:[],actualEntries:[]};
+  if (path.startsWith("/api/projects?")) return projects;
+  if (path.startsWith("/api/quick-notes?")) return {items:notes,nextCursor:null};
+  if (path.startsWith("/api/writing/inspiration-tags")) return {items:[]};
+  if (path.startsWith("/api/writing/inspirations")) return {items:notes.map(n=>({id:n.id,quickNoteId:n.id,favorite:1,pinned:0,archivedAt:null,version:1,createdAt:date,updatedAt:date,note:n,tags:[]}))};
+  if (/^\/api\/library\/items\/\d+$/.test(path)) return {item:works[2],relations:[],sources:[]};
+  if (path.startsWith("/api/library/items?")) return {items:works};
+  if (path.startsWith("/api/finance/overview")) return {currency:"CNY",month:date.slice(0,7),recordTimezone:timezone,totalAssetsCents:"1586000",totalLiabilitiesCents:"0",netWorthCents:"1586000",monthlyIncomeCents:"800000",monthlyExpenseCents:"168900",accountCount:2,accounts,recentTransactions:transactions};
+  if (path.startsWith("/api/finance/accounts")) return accounts;
+  if (path.startsWith("/api/finance/categories")) return financeCategories;
+  if (path.startsWith("/api/finance/transactions")) return {items:transactions,nextCursor:null};
+  if (path.startsWith("/api/finance/budgets")) return [{id:1,budgetMonth:date.slice(0,7),categoryId:1,categoryName:"餐饮",limitCents:"200000",spentCents:"168900",remainingCents:"31100",version:1}];
+  if (path.startsWith("/api/schedules/month-activities")) return {activities:[{id:"a1",kind:"ACTUAL",businessDate:date,title:"整理阅读笔记",taskId:1,startedAt:`${date}T07:00:00Z`,endedAt:`${date}T08:00:00Z`,durationSeconds:3600,completed:false,color:"#a98bbf"}]};
+  if (path === "/api/rewards") return {growth:hero,items:[{id:1,name:"一杯喜欢的饮料",cost:80,description:"用一点努力，换一份小小的快乐。"},{id:2,name:"一个悠闲的下午",cost:160,description:"休息也是继续前进的一部分。"}],events:[],redemptions:[]};
+
+  if (path === "/api/settings") return { profile, appearance: { fontScale: 100, locale: "zh-CN", reducedMotion: true }, rewards: { show: true }, feedback: { showSuccess: true }, continuation: { mode: "manual" }, writingSlots: ["MORNING_WRITING","JOURNAL","STOCK_REVIEW"].map((slotKey,i)=>({slotKey,enabled:true,sortOrder:i})) };
+  if (path === "/api/onboarding/status") return { eligible: false, flow: null, hints: [] };
+  if (path.startsWith("/api/hero?")) return { businessDate: date, timezone, profile: { ...profile, userId: 7, version: 1 }, progress: hero, dailyStatus: null, earthOnlineDay: null };
+  if (path.startsWith("/api/dashboard?")) return { date, categories, schedules: [], sleepRecord, waterRecord, stockReviewRecord: null, journalRecord: {id:1,journalDate:date,content:"今天也有小小的进展。\n\n记录下这些平凡的瞬间，慢慢收集属于自己的生活。",moodScore:4,version:1}, morningWritingRecord: null, growth: hero, rewardEvents: [], aiInsights: [], weeklySeries: [], monthlySleepSeries: [], weeklyStats: { totalMinutes: 235, completedTasks: 11, journalDays: 0, stockReviewDays: 0 } };
+  if (path.startsWith("/api/tasks/completions?")) return completions;
+  if (path === "/api/tasks") return tasks;
+  if (path.startsWith("/api/task-days?")) return { taskDate: date, taskIds: tasks.slice(0,3).map(t=>t.id), assignments: tasks.slice(0,3).map(t=>({id:t.id,taskId:t.id,taskDate:date,status:0})) };
+  if (path === "/api/timer-sessions/current") return null;
+  if (path.startsWith("/api/timer-sessions/actual-time")) return { date, timezone, entries: [], summary: { actualSeconds: 14100 } };
+  if (path.startsWith("/api/habits/summary")) return { items: [], specialized: { water: waterRecord, sleep: { recorded: true }, morningWriting: { completed: false } } };
+  if (path.startsWith("/api/growth/dimensions")) return { dimensions: [dimension], categories: [] };
+  if (path.startsWith("/api/growth/overview")) return { period: { days: 30, from: "2026-10-18", to: date, timezone }, hero, summary: { ...metrics, mappedActualMinutes: 235, mappedActualSeconds: 14100, completedTaskCount: 11, habitCompletedCount: 1 }, dimensions: ["事业","学习","创作","生活","身体","社交","基础状态","兴趣"].map((name,i)=>({...dimension,...metrics,id:i+1,name,actualMinutes:[40,35,160,0,0,0,0,0][i],share:[40,35,160,0,0,0,0,0][i]/235,completedTaskCount:i<3?4:0,lastActivityDate:date})), trend: Array.from({length:6},(_,i)=>({from:`2026-11-${String(i*3+1).padStart(2,"0")}`,to:`2026-11-${String(i*3+3).padStart(2,"0")}`,actualMinutes:[43,300,80,248,20,235][i]})), unmapped: { actualMinutes: 0, completedTaskCount: 0 }, categoryBreakdown: [], recent: completions.map(item => ({ ...item, kind: "TASK_COMPLETION", dimensionName: "事业", xpDelta: 10 })) };
+  return [];
+};
+const route = new URLSearchParams(location.search).get("route") ?? "/today";
+createRoot(document.getElementById("root")!).render(<I18nProvider><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[`${route}${route.includes("?")?"&":"?"}date=${date}`]}><ApplicationFeedback>{feedback => <WorkspaceRouter request={request} session={{ user: profile, logout() {} }} feedback={feedback} />}</ApplicationFeedback></MemoryRouter></QueryClientProvider></I18nProvider>);

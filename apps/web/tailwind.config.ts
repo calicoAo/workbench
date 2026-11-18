@@ -13,36 +13,36 @@ export default {
           700: "#226A57"
         },
         pink: {
-          50: "#FFF1ED",
-          100: "#F8DCD3",
-          300: "#E8A596",
-          500: "#B64F45"
+          50: "#FCF0F6",
+          100: "#F1D8E6",
+          300: "#D5A2BE",
+          500: "#B6577F"
         },
         lavender: {
-          50: "#EEF1F8",
-          200: "#CFD8EA"
+          50: "#F4EFF9",
+          200: "#DED1ED"
         },
         indigo: {
-          50: "#E9EFFB",
-          100: "#CDD9F6",
-          300: "#8BA2E8",
-          500: "#496FC8",
-          700: "#334E94"
+          50: "#F3EDF9",
+          100: "#E2D5EF",
+          300: "#BAA3CF",
+          500: "#9279AB",
+          700: "#73578D"
         },
         gold: {
           50: "#FFF6E3",
           500: "#D69A2F",
           700: "#91651F"
         },
-        cream: "#F2F6F3",
-        ink: "#233B39",
-        soft: "#596D69"
+        cream: "#F4F2F9",
+        ink: "#4E4E67",
+        soft: "#73718A"
       },
       borderRadius: {
-        card: "8px"
+        card: "16px"
       },
       boxShadow: {
-        glass: "0 10px 28px rgba(35, 59, 57, 0.08)"
+        glass: "0 8px 30px rgba(95, 83, 125, 0.045)"
       }
     }
   },

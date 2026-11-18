@@ -1,4 +1,10 @@
 export const englishMessages: Record<string, string> = {
+  "今天，也有小小的进展": "A little progress, every day",
+  "不用一口气做完所有事，先从眼前这一件开始。": "One thing at a time. Start with what is in front of you.",
+  "给自己一段专注时间": "Make a little time to focus",
+  "一件事，一个小小的开始。": "One task. One small beginning.",
+  "小小的背包，装着走过的路。": "A little backpack for the road you have traveled.",
+  "把努力换来的收获，和舍不得丢的小纪念收好。": "Keep your hard-earned progress and little memories close.",
   "发布时同时接取": "Accept when publishing",
   "接取日期": "Acceptance date",
   "已发布的任务已移出草稿。": "Published tasks have been removed from the draft.",

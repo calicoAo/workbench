@@ -9,7 +9,7 @@ import { type ComponentProps } from "react";
 import { CategoryMappingEditor } from "../categories";
 import { GrowthPage as CanonicalGrowthPage, type GrowthOverview } from ".";
 import type { CategoryDetail } from "./category-detail";
-import { PIXEL_ASSET_MANIFEST } from "./pixel-assets";
+import { PixelAsset, PIXEL_ASSET_MANIFEST } from "./pixel-assets";
 
 afterEach(() => {
   cleanup();
@@ -91,7 +91,22 @@ describe("Hero Growth V1", () => {
 
   it("renders hero XP, investment distribution, cards and visible unmapped attribution", async () => { render(wrapper(<GrowthPage request={request()} userId={1} date="2026-09-24" onError={vi.fn()} />)); expect(await screen.findByText("你的角色正在成长")).toBeTruthy(); expect(screen.getByText("Lv.3")).toBeTruthy(); expect(screen.getByText("经验 150/450")).toBeTruthy(); expect(screen.getByRole("heading", { name: "投入分布" })).toBeTruthy(); expect(screen.getByText("未映射")).toBeTruthy(); expect(screen.getByText(/按当前分类映射计算/)).toBeTruthy(); expect(screen.queryByText(/能力值/)).toBeNull(); });
   it("switches period, manages dimensions and maps categories through shared config", async () => { const api = request(); render(wrapper(<GrowthPage request={api} userId={1} date="2026-09-24" onError={vi.fn()} />)); await screen.findByText("你的角色正在成长"); fireEvent.click(screen.getByRole("button", { name: "7 天" })); await waitFor(() => expect((api as ReturnType<typeof vi.fn>).mock.calls.some(([path]) => path.includes("period=7"))).toBe(true)); fireEvent.click(await screen.findByRole("button", { name: "配置" })); fireEvent.click(await screen.findByRole("button", { name: "成长维度" })); expect((await screen.findAllByRole("button", { name: "停用" })).length).toBe(2); fireEvent.click(screen.getByRole("button", { name: "分类映射" })); fireEvent.change(await screen.findByLabelText("其他成长维度"), { target: { value: "learning" } }); fireEvent.click(screen.getByRole("button", { name: "保存其他映射" })); await waitFor(() => expect(api).toHaveBeenCalledWith("/api/task-categories/8", { method: "PUT", body: JSON.stringify({ dimensionKey: "learning" }) })); });
-  it("uses neutral same-size fallbacks and reserves pixel rendering slots", async () => { expect(PIXEL_ASSET_MANIFEST["hero-avatar"].src).toBe("/pixel/growth/hero-avatar@4x.png"); render(wrapper(<GrowthPage request={request()} userId={1} date="2026-09-24" onError={vi.fn()} />)); await screen.findByText("你的角色正在成长"); const slot = screen.getByLabelText("英雄半身像占位"); expect(slot.classList.contains("pixel-icon-slot")).toBe(true); const image = slot.querySelector("img")!; expect(image.classList.contains("pixel-image")).toBe(true); fireEvent.error(image); expect(slot.querySelector("img")).toBeNull(); expect(slot.querySelector("svg")).toBeTruthy(); });
+  it("keeps pixel asset fallbacks independent from the decorative glass hero", async () => {
+    expect(PIXEL_ASSET_MANIFEST["hero-avatar"].src).toBe("/pixel/growth/hero-avatar@4x.png");
+    const { container } = render(wrapper(<GrowthPage request={request()} userId={1} date="2026-09-24" onError={vi.fn()} />));
+    await screen.findByText("你的角色正在成长");
+    const decoration = container.querySelector<HTMLImageElement>(".growth-orbit")!;
+    expect(decoration.getAttribute("aria-hidden")).toBe("true");
+    expect(decoration.getAttribute("alt")).toBe("");
+    expect(decoration.src).toContain("/illustrations/cloud-orbit.svg");
+    render(<PixelAsset slot="hero-half-body" label="pixel fallback" size={80} />);
+    const slot = screen.getByLabelText("pixel fallback");
+    const image = slot.querySelector("img")!;
+    expect(image.classList.contains("pixel-image")).toBe(true);
+    fireEvent.error(image);
+    expect(slot.querySelector("img")).toBeNull();
+    expect(slot.querySelector("svg")).toBeTruthy();
+  });
   it("shows a clear zero-data empty state without NaN", async () => {
     const zero = { actualSeconds: 0, actualMinutes: 0, completionEventCount: 0, closedSegmentCount: 0 };
     const empty: GrowthOverview = {

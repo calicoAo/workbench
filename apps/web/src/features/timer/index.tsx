@@ -115,7 +115,7 @@ export function CurrentFocusCard({ session, taskTitle, taskVersion, commands }: 
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
   }, [session?.status]);
-  if (!session) return <section className="current-focus"><div className="current-focus-copy"><p className="route-eyebrow">{tx("当前专注")}</p><h2>{tx("暂无进行中的 Session")}</h2><span>{tx("从今日悬赏开始一段真实投入")}</span></div></section>;
+  if (!session) return <section className="current-focus current-focus-idle"><img className="focus-orbit" src="/illustrations/cloud-orbit.svg" alt="" aria-hidden="true" /><div className="current-focus-copy"><p className="route-eyebrow">{tx("当前专注")}</p><h2>{tx("给自己一段专注时间")}</h2><span>{tx("一件事，一个小小的开始。")}</span></div></section>;
   const pending = commands.pending !== null;
   return <section className="current-focus" aria-label={tx("当前专注控制")}>
     <div className="current-focus-copy"><p className="route-eyebrow">{tx("当前专注")}</p><h2>{taskTitle ?? tx("当前任务")}</h2><span>{session.status === TIMER_STATUS.RUNNING ? "RUNNING" : "PAUSED"} {tx("· 净投入由 Segment 汇总")}</span></div>
